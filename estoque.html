@@ -18,10 +18,10 @@ header{background:var(--azul);color:#fff;display:flex;align-items:center;
   justify-content:space-between;padding:0 24px;height:56px;box-shadow:var(--sombra)}
 header h1{font-size:1.1rem;font-weight:700}
 
-.abas{display:flex;background:var(--azul);padding:0 16px;gap:4px}
-.aba{background:transparent;border:none;color:rgba(255,255,255,.65);
+.abas{display:flex;align-items:center;flex-wrap:wrap;background:var(--azul);padding:0 16px;gap:4px}
+.aba{display:inline-flex;align-items:center;justify-content:center;background:transparent;border:none;color:rgba(255,255,255,.65);
   padding:12px 22px;cursor:pointer;font-size:.9rem;font-weight:600;
-  border-bottom:3px solid transparent;transition:.18s}
+  border-bottom:3px solid transparent;transition:.18s;white-space:nowrap;flex:0 0 auto}
 .aba.ativa{color:#fff;border-bottom-color:var(--amarelo)}
 .aba:hover:not(.ativa){color:#fff;background:rgba(255,255,255,.08)}
 
@@ -100,6 +100,7 @@ tbody td{padding:8px 12px}
 #toast.er{background:var(--vermelho)}
 #toast.av{background:#e67e22}
 </style>
+<link rel="stylesheet" href="sidebar.css">
 </head>
 <body>
 
@@ -130,6 +131,7 @@ tbody td{padding:8px 12px}
       border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.7rem;font-weight:700">🗑 Zerar</button>
   </div>
 </div>
+<div class="abas">
   <button class="aba ativa" onclick="aba('itens')">📦 Itens Detalhados</button>
   <button class="aba"       onclick="aba('edicao')">📝 Edição Rápida</button>
   <button class="aba"       onclick="aba('historico')">📜 Histórico NF-e</button>
@@ -2035,5 +2037,6 @@ async function sugerirAplicacaoIA(){
 carregarCategorias().then(function(){ carregarTudo(); });
 atualizarBarraTokens();
 </script>
+<script src="sidebar.js"></script>
 </body>
 </html>
