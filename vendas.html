@@ -989,13 +989,33 @@ function aba(nome){
 var _produtos = [];   /* cache completo: [{codigo,nome,marca,aplicacao,estoque,preco_venda}] */
 
 async function carregarProdutos(){
-  var r = await db.from('itens')
-    .select('codigo,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id')
-    .gt('preco_venda',0)
-    .order('nome');
+  let todos = [];
+  let de = 0;
+  let ate = 999;
+  let buscando = true;
 
-  if(r.error){ console.error(r.error); return; }
-  _produtos = r.data || [];
+  while(buscando){
+    var r = await db.from('itens')
+      .select('codigo,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id')
+      .gt('preco_venda',0)
+      .order('nome')
+      .range(de, ate);
+
+    if(r.error){ 
+      console.error(r.error); 
+      buscando = false;
+    } else {
+      todos = todos.concat(r.data || []);
+      if(r.data.length < 1000){
+        buscando = false;
+      } else {
+        de += 1000;
+        ate += 1000;
+      }
+    }
+  }
+  
+  _produtos = todos;
 
   /* popula filtro de categorias com as que existem nos produtos */
   var sel = document.getElementById('fil-cat');
