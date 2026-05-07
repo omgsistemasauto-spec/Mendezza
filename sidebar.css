@@ -1,0 +1,296 @@
+/* ============================================================
+   SIDEBAR.CSS — Mendezza Auto Peças
+   Inclua no <head> de todas as páginas:
+   <link rel="stylesheet" href="sidebar.css">
+   ============================================================ */
+
+:root {
+  --sb-bg:        #0f172a;
+  --sb-hover:     rgba(255,255,255,.07);
+  --sb-ativo:     #5271ff;
+  --sb-ativo-bg:  rgba(82,113,255,.18);
+  --sb-txt:       rgba(255,255,255,.65);
+  --sb-txt-ativo: #fff;
+  --sb-borda:     rgba(255,255,255,.08);
+  --sb-logo-bg:   #5271ff;
+  --sb-w:         220px;
+  --sb-w-col:     68px;
+  --sb-trans:     .22s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── LAYOUT GERAL ── */
+body {
+  margin: 0;
+  display: flex;
+  min-height: 100vh;
+  background: #f1f5f9;
+}
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: var(--sb-w);
+  min-height: 100vh;
+  background: var(--sb-bg);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  z-index: 200;
+  transition: width var(--sb-trans);
+  overflow: hidden;
+}
+
+#sidebar.collapsed {
+  width: var(--sb-w-col);
+}
+
+/* ── LOGO ── */
+.sb-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px 16px;
+  border-bottom: 1px solid var(--sb-borda);
+  flex-shrink: 0;
+  text-decoration: none;
+  min-height: 64px;
+}
+
+.sb-logo-icon {
+  width: 36px; height: 36px;
+  background: var(--sb-logo-bg);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -1px;
+}
+
+.sb-logo-txt {
+  display: flex; flex-direction: column;
+  opacity: 1; transition: opacity var(--sb-trans), width var(--sb-trans);
+  overflow: hidden;
+}
+.sb-logo-txt span:first-child { font-size: .92rem; font-weight: 800; color: #fff; white-space: nowrap; }
+.sb-logo-txt span:last-child  { font-size: .68rem; color: rgba(255,255,255,.45); white-space: nowrap; }
+
+#sidebar.collapsed .sb-logo-txt { opacity: 0; width: 0; }
+
+/* ── TOGGLE BUTTON ── */
+.sb-toggle {
+  position: absolute;
+  top: 20px; right: -12px;
+  width: 24px; height: 24px;
+  background: var(--sb-ativo);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  transition: transform var(--sb-trans);
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+.sb-toggle svg { width: 10px; height: 10px; fill: #fff; transition: transform var(--sb-trans); }
+#sidebar.collapsed .sb-toggle svg { transform: rotate(180deg); }
+
+/* ── NAV ── */
+.sb-nav {
+  flex: 1;
+  padding: 12px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sb-nav::-webkit-scrollbar { width: 3px; }
+.sb-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 3px; }
+
+/* ── SECTION LABEL ── */
+.sb-section {
+  font-size: .65rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 12px 18px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity var(--sb-trans);
+}
+#sidebar.collapsed .sb-section { opacity: 0; }
+
+/* ── NAV ITEM ── */
+.sb-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin: 1px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--sb-txt);
+  font-size: .875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--sb-trans), color var(--sb-trans);
+  position: relative;
+  overflow: hidden;
+}
+.sb-item:hover {
+  background: var(--sb-hover);
+  color: var(--sb-txt-ativo);
+}
+.sb-item.ativo {
+  background: var(--sb-ativo-bg);
+  color: var(--sb-txt-ativo);
+  font-weight: 700;
+}
+.sb-item.ativo::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 20%; bottom: 20%;
+  width: 3px;
+  background: var(--sb-ativo);
+  border-radius: 0 3px 3px 0;
+}
+
+/* ── ÍCONE ── */
+.sb-icon {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+  transition: background var(--sb-trans);
+}
+.sb-item.ativo .sb-icon { background: rgba(82,113,255,.2); }
+.sb-item:hover .sb-icon  { background: rgba(255,255,255,.07); }
+
+/* ── TEXTO DO ITEM ── */
+.sb-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity var(--sb-trans), max-width var(--sb-trans);
+}
+#sidebar.collapsed .sb-label { opacity: 0; max-width: 0; }
+
+/* ── BADGE CONTADOR ── */
+.sb-badge {
+  background: #ef4444;
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+  transition: opacity var(--sb-trans);
+}
+#sidebar.collapsed .sb-badge { opacity: 0; }
+
+/* ── TOOLTIP no modo colapsado ── */
+#sidebar.collapsed .sb-item::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(var(--sb-w-col) - 8px);
+  top: 50%; transform: translateY(-50%);
+  background: #1e293b;
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 300;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  transition: opacity .15s;
+}
+#sidebar.collapsed .sb-item:hover::after { opacity: 1; }
+
+/* ── USUÁRIO (rodapé) ── */
+.sb-user {
+  border-top: 1px solid var(--sb-borda);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.sb-user-avatar {
+  width: 36px; height: 36px;
+  background: var(--sb-ativo);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .95rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.sb-user-info {
+  overflow: hidden;
+  transition: opacity var(--sb-trans), max-width var(--sb-trans);
+}
+.sb-user-info span:first-child { display: block; font-size: .82rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-user-info span:last-child  { display: block; font-size: .7rem;  color: rgba(255,255,255,.4); white-space: nowrap; }
+#sidebar.collapsed .sb-user-info { opacity: 0; max-width: 0; }
+
+/* ── MAIN CONTENT ── */
+#main-content {
+  flex: 1;
+  margin-left: var(--sb-w);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left var(--sb-trans);
+}
+#sidebar.collapsed ~ #main-content {
+  margin-left: var(--sb-w-col);
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 12px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.topbar-titulo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  flex: 1;
+}
+.topbar-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── OVERLAY MOBILE ── */
+.sb-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 150;
+}
+@media (max-width: 768px) {
+  #sidebar { transform: translateX(-100%); width: var(--sb-w) !important; }
+  #sidebar.mobile-open { transform: translateX(0); }
+  .sb-overlay.vis { display: block; }
+  #main-content { margin-left: 0 !important; }
+  .topbar { position: sticky; }
+}

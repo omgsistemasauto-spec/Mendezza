@@ -1,0 +1,3164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vendas — Mendezza Auto Peças</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --azul:#004aad;--azul2:#5271ff;--verde:#2dcc70;--verde2:#28a745;
+  --amarelo:#ffc107;--vermelho:#e74c3c;--cinza:#f8f9fa;
+  --borda:#ecf0f1;--sombra:0 2px 12px rgba(0,0,0,.1)
+}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--cinza);color:#2c3e50;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* HEADER */
+header{background:var(--azul);color:#fff;display:flex;align-items:center;
+  justify-content:space-between;padding:0 20px;height:52px;flex-shrink:0;box-shadow:var(--sombra)}
+header h1{font-size:1.1rem;font-weight:700;letter-spacing:.5px}
+.nav-links a{color:rgba(255,255,255,.75);text-decoration:none;font-size:.82rem;
+  padding:5px 12px;border-radius:6px;transition:.15s}
+.nav-links a:hover{background:rgba(255,255,255,.15);color:#fff}
+
+/* LAYOUT PRINCIPAL */
+.main{display:flex;flex:1;overflow:hidden;padding:12px;gap:12px}
+
+/* PAINEL ESQUERDO — PRODUTOS */
+.painel-produtos{flex:1;background:#fff;border-radius:10px;box-shadow:var(--sombra);
+  display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--borda)}
+
+/* PAINEL DIREITO — CARRINHO */
+.painel-carrinho{width:380px;background:#fff;border-radius:10px;box-shadow:var(--sombra);
+  display:flex;flex-direction:column;border:1px solid var(--borda)}
+
+/* BUSCA */
+.busca-bar{padding:12px;border-bottom:1px solid var(--borda);display:flex;gap:8px;align-items:center}
+.busca-bar input{flex:1;padding:9px 14px;border:1px solid var(--borda);border-radius:8px;
+  font-size:.92rem;outline:none;transition:border .14s}
+.busca-bar input:focus{border-color:var(--azul2)}
+
+/* TABELA PRODUTOS */
+.tabela-wrap{flex:1;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+thead th{background:var(--azul);color:#fff;padding:10px 12px;
+  text-align:left;white-space:nowrap;position:sticky;top:0;z-index:5}
+tbody tr{border-bottom:1px solid #f0f0f0;transition:background .1s}
+tbody tr:hover{background:#eef2ff}
+tbody td{padding:8px 12px}
+.td-estoque{text-align:center}
+.td-preco{text-align:right;font-weight:600;color:var(--azul);position:relative;cursor:help}
+.td-preco .tip{
+  display:none;position:absolute;right:0;top:calc(100% + 4px);
+  background:#2c3e50;color:#fff;border-radius:7px;padding:8px 12px;
+  font-size:.78rem;white-space:nowrap;z-index:50;box-shadow:var(--sombra);
+  font-weight:400;line-height:1.6;pointer-events:none;
+}
+.td-preco .tip::before{
+  content:'';position:absolute;right:12px;top:-5px;
+  border:5px solid transparent;border-bottom-color:#2c3e50;border-top:none;
+}
+.td-preco:hover .tip{display:block}
+.td-acao{text-align:center}
+.tag-disp{color:var(--azul);font-weight:600}
+.tag-esgo{color:var(--vermelho)}
+.btn-add{background:var(--azul2);color:#fff;border:none;border-radius:6px;
+  padding:5px 12px;cursor:pointer;font-size:.8rem;font-weight:700;transition:.14s;white-space:nowrap}
+.btn-add:hover{background:var(--azul);transform:scale(1.05)}
+.btn-add:disabled{background:#ccc;cursor:default;transform:none}
+
+/* CARRINHO HEADER */
+.carr-header{background:var(--azul);color:#fff;padding:14px 16px;
+  font-size:1rem;font-weight:700;text-align:center;border-radius:10px 10px 0 0;flex-shrink:0}
+
+/* BOTÃO SERVIÇO */
+.btn-servico{margin:10px 12px 0;background:var(--verde);color:#fff;border:none;
+  border-radius:8px;padding:9px;cursor:pointer;font-size:.88rem;font-weight:700;
+  width:calc(100% - 24px);transition:.14s}
+.btn-servico:hover{background:#25a85a}
+
+/* LISTA CARRINHO */
+.carr-lista{flex:1;overflow-y:auto;padding:0 12px}
+.carr-item{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;
+  padding:9px 4px;border-bottom:1px solid #f0f0f0;font-size:.85rem}
+.carr-item .nome{font-weight:600;color:#2c3e50}
+.carr-item .qtd-ctrl{display:flex;align-items:center;gap:4px}
+.carr-item .qtd-ctrl button{width:24px;height:24px;border:1px solid var(--borda);
+  background:#f8f9fa;border-radius:4px;cursor:pointer;font-weight:700;font-size:.85rem;
+  display:flex;align-items:center;justify-content:center;transition:.1s}
+.carr-item .qtd-ctrl button:hover{background:var(--azul2);color:#fff;border-color:var(--azul2)}
+.carr-item .qtd-val{min-width:28px;text-align:center;font-weight:700}
+.carr-item .preco{text-align:right;font-weight:700;color:var(--azul);white-space:nowrap}
+.carr-item .rm{background:none;border:none;cursor:pointer;color:var(--vermelho);
+  font-size:1.1rem;padding:0 4px;line-height:1;opacity:.7;transition:.1s}
+.carr-item .rm:hover{opacity:1}
+.carr-vazio{text-align:center;color:#bbb;padding:32px;font-size:.9rem}
+
+/* TOTAL */
+.carr-total-wrap{padding:12px 16px;border-top:2px solid var(--borda);background:#f8f9fa;flex-shrink:0}
+.carr-total-linha{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.carr-total-label{font-size:.88rem;color:#666}
+.carr-total-val{font-size:1.3rem;font-weight:800;color:var(--azul)}
+
+/* BOTÃO FINALIZAR */
+.btn-finalizar{margin:10px 12px 12px;background:var(--azul);color:#fff;border:none;
+  border-radius:8px;padding:12px;cursor:pointer;font-size:.95rem;font-weight:700;
+  width:calc(100% - 24px);transition:.14s;letter-spacing:.3px}
+.btn-finalizar:hover{background:var(--azul2)}
+.btn-finalizar:disabled{background:#bbb;cursor:default}
+
+/* BOTÕES GENÉRICOS */
+.btn{border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:.88rem;
+  font-weight:700;transition:.14s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{opacity:.88}
+.bv{background:var(--verde2);color:#fff}
+.ba{background:var(--azul2);color:#fff}
+.br{background:var(--vermelho);color:#fff}
+.bc{background:#6c757d;color:#fff}
+.bam{background:var(--amarelo);color:#222}
+.bwp{background:#25D366;color:#fff}
+
+/* MODAIS */
+.bd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:1000;align-items:center;justify-content:center;padding:20px}
+.bd.ab{display:flex}
+.modal{background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.22);
+  width:480px;max-width:100%;max-height:92vh;overflow-y:auto;
+  padding:28px;position:relative;animation:pop .18s ease}
+@keyframes pop{from{transform:scale(.93);opacity:0}}
+.modal h2{font-size:1.05rem;color:var(--azul);margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--cinza)}
+.mf{position:absolute;top:14px;right:18px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888}
+.cmp{margin-bottom:13px}
+.cmp label{display:block;font-size:.79rem;font-weight:700;color:#555;margin-bottom:4px}
+.cmp input,.cmp select,.cmp textarea{width:100%;padding:9px 12px;border:1px solid var(--borda);
+  border-radius:7px;font-size:.9rem;outline:none;transition:border .14s;font-family:inherit}
+.cmp input:focus,.cmp select:focus{border-color:var(--azul2)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mac{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+/* BUSCA CLIENTE NO MODAL */
+.cli-drop-wrap{position:relative}
+.cli-drop{position:absolute;top:100%;left:0;right:0;background:#fff;
+  border:1px solid var(--azul2);border-radius:8px;box-shadow:var(--sombra);
+  z-index:200;max-height:180px;overflow-y:auto;display:none}
+.cli-drop .it{padding:9px 14px;cursor:pointer;font-size:.86rem;border-bottom:1px solid #f0f0f0;transition:.1s}
+.cli-drop .it:hover{background:#eef2ff}
+.cli-drop .it .sub{font-size:.74rem;color:#888}
+
+/* CUPOM POPUP */
+#cupom-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;
+  align-items:center;justify-content:center;padding:20px}
+#cupom-popup.ab{display:flex}
+.cupom-box{background:#fff;border-radius:16px;width:560px;max-width:100%;max-height:92vh;
+  overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.25);animation:pop .2s ease}
+.cupom-header{background:var(--azul);color:#fff;padding:20px 28px;border-radius:16px 16px 0 0;text-align:center}
+.cupom-header h2{font-size:1.2rem;margin-bottom:4px}
+.cupom-header p{font-size:.8rem;opacity:.8}
+.cupom-body{padding:24px 28px}
+.cupom-info{background:var(--cinza);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:.86rem;line-height:1.8}
+.cupom-table{width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:16px}
+.cupom-table th{background:var(--azul2);color:#fff;padding:9px 10px;text-align:left}
+.cupom-table td{padding:8px 10px;border-bottom:1px solid #eee}
+.cupom-table tr.serv td{background:#f8f9fa;font-style:italic;color:#555}
+.cupom-totais{background:var(--cinza);border-radius:8px;padding:12px 16px;font-size:.9rem}
+.cupom-totais .bruto{color:#888;text-decoration:line-through;font-size:.82rem}
+.cupom-totais .liq{font-size:1.2rem;font-weight:800;color:var(--verde2);margin-top:4px}
+.cupom-acoes{display:flex;gap:10px;padding:16px 28px 24px;justify-content:center;flex-wrap:wrap}
+
+/* HISTORICO */
+.hist-filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.hist-filtros input,.hist-filtros select{padding:7px 12px;border:1px solid var(--borda);
+  border-radius:8px;font-size:.86rem;outline:none}
+.hist-card{background:#fff;border-radius:10px;box-shadow:var(--sombra);
+  padding:14px 18px;margin-bottom:10px;border-left:4px solid var(--azul2);
+  display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.hist-card h4{font-size:.92rem;font-weight:700;margin-bottom:3px}
+.hist-card p{font-size:.8rem;color:#777;margin-bottom:1px}
+.hist-card .total{font-size:1.05rem;font-weight:800;color:var(--verde2)}
+.badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.73rem;font-weight:700}
+.bdinheiro{background:#d4edda;color:#155724}
+.bcredito{background:#cce5ff;color:#004085}
+.bdebito{background:#e2e3e5;color:#383d41}
+.bpix{background:#d1ecf1;color:#0c5460}
+
+/* ABA */
+.abas{display:flex;gap:0;border-bottom:2px solid var(--borda);background:#fff;flex-shrink:0}
+.aba{background:transparent;border:none;padding:10px 22px;cursor:pointer;
+  font-size:.88rem;font-weight:600;color:#888;border-bottom:3px solid transparent;
+  margin-bottom:-2px;transition:.15s}
+.aba.ativa{color:var(--azul);border-bottom-color:var(--azul)}
+.painel{display:none;flex:1;overflow:hidden;flex-direction:column}
+.painel.ativo{display:flex}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;color:#fff;
+  padding:11px 20px;border-radius:8px;font-size:.88rem;display:none;box-shadow:var(--sombra)}
+#toast.vis{display:block}
+#toast.ok{background:var(--verde2)}
+#toast.er{background:var(--vermelho)}
+#toast.av{background:#e67e22}
+
+@media(max-width:768px){
+  .painel-carrinho{width:100%}
+  .main{flex-direction:column}
+}
+</style>
+<link rel="stylesheet" href="sidebar.css">
+</head>
+<body>
+
+
+
+<!-- ABAS -->
+<div class="abas">
+  <button class="aba ativa" onclick="aba('venda')">🛒 Nova Venda</button>
+  <button class="aba"       onclick="aba('historico')">📜 Histórico de Vendas</button>
+  <button class="aba"       onclick="aba('fiado')" style="color:#e74c3c">💳 Pendentes (Fiado)</button>
+</div>
+
+<!-- ══════════════════════════════════
+     ABA VENDA
+══════════════════════════════════ -->
+<div id="p-venda" class="painel ativo">
+  <div class="main">
+
+    <!-- PRODUTOS -->
+    <div class="painel-produtos">
+      <div class="busca-bar">
+        <span>🔍</span>
+        <input id="inp-busca" placeholder="Buscar por código, nome, marca ou aplicação..." oninput="filtrarProdutos()">
+        <select id="fil-cat" onchange="filtrarProdutos()"
+          style="padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
+          font-size:.86rem;outline:none;min-width:160px;cursor:pointer;background:#fff">
+          <option value="">📦 Todas categorias</option>
+        </select>
+        <select id="fil-estq" onchange="filtrarProdutos()"
+          style="padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
+          font-size:.86rem;outline:none;cursor:pointer;background:#fff">
+          <option value="">Todos</option>
+          <option value="disp">✅ Com estoque</option>
+          <option value="esgo">❌ Sem estoque</option>
+        </select>
+      </div>
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr>
+            <th>Código</th><th>Produto</th><th>Marca</th><th>Aplicação</th>
+            <th style="text-align:center">Estoque</th><th style="text-align:right">Preço</th><th style="text-align:center">Ação</th>
+          </tr></thead>
+          <tbody id="tbody-prod">
+            <tr><td colspan="7" style="text-align:center;padding:32px;color:#bbb">Carregando produtos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CARRINHO -->
+    <div class="painel-carrinho">
+      <!-- Header normal / modo OS -->
+      <div class="carr-header" id="carr-header-normal">
+        <span>🛒 Carrinho</span>
+      </div>
+      <div id="carr-header-os" style="display:none;background:var(--azul2);color:#fff;
+        padding:10px 14px;border-radius:10px 10px 0 0;flex-shrink:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:700;font-size:.95rem" id="carr-os-num">📋 OS-0000</span>
+          <button onclick="voltarCarrinhoNormal()"
+            style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;
+            padding:4px 12px;cursor:pointer;font-size:.82rem;font-weight:700;transition:.15s"
+            onmouseover="this.style.background='rgba(255,255,255,.35)'"
+            onmouseout="this.style.background='rgba(255,255,255,.2)'">
+            ← Voltar ao Carrinho Normal
+          </button>
+        </div>
+        <div id="carr-os-cliente" style="font-size:.8rem;opacity:.85"></div>
+      </div>
+
+      <div id="carr-os-badge" style="display:none;background:#eef2ff;border-left:3px solid var(--azul2);
+        padding:6px 12px;font-size:.8rem;color:var(--azul);cursor:pointer"
+        onclick="abrirPainelOS()"></div>
+
+      <div style="display:flex;gap:8px;margin:10px 12px 0">
+        <button class="btn-servico" style="margin:0;flex:1" onclick="abrirModalServico()">🔧 Serviço</button>
+        <button class="btn-servico" style="margin:0;flex:1;background:var(--azul2)" onclick="abrirPainelOS()">📋 OS</button>
+      </div>
+      <div class="carr-lista" id="carr-lista">
+        <div class="carr-vazio" id="carr-vazio">Carrinho vazio — adicione produtos ao lado</div>
+      </div>
+      <div class="carr-total-wrap">
+        <div class="carr-total-linha">
+          <span class="carr-total-label">Total:</span>
+          <span class="carr-total-val" id="lbl-total">R$ 0,00</span>
+        </div>
+      </div>
+      <button class="btn-finalizar" id="btn-finalizar" onclick="abrirModalFinalizar()" disabled>
+        Finalizar Venda (F2)
+      </button>
+      <button onclick="abrirNovoFiado()"
+        style="margin:0 12px 12px;background:#e74c3c;color:#fff;border:none;border-radius:8px;
+        padding:10px;cursor:pointer;font-size:.88rem;font-weight:700;width:calc(100% - 24px);transition:.14s"
+        onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        💳 Lançar como Pendente (Fiado)
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     ABA HISTÓRICO
+══════════════════════════════════ -->
+<div id="p-historico" class="painel" style="padding:16px;overflow-y:auto">
+  <div class="hist-filtros">
+    <input type="date" id="hist-de" title="De">
+    <input type="date" id="hist-ate" title="Até">
+    <select id="hist-metodo">
+      <option value="">Todos os pagamentos</option>
+      <option>Dinheiro</option><option>Cartão Crédito</option>
+      <option>Cartão Débito</option><option>PIX</option>
+    </select>
+    <input id="hist-busca" placeholder="Buscar cliente..." style="min-width:200px">
+    <button class="btn ba" onclick="carregarHistorico()">🔄 Filtrar</button>
+    <span id="hist-resumo" style="font-size:.82rem;color:#888;margin-left:auto"></span>
+  </div>
+  <div id="hist-lista">
+    <div style="text-align:center;color:#bbb;padding:40px">Carregando...</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: QUANTIDADE
+══════════════════════════════════ -->
+<div class="bd" id="modal-qtd">
+  <div class="modal" style="width:380px">
+    <button class="mf" onclick="fecharModalQtd()">✕</button>
+    <h2 id="mq-titulo">Adicionar ao Carrinho</h2>
+    <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:14px;font-size:.85rem;line-height:1.8" id="mq-info"></div>
+    <div class="cmp">
+      <label>Quantidade</label>
+      <input type="number" id="mq-qtd" min="1" value="1" style="font-size:1.2rem;text-align:center;font-weight:700"
+        onkeydown="if(event.key==='Enter') confirmarQtd()">
+    </div>
+    <div id="mq-total" style="text-align:right;font-size:1.1rem;font-weight:800;color:var(--azul);margin-top:8px"></div>
+    <div class="mac">
+      <button class="btn bc" onclick="fecharModalQtd()">Cancelar</button>
+      <button class="btn bv" onclick="confirmarQtd()">✅ Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: SERVIÇO
+══════════════════════════════════ -->
+<div class="bd" id="modal-serv">
+  <div class="modal" style="width:480px">
+    <button class="mf" onclick="document.getElementById('modal-serv').classList.remove('ab')">✕</button>
+    <h2>🔧 Adicionar Serviço</h2>
+
+    <!-- Abas internas -->
+    <div style="display:flex;border-bottom:2px solid var(--borda);margin-bottom:14px;gap:0">
+      <button id="srv-tab-cat" onclick="srvAba('catalogo')"
+        style="flex:1;padding:9px;border:none;cursor:pointer;font-size:.85rem;font-weight:700;
+        background:transparent;border-bottom:3px solid var(--azul);color:var(--azul);margin-bottom:-2px">
+        📋 Catálogo
+      </button>
+      <button id="srv-tab-exc" onclick="srvAba('exclusivo')"
+        style="flex:1;padding:9px;border:none;cursor:pointer;font-size:.85rem;font-weight:700;
+        background:transparent;border-bottom:3px solid transparent;color:#888;margin-bottom:-2px">
+        ✏️ Serviço Exclusivo
+      </button>
+      <button id="srv-tab-new" onclick="srvAba('novo')"
+        style="flex:1;padding:9px;border:none;cursor:pointer;font-size:.85rem;font-weight:700;
+        background:transparent;border-bottom:3px solid transparent;color:#888;margin-bottom:-2px">
+        ➕ Cadastrar Novo
+      </button>
+    </div>
+
+    <!-- ABA: CATÁLOGO -->
+    <div id="srv-catalogo">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input id="srv-busca" placeholder="Buscar serviço..." oninput="filtrarServicos()"
+          style="flex:1;padding:8px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.88rem;outline:none">
+      </div>
+      <div id="srv-lista" style="max-height:280px;overflow-y:auto;border:1px solid var(--borda);border-radius:8px"></div>
+      <div id="srv-sel-info" style="display:none;margin-top:10px;padding:10px 14px;
+        background:#eef2ff;border-radius:8px;font-size:.85rem"></div>
+      <div class="mac" style="margin-top:14px">
+        <button class="btn bc" onclick="document.getElementById('modal-serv').classList.remove('ab')">Cancelar</button>
+        <button class="btn bv" id="btn-srv-cat" onclick="confirmarServicoCatalogo()" disabled>✅ Adicionar ao Carrinho</button>
+      </div>
+    </div>
+
+    <!-- ABA: SERVIÇO EXCLUSIVO -->
+    <div id="srv-exclusivo" style="display:none">
+      <p style="font-size:.82rem;color:#888;margin-bottom:12px">
+        Serviço pontual que não será salvo no catálogo.
+      </p>
+      <div class="cmp"><label>Nome do Serviço *</label>
+        <input id="exc-nome" placeholder="Ex: Troca de rolamento roda traseira...">
+      </div>
+      <div class="cmp"><label>Valor (R$) *</label>
+        <input type="number" id="exc-valor" min="0.01" step="0.01" placeholder="0.00"
+          onkeydown="if(event.key==='Enter') confirmarServicoExclusivo()">
+      </div>
+      <div class="mac">
+        <button class="btn bc" onclick="document.getElementById('modal-serv').classList.remove('ab')">Cancelar</button>
+        <button class="btn bv" onclick="confirmarServicoExclusivo()">✅ Adicionar ao Carrinho</button>
+      </div>
+    </div>
+
+    <!-- ABA: CADASTRAR NOVO SERVIÇO -->
+    <div id="srv-novo" style="display:none">
+      <p style="font-size:.82rem;color:#888;margin-bottom:12px">
+        Cadastra o serviço no catálogo e já adiciona ao carrinho.
+      </p>
+      <div class="cmp"><label>Nome do Serviço *</label>
+        <input id="new-srv-nome" placeholder="Ex: Higienização de estofado...">
+      </div>
+      <div class="cmp"><label>Valor Padrão (R$) *</label>
+        <input type="number" id="new-srv-valor" min="0.01" step="0.01" placeholder="0.00">
+      </div>
+      <div class="cmp"><label>Descrição (opcional)</label>
+        <input id="new-srv-desc" placeholder="Detalhes do serviço...">
+      </div>
+      <div class="mac">
+        <button class="btn bc" onclick="document.getElementById('modal-serv').classList.remove('ab')">Cancelar</button>
+        <button class="btn bv" onclick="cadastrarEAdicionarServico()">💾 Salvar e Adicionar</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: FINALIZAR VENDA
+══════════════════════════════════ -->
+<div class="bd" id="modal-fin">
+  <div class="modal">
+    <button class="mf" onclick="document.getElementById('modal-fin').classList.remove('ab')">✕</button>
+    <h2>💳 Finalizar Venda</h2>
+
+    <!-- Cliente -->
+    <div class="cmp">
+      <label>Cliente</label>
+      <div class="cli-drop-wrap">
+        <div style="display:flex;gap:8px">
+          <input id="fin-cli-busca" placeholder="Buscar por nome ou CPF..." autocomplete="off"
+            oninput="buscarClienteFin()" style="flex:1">
+          <button class="btn ba" style="padding:7px 12px;font-size:.82rem" onclick="abrirModalCadCli()">➕ Novo</button>
+        </div>
+        <div class="cli-drop" id="fin-cli-drop"></div>
+      </div>
+      <div id="fin-cli-sel" style="display:none;margin-top:8px;padding:8px 12px;
+        background:#eef2ff;border-radius:6px;font-size:.85rem;display:none;align-items:center;justify-content:space-between">
+        <span id="fin-cli-nome"></span>
+        <button onclick="limparClienteFin()" style="background:none;border:none;cursor:pointer;color:var(--vermelho);font-size:.8rem">✕ Trocar</button>
+      </div>
+      <input type="hidden" id="fin-cli-id">
+    </div>
+
+    <!-- Totais -->
+    <div style="background:#f8f9fa;border-radius:8px;padding:12px 16px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:.88rem;margin-bottom:10px">
+        <span>Subtotal:</span><span id="fin-bruto" style="font-weight:700">R$ 0,00</span>
+      </div>
+
+      <!-- Desconto com toggle R$ / % -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:.88rem;white-space:nowrap">Desconto:</span>
+        <!-- Toggle tipo desconto -->
+        <div style="display:flex;border:1px solid var(--borda);border-radius:6px;overflow:hidden;flex-shrink:0">
+          <button id="btn-desc-pct" onclick="setTipoDesc('pct')"
+            style="padding:5px 12px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;
+            background:var(--azul);color:#fff;transition:.15s">%</button>
+          <button id="btn-desc-val" onclick="setTipoDesc('val')"
+            style="padding:5px 12px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;
+            background:#e9ecef;color:#555;transition:.15s">R$</button>
+        </div>
+        <input type="number" id="fin-desconto" min="0" value="0" step="0.01"
+          style="flex:1;padding:6px 10px;border:1px solid var(--borda);border-radius:6px;
+          text-align:right;font-size:.95rem;font-weight:700;outline:none"
+          oninput="recalcularTotal()">
+        <span id="fin-desc-sufixo" style="font-size:.88rem;color:#666;white-space:nowrap">%</span>
+      </div>
+
+      <!-- Linha do desconto em reais -->
+      <div id="fin-desc-linha" style="display:none;justify-content:space-between;
+        font-size:.84rem;color:var(--vermelho);margin-bottom:6px">
+        <span>Valor do desconto:</span>
+        <span id="fin-desc-val-exib">- R$ 0,00</span>
+      </div>
+
+      <hr style="margin:10px 0;border:1px solid var(--borda)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700">Total a Pagar:</span>
+        <span id="fin-total" style="font-size:1.4rem;font-weight:800;color:var(--verde2)">R$ 0,00</span>
+      </div>
+    </div>
+
+    <!-- Pagamento -->
+    <div class="cmp">
+      <label>Método de Pagamento *</label>
+      <select id="fin-metodo">
+        <option value="">— Selecione —</option>
+        <option>Dinheiro</option>
+        <option>Cartão Crédito</option>
+        <option>Cartão Débito</option>
+        <option>PIX</option>
+      </select>
+    </div>
+
+    <!-- Troco (só aparece se Dinheiro) -->
+    <div class="cmp" id="div-troco" style="display:none">
+      <label>Valor Recebido (R$)</label>
+      <input type="number" id="fin-recebido" min="0" step="0.01" placeholder="0.00" oninput="calcularTroco()">
+      <div id="fin-troco" style="margin-top:6px;font-size:.9rem;font-weight:700;color:var(--verde2)"></div>
+    </div>
+
+    <div class="cmp">
+      <label>Observações</label>
+      <textarea id="fin-obs" rows="2" placeholder="Observações da venda..."></textarea>
+    </div>
+
+    <div class="mac">
+      <button class="btn bc" onclick="document.getElementById('modal-fin').classList.remove('ab')">Cancelar</button>
+      <button class="btn bv" onclick="confirmarVenda()">✅ Confirmar Venda</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL: CADASTRO CLIENTE
+══════════════════════════════════ -->
+<div class="bd" id="modal-cad-cli">
+  <div class="modal" style="width:440px">
+    <button class="mf" onclick="document.getElementById('modal-cad-cli').classList.remove('ab')">✕</button>
+    <h2>👤 Novo Cliente</h2>
+    <div class="cmp"><label>Nome *</label><input id="cc-nome" placeholder="Nome completo"></div>
+    <div class="g2">
+      <div class="cmp"><label>CPF</label><input id="cc-cpf" placeholder="000.000.000-00"></div>
+      <div class="cmp"><label>Telefone</label><input id="cc-tel" placeholder="(38) 99999-9999"></div>
+    </div>
+    <div class="cmp"><label>Endereço</label><input id="cc-end" placeholder="Rua, número, bairro"></div>
+    <div class="cmp"><label>E-mail</label><input type="email" id="cc-email" placeholder="email@exemplo.com"></div>
+    <div class="mac">
+      <button class="btn bc" onclick="document.getElementById('modal-cad-cli').classList.remove('ab')">Cancelar</button>
+      <button class="btn bv" onclick="salvarNovoCliente()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     CUPOM POPUP (gerado após venda)
+══════════════════════════════════ -->
+<div id="cupom-popup">
+  <div class="cupom-box">
+    <div class="cupom-header">
+      <h2>🎉 Venda Realizada!</h2>
+      <p>Mendezza Auto Peças — Rua Roque Ferreira Pimenta, 418A</p>
+      <p>38 2100-4246 | mendezzaautopecas@gmail.com | Garantia 90 dias</p>
+    </div>
+    <div class="cupom-body">
+      <div class="cupom-info" id="cupom-info"></div>
+      <table class="cupom-table">
+        <thead><tr>
+          <th>Produto/Serviço</th><th>Marca</th><th>Aplicação</th><th>Qtd</th><th>Unit.</th><th>Total</th>
+        </tr></thead>
+        <tbody id="cupom-itens"></tbody>
+      </table>
+      <div class="cupom-totais">
+        <div class="bruto" id="cupom-bruto"></div>
+        <div id="cupom-desc"></div>
+        <div class="liq" id="cupom-liq"></div>
+        <div style="font-size:.85rem;margin-top:4px" id="cupom-metodo"></div>
+      </div>
+    </div>
+    <div class="cupom-acoes">
+      <button class="btn bv" onclick="window.print()">🖨️ Imprimir</button>
+      <button class="btn bwp" id="btn-zap-cupom" onclick="enviarZapCupom()">
+        📲 Enviar WhatsApp
+      </button>
+      <button class="btn bc" onclick="fecharCupom()">✕ Fechar</button>
+    </div>
+    <div style="text-align:center;font-size:.72rem;color:#bbb;padding:0 28px 20px">
+      Emitido por OMG Softwares • Peças com garantia de 90 dias
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHES VENDA -->
+<div class="bd" id="modal-det">
+  <div class="modal" style="width:600px;max-width:98vw">
+    <button class="mf" onclick="document.getElementById('modal-det').classList.remove('ab')">✕</button>
+    <h2 id="det-titulo">Detalhes da Venda</h2>
+
+    <!-- Resumo rápido da venda -->
+    <div id="det-resumo" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px"></div>
+
+    <!-- Instrução -->
+    <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;
+      padding:10px 14px;font-size:.82rem;color:#856404;margin-bottom:12px">
+      ↩️ <b>Para reverter um item:</b> clique no botão <b style="color:#dc3545">Reverter</b>
+      ao lado do item. O estoque será devolvido e o total da venda recalculado automaticamente.
+    </div>
+
+    <!-- Tabela de itens com botão reverter -->
+    <div id="det-body" style="max-height:55vh;overflow-y:auto"></div>
+
+    <!-- Total atualizado -->
+    <div id="det-total" style="background:#f8f9fa;border-radius:8px;padding:12px 16px;
+      margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700">Total atual da venda:</span>
+      <span id="det-total-val" style="font-size:1.2rem;font-weight:800;color:var(--verde2)"></span>
+    </div>
+
+    <div class="mac" style="margin-top:14px">
+      <button class="btn bv" id="det-btn-add" style="display:none">➕ Adicionar Produto</button>
+      <button class="btn bc" onclick="document.getElementById('modal-det').classList.remove('ab')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: REVERTER QUANTIDADE PARCIAL -->
+<div class="bd" id="modal-rev-qtd">
+  <div class="modal" style="width:380px">
+    <button class="mf" onclick="document.getElementById('modal-rev-qtd').classList.remove('ab')">✕</button>
+    <h2>↩️ Reverter Item</h2>
+    <div id="rev-info" style="background:#f8f9fa;border-radius:8px;padding:12px;
+      font-size:.85rem;line-height:1.8;margin-bottom:14px"></div>
+    <div class="cmp">
+      <label>Quantidade a reverter</label>
+      <input type="number" id="rev-qtd" min="1" value="1"
+        style="font-size:1.2rem;text-align:center;font-weight:700"
+        oninput="atualizarPreviewReversao()">
+    </div>
+    <div id="rev-preview" style="background:#fff3cd;border:1px solid #ffc107;
+      border-radius:8px;padding:10px 14px;font-size:.85rem;margin-bottom:4px"></div>
+    <div class="mac">
+      <button class="btn bc" onclick="document.getElementById('modal-rev-qtd').classList.remove('ab')">Cancelar</button>
+      <button class="btn br" onclick="executarReversao()">↩️ Confirmar Reversão</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADICIONAR PRODUTO À VENDA JÁ REALIZADA -->
+<div class="bd" id="modal-add-prod">
+  <div class="modal" style="width:500px">
+    <button class="mf" onclick="fecharAddProd()">✕</button>
+    <h2>➕ Adicionar Produto à Venda</h2>
+    <div id="add-venda-info" style="background:#eef2ff;border-radius:8px;padding:10px 14px;
+      font-size:.83rem;margin-bottom:14px"></div>
+
+    <!-- Busca produto -->
+    <div class="cmp">
+      <label>Buscar produto</label>
+      <input id="add-busca" placeholder="Código, nome ou marca..." oninput="buscarProdAdd()">
+      <div id="add-drop" style="border:1px solid var(--azul2);border-radius:8px;
+        display:none;max-height:160px;overflow-y:auto;background:#fff;margin-top:4px"></div>
+    </div>
+
+    <!-- Produto selecionado -->
+    <div id="add-sel" style="display:none;background:#f8f9fa;border-radius:8px;
+      padding:12px;font-size:.85rem;line-height:1.9;margin-bottom:12px">
+      <div id="add-sel-info"></div>
+    </div>
+
+    <div id="add-campos" style="display:none">
+      <div class="g2">
+        <div class="cmp">
+          <label>Quantidade</label>
+          <input type="number" id="add-qtd" min="1" value="1"
+            style="text-align:center;font-weight:700;font-size:1.1rem"
+            oninput="atualizarPreviewAdd()">
+        </div>
+        <div class="cmp">
+          <label>Preço unitário (R$)</label>
+          <input type="number" id="add-preco" step="0.01" min="0"
+            style="font-weight:700;font-size:1.1rem"
+            oninput="atualizarPreviewAdd()">
+        </div>
+      </div>
+
+      <!-- Opção de desconto -->
+      <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;
+        padding:10px 14px;margin-bottom:12px;font-size:.85rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <label style="font-weight:700;margin:0">Aplicar desconto da venda?</label>
+          <div style="display:flex;gap:6px">
+            <button id="add-desc-sim" onclick="setDescAdd(true)"
+              style="padding:4px 14px;border:none;border-radius:6px;cursor:pointer;
+              font-size:.82rem;font-weight:700;background:var(--azul);color:#fff">Sim</button>
+            <button id="add-desc-nao" onclick="setDescAdd(false)"
+              style="padding:4px 14px;border:none;border-radius:6px;cursor:pointer;
+              font-size:.82rem;font-weight:700;background:#e9ecef;color:#555">Não</button>
+          </div>
+        </div>
+        <div id="add-desc-info" style="font-size:.82rem;color:#856404"></div>
+      </div>
+
+      <!-- Preview -->
+      <div id="add-preview" style="background:#d4edda;border:1px solid #28a745;
+        border-radius:8px;padding:10px 14px;font-size:.85rem;font-weight:700;color:#155724"></div>
+    </div>
+
+    <div class="mac">
+      <button class="btn bc" onclick="fecharAddProd()">Cancelar</button>
+      <button class="btn bv" id="btn-add-prod" onclick="confirmarAddProd()" disabled>✅ Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: REPOSIÇÃO DE ESTOQUE -->
+<div class="bd" id="modal-rep">
+  <div class="modal" style="width:380px">
+    <button class="mf" onclick="document.getElementById('modal-rep').classList.remove('ab')">✕</button>
+    <h2>📦 Repor Estoque</h2>
+    <div id="rep-info" style="background:#f8f9fa;border-radius:8px;padding:12px;
+      font-size:.85rem;line-height:1.9;margin-bottom:14px"></div>
+    <div class="cmp">
+      <label>Quantidade a adicionar</label>
+      <input type="number" id="rep-qtd" min="1" value="1"
+        style="font-size:1.3rem;text-align:center;font-weight:800;padding:10px"
+        onkeydown="if(event.key==='Enter') confirmarReposicao()"
+        oninput="atualizarPreviewRep()">
+    </div>
+    <div id="rep-preview" style="background:#d4edda;border:1px solid #28a745;border-radius:8px;
+      padding:10px 14px;font-size:.85rem;color:#155724;font-weight:700;margin-bottom:4px;display:none"></div>
+    <div class="mac">
+      <button class="btn bc" onclick="document.getElementById('modal-rep').classList.remove('ab')">Cancelar</button>
+      <button class="btn bv" onclick="confirmarReposicao()">✅ Confirmar Reposição</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PAINEL ORDEM DE SERVIÇO -->
+<div class="bd" id="modal-os-painel">
+  <div class="modal" style="width:580px">
+    <button class="mf" onclick="document.getElementById('modal-os-painel').classList.remove('ab')">✕</button>
+    <h2>📋 Ordens de Serviço</h2>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn bv" onclick="abrirNovaOS()">➕ Nova OS</button>
+      <select id="os-fil-status" onchange="carregarOrdens()"
+        style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none">
+        <option value="aberta,em_andamento,aguardando_peca">🔵 Em aberto</option>
+        <option value="">Todas</option>
+        <option value="concluida">✅ Concluídas</option>
+        <option value="entregue">🏁 Entregues</option>
+        <option value="cancelada">❌ Canceladas</option>
+      </select>
+    </div>
+    <div id="os-lista" style="max-height:420px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- MODAL: NOVA OS -->
+<div class="bd" id="modal-nova-os">
+  <div class="modal" style="width:500px">
+    <button class="mf" onclick="document.getElementById('modal-nova-os').classList.remove('ab')">✕</button>
+    <h2>➕ Nova Ordem de Serviço</h2>
+
+    <!-- Cliente -->
+    <div class="cmp">
+      <label>Cliente *</label>
+      <div style="display:flex;gap:8px">
+        <div style="position:relative;flex:1">
+          <input id="os-cli-busca" placeholder="Buscar cliente..." autocomplete="off" oninput="buscarClienteOS()"
+            style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:7px;font-size:.9rem;outline:none">
+          <div id="os-cli-drop" class="cli-drop"></div>
+        </div>
+        <button class="btn ba" style="padding:7px 12px;font-size:.82rem" onclick="abrirCadCliOS()">➕</button>
+      </div>
+      <div id="os-cli-sel" style="display:none;margin-top:6px;padding:8px 12px;
+        background:#eef2ff;border-radius:6px;font-size:.84rem;display:none;
+        align-items:center;justify-content:space-between">
+        <span id="os-cli-nome"></span>
+        <button onclick="limparClienteOS()" style="background:none;border:none;cursor:pointer;color:var(--vermelho);font-size:.8rem">✕</button>
+      </div>
+      <input type="hidden" id="os-cli-id">
+    </div>
+
+    <!-- Veículo -->
+    <div id="os-veiculos-wrap" style="display:none;margin-bottom:13px">
+      <label style="font-size:.79rem;font-weight:700;color:#555;display:block;margin-bottom:6px">Veículo</label>
+      <div id="os-vei-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+    </div>
+    <div class="g2">
+      <div class="cmp"><label>Marca do Veículo</label><input id="os-vei-marca" placeholder="Ex: Fiat"></div>
+      <div class="cmp"><label>Modelo</label><input id="os-vei-modelo" placeholder="Ex: Uno"></div>
+    </div>
+    <div class="g2">
+      <div class="cmp"><label>Placa</label><input id="os-vei-placa" placeholder="ABC-1234" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="cmp"><label>KM Entrada</label><input type="number" id="os-km" placeholder="Ex: 85000"></div>
+    </div>
+
+    <!-- Problema -->
+    <div class="cmp">
+      <label>Problema / Serviço Solicitado *</label>
+      <textarea id="os-descricao" rows="3" placeholder="Descreva o problema ou serviço..."></textarea>
+    </div>
+    <div class="cmp">
+      <label>Observações</label>
+      <textarea id="os-obs" rows="2" placeholder="Observações adicionais..."></textarea>
+    </div>
+    <input type="hidden" id="os-vei-id">
+    <div class="mac">
+      <button class="btn bc" onclick="document.getElementById('modal-nova-os').classList.remove('ab')">Cancelar</button>
+      <button class="btn bv" onclick="criarOS()">✅ Criar OS e Abrir Carrinho</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: IMPRIMIR OS -->
+<div class="bd" id="modal-imprimir-os">
+  <div class="modal" style="width:640px;max-width:98vw">
+    <button class="mf" onclick="document.getElementById('modal-imprimir-os').classList.remove('ab')">✕</button>
+    <h2 id="imp-os-titulo">📋 Ordem de Serviço</h2>
+    <div id="imp-os-body" style="max-height:65vh;overflow-y:auto"></div>
+    <div class="mac">
+      <button class="btn bc" onclick="document.getElementById('modal-imprimir-os').classList.remove('ab')">Fechar</button>
+      <button class="btn bv" onclick="imprimirOS()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     ABA FIADO
+══════════════════════════════════ -->
+<div id="p-fiado" class="painel" style="padding:16px;overflow-y:auto;flex-direction:column">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+    <h2 style="font-size:1rem;font-weight:700;color:#e74c3c">💳 Pagamentos Pendentes (Fiado)</h2>
+    <select id="fiad-fil" onchange="carregarFiados()"
+      style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none">
+      <option value="pendente,parcial">⏳ Em aberto</option>
+      <option value="">Todos</option>
+      <option value="quitado">✅ Quitados</option>
+    </select>
+    <input id="fiad-busca" placeholder="Buscar cliente..." oninput="carregarFiados()"
+      style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none;min-width:200px">
+    <span id="fiad-resumo" style="font-size:.82rem;color:#888;margin-left:auto;font-weight:700"></span>
+  </div>
+  <div id="fiad-lista"></div>
+</div>
+
+<!-- MODAL: NOVO FIADO -->
+<div class="bd" id="modal-fiado">
+  <div class="modal" style="width:520px">
+    <button class="mf" onclick="fecharModalFiado()">✕</button>
+    <h2>💳 Lançar Pendente (Fiado)</h2>
+
+    <!-- Cliente -->
+    <div class="cmp">
+      <label>Cliente *</label>
+      <div class="cli-drop-wrap">
+        <div style="display:flex;gap:8px">
+          <input id="fiad-cli-busca" placeholder="Buscar por nome ou telefone..." autocomplete="off"
+            oninput="buscarClienteFiado()" style="flex:1">
+          <button class="btn ba" style="padding:7px 12px;font-size:.82rem" onclick="abrirCadCliFiado()">➕</button>
+        </div>
+        <div class="cli-drop" id="fiad-cli-drop"></div>
+      </div>
+      <div id="fiad-cli-sel" style="display:none;margin-top:8px;padding:8px 12px;
+        background:#eef2ff;border-radius:6px;font-size:.85rem;align-items:center;justify-content:space-between">
+        <span id="fiad-cli-nome"></span>
+        <button onclick="limparClienteFiado()" style="background:none;border:none;cursor:pointer;color:var(--vermelho);font-size:.8rem">✕</button>
+      </div>
+      <input type="hidden" id="fiad-cli-id">
+    </div>
+
+    <!-- Itens -->
+    <div class="cmp">
+      <label>Itens / Descrição *</label>
+      <div id="fiad-itens-lista" style="border:1px solid var(--borda);border-radius:8px;overflow:hidden;margin-bottom:8px">
+        <!-- linhas de itens -->
+      </div>
+      <button onclick="adicionarLinhaFiado()"
+        style="background:#f0f0f0;border:1px dashed #bbb;border-radius:6px;padding:7px;
+        width:100%;cursor:pointer;font-size:.84rem;color:#666">+ Adicionar item</button>
+    </div>
+
+    <!-- Total + vencimento -->
+    <div class="g2">
+      <div class="cmp">
+        <label>Vencimento (opcional)</label>
+        <input type="date" id="fiad-venc">
+      </div>
+      <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:13px">
+        <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;text-align:right">
+          <div style="font-size:.82rem;color:#666">Total:</div>
+          <div id="fiad-total-exib" style="font-size:1.3rem;font-weight:800;color:#e74c3c">R$ 0,00</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cmp">
+      <label>Observações</label>
+      <textarea id="fiad-obs" rows="2" placeholder="Anotações..."></textarea>
+    </div>
+
+    <div class="mac">
+      <button class="btn bc" onclick="fecharModalFiado()">Cancelar</button>
+      <button class="btn br" onclick="salvarFiado()">💳 Lançar Pendente</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: DAR BAIXA / DETALHES FIADO -->
+<div class="bd" id="modal-baixa">
+  <div class="modal" style="width:500px">
+    <button class="mf" onclick="document.getElementById('modal-baixa').classList.remove('ab')">✕</button>
+    <h2 id="baixa-titulo">💳 Dar Baixa</h2>
+    <div id="baixa-body"></div>
+    <div class="mac" id="baixa-acoes"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════ */
+var SUPA_URL = 'https://xyvsgvzgmwmvxtdxhjiw.supabase.co';
+var SUPA_KEY = 'sb_publishable_da-bSRiEwES37SKPryK-Uw_fvNuiLNE';
+var USERNAME = 'Admin';
+
+var db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+/* ══════════════════════════════════════════
+   UTILITÁRIOS
+══════════════════════════════════════════ */
+function eh(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function eq(s){ return String(s||'').replace(/'/g,"\\'") }
+function brl(n){ return 'R$ '+Number(n||0).toFixed(2).replace('.',',') }
+function dHora(s){ if(!s) return ''; var d=new Date(s); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+
+var _tt;
+function toast(msg,tipo){
+  var el=document.getElementById('toast');
+  el.textContent=msg; el.className='vis '+(tipo||'ok');
+  clearTimeout(_tt); _tt=setTimeout(function(){el.className=''},3500);
+}
+
+/* ══════════════════════════════════════════
+   ABAS
+══════════════════════════════════════════ */
+function aba(nome){
+  ['venda','historico','fiado'].forEach(function(n){
+    document.getElementById('p-'+n).classList.toggle('ativo',n===nome);
+    document.querySelectorAll('.aba').forEach(function(b,i){
+      b.classList.toggle('ativa',['venda','historico','fiado'][i]===nome);
+    });
+  });
+  if(nome==='historico') carregarHistorico();
+  if(nome==='fiado')     carregarFiados();
+}
+
+/* ══════════════════════════════════════════
+   PRODUTOS — equivale a carregar_produtos + filtrar_produtos
+══════════════════════════════════════════ */
+var _produtos = [];   /* cache completo: [{codigo,nome,marca,aplicacao,estoque,preco_venda}] */
+
+async function carregarProdutos(){
+  var r = await db.from('itens')
+    .select('codigo,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id')
+    .gt('preco_venda',0)
+    .order('nome');
+
+  if(r.error){ console.error(r.error); return; }
+  _produtos = r.data || [];
+
+  /* popula filtro de categorias com as que existem nos produtos */
+  var sel = document.getElementById('fil-cat');
+  if(sel){
+    var ids = {};
+    _produtos.forEach(function(p){ if(p.categoria_id) ids[p.categoria_id]=1; });
+    var rCats = await db.from('categorias').select('id,nome,icone').in('id', Object.keys(ids)).order('nome');
+    sel.innerHTML = '<option value="">📦 Todas categorias</option>';
+    (rCats.data||[]).forEach(function(c){
+      var op = document.createElement('option');
+      op.value = c.id;
+      op.textContent = c.icone+' '+c.nome;
+      sel.appendChild(op);
+    });
+  }
+
+  filtrarProdutos();
+}
+
+function filtrarProdutos(){
+  var t     = document.getElementById('inp-busca').value.trim().toLowerCase();
+  var catId = document.getElementById('fil-cat')  ? document.getElementById('fil-cat').value  : '';
+  var estFil= document.getElementById('fil-estq') ? document.getElementById('fil-estq').value : '';
+  var tbody = document.getElementById('tbody-prod');
+
+  var lista = _produtos.filter(function(p){
+    if(t && !(
+      p.codigo.toLowerCase().includes(t) ||
+      p.nome.toLowerCase().includes(t)   ||
+      (p.marca||'').toLowerCase().includes(t) ||
+      (p.aplicacao||'').toLowerCase().includes(t)
+    )) return false;
+    if(catId && String(p.categoria_id) !== String(catId)) return false;
+    if(estFil==='disp' && p.estoque<=0) return false;
+    if(estFil==='esgo' && p.estoque>0)  return false;
+    return true;
+  });
+
+  if(!lista.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#bbb">Nenhum produto encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = lista.map(function(p){
+    var disp    = p.estoque > 0;
+    var esgo    = !disp;
+    var estTxt  = disp ? '📦 '+p.estoque+' un.' : '❌ Esgotado';
+    var cls     = disp ? 'tag-disp' : 'tag-esgo';
+    /* linha vermelha para sem estoque */
+    var rowStyle= esgo ? 'background:#fff5f5;' : '';
+
+    return '<tr style="'+rowStyle+'">'+
+      '<td style="font-family:monospace;font-size:.8rem;'+(esgo?'color:#c0392b':'')+'">'+eh(p.codigo)+'</td>'+
+      '<td style="font-weight:600;'+(esgo?'color:#c0392b':'')+'">'+eh(p.nome)+'</td>'+
+      '<td>'+eh(p.marca||'—')+'</td>'+
+      '<td style="font-size:.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+eh(p.aplicacao||'')+'">'+eh((p.aplicacao||'—').substring(0,40))+'</td>'+
+      '<td class="td-estoque"><span class="'+cls+'">'+eh(estTxt)+'</span></td>'+
+      '<td class="td-preco">'+brl(p.preco_venda)+
+        '<div class="tip">'+
+          '💰 Venda: <b>'+brl(p.preco_venda)+'</b><br>'+
+          '🏷️ Custo: <b>'+brl(p.valor_unitario)+'</b><br>'+
+          (p.valor_unitario>0
+            ? '📈 Margem: <b style="color:#2ecc71">'+
+              (((p.preco_venda-p.valor_unitario)/p.valor_unitario)*100).toFixed(1)+'%</b>'
+            : '')+
+        '</div>'+
+      '</td>'+
+      '<td class="td-acao" style="white-space:nowrap">'+
+        '<button class="btn-add"'+(disp?'':' disabled')+' onclick="pedirQtd(\''+eq(p.codigo)+'\')">➕ Vender</button> '+
+        '<button style="background:#e67e22;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:.8rem;font-weight:700;transition:.14s" '+
+          'onclick="abrirReposicao(\''+eq(p.codigo)+'\',\''+eq(p.nome)+'\','+p.estoque+')" title="Repor estoque">📦 Repor</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+/* ══════════════════════════════════════════
+   MODAL QUANTIDADE — equivale a adicionar_ao_carrinho (simpledialog)
+══════════════════════════════════════════ */
+var _prodAtual = null;
+
+function pedirQtd(codigo){
+  var p = _produtos.find(function(x){ return x.codigo===codigo; });
+  if(!p) return;
+  if(p.estoque<=0){ toast('Produto esgotado!','av'); return; }
+  _prodAtual = p;
+
+  /* qtd atual já no carrinho */
+  var jaNoCarr = _carrinho.find(function(c){ return c.codigo===codigo; });
+  var dispMax = p.estoque - (jaNoCarr?jaNoCarr.qtd:0);
+  if(dispMax<=0){ toast('Estoque máximo já adicionado ao carrinho!','av'); return; }
+
+  document.getElementById('mq-titulo').textContent = p.nome;
+  document.getElementById('mq-info').innerHTML =
+    '<b>Marca:</b> '+(p.marca||'—')+'<br>'+
+    '<b>Aplicação:</b> '+(p.aplicacao||'—')+'<br>'+
+    '<b>Preço unitário:</b> '+brl(p.preco_venda)+'<br>'+
+    '<b>Estoque disponível:</b> '+dispMax+' un.';
+
+  var inp = document.getElementById('mq-qtd');
+  inp.max = dispMax;
+  inp.value = 1;
+  atualizarTotalModal();
+  document.getElementById('modal-qtd').classList.add('ab');
+  setTimeout(function(){ inp.focus(); inp.select(); },100);
+}
+
+function atualizarTotalModal(){
+  if(!_prodAtual) return;
+  var qtd = parseInt(document.getElementById('mq-qtd').value)||0;
+  document.getElementById('mq-total').textContent = 'Total: '+brl(qtd*_prodAtual.preco_venda);
+}
+document.getElementById('mq-qtd').addEventListener('input', atualizarTotalModal);
+
+function fecharModalQtd(){
+  document.getElementById('modal-qtd').classList.remove('ab');
+  _prodAtual=null;
+}
+
+function confirmarQtd(){
+  if(!_prodAtual) return;
+  var qtd = parseInt(document.getElementById('mq-qtd').value)||0;
+  if(qtd<1){ toast('Quantidade mínima: 1','er'); return; }
+  if(qtd>parseInt(document.getElementById('mq-qtd').max)){ toast('Qtd maior que o estoque!','er'); return; }
+  adicionarAoCarrinho(_prodAtual, qtd);
+  fecharModalQtd();
+}
+
+/* ══════════════════════════════════════════
+   CARRINHO — equivale à lista_carrinho + atualizar_total
+══════════════════════════════════════════ */
+var _carrinho = [];   /* [{tipo:'produto'|'servico', codigo, nome, qtd, preco, marca, aplicacao}] */
+
+function adicionarAoCarrinho(prod, qtd){
+  var idx = _carrinho.findIndex(function(c){ return c.codigo===prod.codigo && c.tipo==='produto'; });
+  if(idx>=0){
+    _carrinho[idx].qtd += qtd;
+  }else{
+    _carrinho.push({
+      tipo:'produto', codigo:prod.codigo, nome:prod.nome,
+      qtd:qtd, preco:prod.preco_venda,
+      marca:prod.marca||'', aplicacao:prod.aplicacao||''
+    });
+  }
+  atualizarEstoqueVisual(prod.codigo, prod.estoque-qtd);
+  renderCarrinho();
+  toast('➕ '+prod.nome+' adicionado!','ok');
+
+  /* ── Auto-save na OS se estiver em modo OS ── */
+  if(_osSel){
+    salvarItemOS('peca', prod.codigo, prod.nome, qtd, prod.preco_venda)
+      .then(function(){ toast('➕ '+prod.nome+' salvo na OS '+_osSel.numero,'ok'); })
+      .catch(function(e){ toast('⚠️ Item no carrinho mas erro ao salvar na OS: '+e.message,'av'); });
+  }
+}
+
+/* atualizar_estoque_visual */
+function atualizarEstoqueVisual(codigo, novoEst){
+  var p = _produtos.find(function(x){ return x.codigo===codigo; });
+  if(p) p.estoque=novoEst;
+  /* atualiza linha na tabela sem refiltrar tudo */
+  var rows = document.getElementById('tbody-prod').querySelectorAll('tr');
+  rows.forEach(function(tr){
+    var tdCod = tr.cells[0];
+    if(tdCod && tdCod.textContent.trim()===codigo){
+      var disp = novoEst>0;
+      tr.cells[4].innerHTML='<span class="'+(disp?'tag-disp':'tag-esgo')+'">'+(disp?'📦 '+novoEst+' un.':'❌ Esgotado')+'</span>';
+      var btn=tr.cells[6].querySelector('.btn-add');
+      if(btn) btn.disabled=!disp;
+    }
+  });
+}
+
+function renderCarrinho(){
+  var lista = document.getElementById('carr-lista');
+  document.getElementById('carr-vazio').style.display = _carrinho.length?'none':'block';
+
+  /* remove itens antigos */
+  lista.querySelectorAll('.carr-item').forEach(function(el){ el.remove(); });
+
+  _carrinho.forEach(function(it,i){
+    var div=document.createElement('div');
+    div.className='carr-item';
+    div.innerHTML=
+      '<div>'+
+        '<div class="nome">'+eh(it.tipo==='servico'?'🔧 '+it.nome:it.nome)+'</div>'+
+        '<div style="font-size:.74rem;color:#999">'+(it.tipo==='peca'||it.tipo==='produto'?brl(it.preco)+' × '+it.qtd:'Serviço')+'</div>'+
+      '</div>'+
+      (it.tipo==='produto'||it.tipo==='peca'?
+        '<div class="qtd-ctrl">'+
+          '<button onclick="ajustarQtd('+i+',-1)">−</button>'+
+          '<span class="qtd-val">'+it.qtd+'</span>'+
+          '<button onclick="ajustarQtd('+i+',+1)">+</button>'+
+        '</div>':'<div></div>')+
+      '<span class="preco">'+brl(it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1))+'</span>'+
+      '<button class="rm" onclick="removerItem('+i+')" title="Remover">✕</button>';
+    lista.appendChild(div);
+  });
+
+  atualizarTotal();
+}
+
+/* ajustar_estoque_visual ao mudar qtd */
+function ajustarQtd(i, delta){
+  var it = _carrinho[i];
+  if(it.tipo!=='produto' && it.tipo!=='peca') return;
+  var p = _produtos.find(function(x){ return x.codigo===it.codigo; });
+  var novaQtd = it.qtd + delta;
+  if(novaQtd<1) return;
+  if(delta>0 && p && p.estoque<=0){ toast('Sem estoque!','av'); return; }
+  it.qtd = novaQtd;
+  if(p) atualizarEstoqueVisual(it.codigo, p.estoque - delta);
+  renderCarrinho();
+}
+
+/* remover_item_carrinho */
+function removerItem(i){
+  var it = _carrinho[i];
+  if(it.tipo==='produto' || it.tipo==='peca'){
+    var p = _produtos.find(function(x){ return x.codigo===it.codigo; });
+    if(p) atualizarEstoqueVisual(it.codigo, p.estoque+it.qtd);
+  }
+  _carrinho.splice(i,1);
+  renderCarrinho();
+}
+
+/* atualizar_total */
+function atualizarTotal(){
+  var total = _carrinho.reduce(function(s,it){
+    return s + it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1);
+  },0);
+  document.getElementById('lbl-total').textContent = brl(total);
+  document.getElementById('btn-finalizar').disabled = _carrinho.length===0;
+}
+
+/* ══════════════════════════════════════════
+   SERVIÇOS — catálogo + exclusivo + cadastrar
+══════════════════════════════════════════ */
+var _servicos     = [];   /* cache catálogo */
+var _srvSel       = null; /* serviço selecionado no catálogo */
+
+async function abrirModalServico(){
+  _srvSel = null;
+  document.getElementById('srv-busca').value  = '';
+  document.getElementById('exc-nome').value   = '';
+  document.getElementById('exc-valor').value  = '';
+  document.getElementById('new-srv-nome').value  = '';
+  document.getElementById('new-srv-valor').value = '';
+  document.getElementById('new-srv-desc').value  = '';
+  document.getElementById('srv-sel-info').style.display = 'none';
+  document.getElementById('btn-srv-cat').disabled = true;
+  srvAba('catalogo');
+  document.getElementById('modal-serv').classList.add('ab');
+  await carregarCatalogoServicos();
+}
+
+/* abas internas do modal */
+function srvAba(aba){
+  ['catalogo','exclusivo','novo'].forEach(function(a){
+    document.getElementById('srv-'+a).style.display = a===aba?'block':'none';
+  });
+  var map = {catalogo:'cat', exclusivo:'exc', novo:'new'};
+  ['cat','exc','new'].forEach(function(k){
+    var btn = document.getElementById('srv-tab-'+(k==='cat'?'cat':k==='exc'?'exc':'new'));
+    var ativo = (k==='cat'&&aba==='catalogo')||(k==='exc'&&aba==='exclusivo')||(k==='new'&&aba==='novo');
+    btn.style.borderBottomColor = ativo ? 'var(--azul)' : 'transparent';
+    btn.style.color             = ativo ? 'var(--azul)' : '#888';
+  });
+  if(aba==='exclusivo') setTimeout(function(){ document.getElementById('exc-nome').focus(); },60);
+  if(aba==='novo')      setTimeout(function(){ document.getElementById('new-srv-nome').focus(); },60);
+}
+
+async function carregarCatalogoServicos(){
+  var r = await db.from('servicos').select('*').eq('ativo',true).order('nome');
+  _servicos = r.data || [];
+  filtrarServicos();
+}
+
+function filtrarServicos(){
+  var t = document.getElementById('srv-busca').value.trim().toLowerCase();
+  var lista = t ? _servicos.filter(function(s){ return s.nome.toLowerCase().includes(t); }) : _servicos;
+  var el = document.getElementById('srv-lista');
+
+  if(!lista.length){
+    el.innerHTML='<div style="text-align:center;color:#aaa;padding:20px;font-size:.85rem">Nenhum serviço encontrado.</div>';
+    return;
+  }
+  el.innerHTML = lista.map(function(s){
+    var sel = _srvSel && _srvSel.id===s.id;
+    return '<div onclick="selecionarServicoCat('+s.id+',\''+eq(s.nome)+'\','+s.valor+')"'+
+      ' style="padding:11px 14px;cursor:pointer;display:flex;justify-content:space-between;'+
+      'align-items:center;border-bottom:1px solid #f0f0f0;transition:.1s;'+
+      (sel?'background:#eef2ff;':'')+'"'+
+      ' onmouseover="this.style.background=\'#f5f7ff\'" onmouseout="this.style.background=\''+(sel?'#eef2ff':'')+'\'">'+
+      '<div>'+
+        '<div style="font-weight:'+(sel?'700':'600')+';font-size:.88rem">'+
+          (sel?'✅ ':'')+eh(s.nome)+
+        '</div>'+
+        (s.descricao?'<div style="font-size:.74rem;color:#888;margin-top:1px">'+eh(s.descricao)+'</div>':'')+
+      '</div>'+
+      '<span style="font-weight:700;color:var(--azul);white-space:nowrap;margin-left:12px">'+brl(s.valor)+'</span>'+
+    '</div>';
+  }).join('');
+}
+
+function selecionarServicoCat(id, nome, valor){
+  _srvSel = {id, nome, valor};
+  document.getElementById('btn-srv-cat').disabled = false;
+  document.getElementById('srv-sel-info').style.display = 'block';
+  document.getElementById('srv-sel-info').innerHTML =
+    '✅ <b>'+eh(nome)+'</b> selecionado — <b>'+brl(valor)+'</b><br>'+
+    '<span style="font-size:.78rem;color:#666">Clique em "Adicionar ao Carrinho" para confirmar</span>';
+  filtrarServicos(); /* atualiza highlight */
+}
+
+function confirmarServicoCatalogo(){
+  if(!_srvSel){ toast('Selecione um serviço!','er'); return; }
+  _carrinho.push({
+    tipo:'servico', codigo:'SERV-'+Date.now(),
+    nome:_srvSel.nome, qtd:1, preco:_srvSel.valor, marca:'', aplicacao:''
+  });
+  renderCarrinho();
+  document.getElementById('modal-serv').classList.remove('ab');
+  toast('🔧 '+_srvSel.nome+' adicionado!','ok');
+
+  /* Auto-save na OS */
+  if(_osSel){
+    var srv = _srvSel;
+    salvarItemOS('servico', null, srv.nome, 1, srv.valor)
+      .catch(function(e){ console.warn('Erro salvar serviço OS:',e); });
+  }
+  _srvSel=null;
+}
+
+function confirmarServicoExclusivo(){
+  var nome  = document.getElementById('exc-nome').value.trim();
+  var valor = parseFloat(document.getElementById('exc-valor').value)||0;
+  if(!nome){ toast('Informe o nome do serviço!','er'); return; }
+  if(valor<=0){ toast('Valor deve ser maior que zero!','er'); return; }
+  _carrinho.push({
+    tipo:'servico', codigo:'SERV-'+Date.now(),
+    nome:nome, qtd:1, preco:valor, marca:'', aplicacao:''
+  });
+  renderCarrinho();
+  document.getElementById('modal-serv').classList.remove('ab');
+  toast('🔧 Serviço exclusivo adicionado!','ok');
+
+  /* Auto-save na OS */
+  if(_osSel){
+    salvarItemOS('servico', null, nome, 1, valor)
+      .catch(function(e){ console.warn('Erro salvar serviço exclusivo OS:',e); });
+  }
+}
+
+/* Cadastrar novo serviço no catálogo e já adicionar ao carrinho */
+async function cadastrarEAdicionarServico(){
+  var nome  = document.getElementById('new-srv-nome').value.trim();
+  var valor = parseFloat(document.getElementById('new-srv-valor').value)||0;
+  var desc  = document.getElementById('new-srv-desc').value.trim()||null;
+  if(!nome){ toast('Informe o nome do serviço!','er'); return; }
+  if(valor<=0){ toast('Valor deve ser maior que zero!','er'); return; }
+
+  var r = await db.from('servicos').insert({nome, valor, descricao:desc}).select('id').single();
+  if(r.error){ toast('❌ Erro ao salvar: '+r.error.message,'er'); return; }
+
+  _carrinho.push({
+    tipo:'servico', codigo:'SERV-'+Date.now(),
+    nome:nome, qtd:1, preco:valor, marca:'', aplicacao:''
+  });
+  renderCarrinho();
+  document.getElementById('modal-serv').classList.remove('ab');
+  toast('✅ Serviço "'+nome+'" cadastrado e adicionado!','ok');
+
+  /* Auto-save na OS */
+  if(_osSel){
+    salvarItemOS('servico', null, nome, 1, valor)
+      .catch(function(e){ console.warn('Erro salvar serviço novo OS:',e); });
+  }
+  /* atualiza cache */
+  _servicos.push({id:r.data.id, nome, valor, descricao:desc, ativo:true});
+  _servicos.sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+}
+
+/* ══════════════════════════════════════════
+   MODAL FINALIZAR — finalizar_venda + confirmar_pagamento
+══════════════════════════════════════════ */
+var _clienteFinSel = null;
+
+function abrirModalFinalizar(){
+  if(!_carrinho.length){ toast('Carrinho vazio!','av'); return; }
+  limparClienteFin();
+  document.getElementById('fin-desconto').value='0';
+  document.getElementById('fin-metodo').value='';
+  document.getElementById('fin-obs').value='';
+  document.getElementById('fin-recebido').value='';
+  document.getElementById('fin-troco').textContent='';
+  document.getElementById('div-troco').style.display='none';
+  document.getElementById('fin-desc-linha').style.display='none';
+  /* reset tipo desconto para % */
+  _tipoDesc='pct';
+  setTipoDesc('pct');
+  recalcularTotal();
+  document.getElementById('modal-fin').classList.add('ab');
+}
+
+/* tipo de desconto: 'pct' = porcentagem, 'val' = valor fixo em R$ */
+var _tipoDesc = 'pct';
+
+function setTipoDesc(tipo){
+  _tipoDesc = tipo;
+  /* visual dos botões toggle */
+  document.getElementById('btn-desc-pct').style.background = tipo==='pct' ? 'var(--azul)' : '#e9ecef';
+  document.getElementById('btn-desc-pct').style.color      = tipo==='pct' ? '#fff'        : '#555';
+  document.getElementById('btn-desc-val').style.background = tipo==='val' ? 'var(--azul)' : '#e9ecef';
+  document.getElementById('btn-desc-val').style.color      = tipo==='val' ? '#fff'        : '#555';
+  document.getElementById('fin-desc-sufixo').textContent   = tipo==='pct' ? '%'           : 'R$';
+  /* limita max só no modo % */
+  document.getElementById('fin-desconto').max = tipo==='pct' ? '100' : '';
+  recalcularTotal();
+}
+
+function recalcularTotal(){
+  var bruto     = _carrinho.reduce(function(s,it){ return s+it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1); },0);
+  var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
+
+  var valorDesc, pct;
+  if(_tipoDesc==='pct'){
+    pct       = Math.min(100, Math.max(0, descInput));
+    valorDesc = bruto * pct / 100;
+  }else{
+    valorDesc = Math.min(bruto, Math.max(0, descInput));
+    pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
+  }
+
+  var liq = bruto - valorDesc;
+
+  document.getElementById('fin-bruto').textContent = brl(bruto);
+  document.getElementById('fin-total').textContent  = brl(liq);
+
+  /* mostra linha de desconto em R$ quando há desconto */
+  var linhaDesc = document.getElementById('fin-desc-linha');
+  if(valorDesc>0){
+    linhaDesc.style.display='flex';
+    document.getElementById('fin-desc-val-exib').textContent = '- '+brl(valorDesc)+
+      (_tipoDesc==='val'?' ('+pct.toFixed(1)+'%)':' ');
+  }else{
+    linhaDesc.style.display='none';
+  }
+
+  /* troco */
+  document.getElementById('div-troco').style.display =
+    document.getElementById('fin-metodo').value==='Dinheiro' ? 'block' : 'none';
+  calcularTroco();
+}
+
+function calcularTroco(){
+  var liq = parseFloat(document.getElementById('fin-total').textContent.replace('R$ ','').replace(',','.'))||0;
+  var rec = parseFloat(document.getElementById('fin-recebido').value)||0;
+  var troco = rec - liq;
+  document.getElementById('fin-troco').textContent = troco>=0?'Troco: '+brl(troco):'';
+}
+
+document.getElementById('fin-metodo').addEventListener('change', recalcularTotal);
+
+/* busca cliente no modal de finalizar */
+async function buscarClienteFin(){
+  var t = document.getElementById('fin-cli-busca').value.trim();
+  var drop = document.getElementById('fin-cli-drop');
+  if(t.length<2){ drop.style.display='none'; return; }
+
+  var r = await db.from('clientes').select('id,nome,telefone,cpf')
+    .or('nome.ilike.%'+t+'%,cpf.ilike.%'+t+'%,telefone.ilike.%'+t+'%').limit(8);
+
+  if(!r.data||!r.data.length){ drop.innerHTML='<div class="it" style="color:#aaa">Nenhum cliente</div>'; drop.style.display='block'; return; }
+  drop.innerHTML = r.data.map(function(c){
+    return '<div class="it" onclick="selecionarClienteFin('+c.id+',\''+eq(c.nome)+'\',\''+eq(c.telefone||'')+'\')">'+
+      '<div>'+eh(c.nome)+'</div>'+
+      '<div class="sub">📞 '+(c.telefone||'—')+(c.cpf?' · CPF: '+c.cpf:'')+'</div>'+
+    '</div>';
+  }).join('');
+  drop.style.display='block';
+}
+
+function selecionarClienteFin(id,nome,tel){
+  _clienteFinSel={id,nome,telefone:tel};
+  document.getElementById('fin-cli-id').value=id;
+  document.getElementById('fin-cli-drop').style.display='none';
+  document.getElementById('fin-cli-busca').value='';
+  var sel=document.getElementById('fin-cli-sel');
+  document.getElementById('fin-cli-nome').textContent=nome+(tel?' — '+tel:'');
+  sel.style.display='flex';
+}
+function limparClienteFin(){
+  _clienteFinSel=null;
+  document.getElementById('fin-cli-id').value='';
+  document.getElementById('fin-cli-sel').style.display='none';
+  document.getElementById('fin-cli-busca').value='';
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.cli-drop-wrap')) document.getElementById('fin-cli-drop').style.display='none';
+});
+
+/* ── CONFIRMAR VENDA — confirmar_pagamento ── */
+async function confirmarVenda(){
+  var metodo = document.getElementById('fin-metodo').value;
+  var obs    = document.getElementById('fin-obs').value.trim();
+
+  if(!metodo){ toast('Selecione o método de pagamento!','er'); return; }
+
+  var bruto     = _carrinho.reduce(function(s,it){ return s+it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1); },0);
+  var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
+  var valorDesc, pct;
+  if(_tipoDesc==='pct'){
+    pct       = Math.min(100, Math.max(0, descInput));
+    valorDesc = bruto * pct / 100;
+  }else{
+    valorDesc = Math.min(bruto, Math.max(0, descInput));
+    pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
+  }
+  var total   = bruto - valorDesc;
+  var desc    = parseFloat(pct.toFixed(2));
+  var cliNome = _clienteFinSel ? _clienteFinSel.nome : 'Consumidor Final';
+  var cliId   = _clienteFinSel ? _clienteFinSel.id   : null;
+
+  try{
+    /* 1. Insere venda */
+    var rv = await db.from('vendas').insert({
+      total:parseFloat(total.toFixed(2)),
+      total_bruto:parseFloat(bruto.toFixed(2)),
+      desconto:desc,
+      metodo_pagamento:metodo,
+      cliente_nome:cliNome,
+      cliente_id:cliId||null,
+      responsavel:USERNAME,
+      observacoes:obs||null
+    }).select('id').single();
+    if(rv.error) throw new Error(rv.error.message);
+    var vendaId = rv.data.id;
+
+    /* 2. Insere itens e atualiza estoque */
+    var itensBatch = [];
+    for(var i=0;i<_carrinho.length;i++){
+      var it = _carrinho[i];
+      var valorCompra = it.tipo==='produto'||it.tipo==='peca' ? (await getValorCompra(it.codigo)) : 0;
+      itensBatch.push({
+        venda_id:       vendaId,
+        produto_codigo: it.tipo==='produto'||it.tipo==='peca' ? it.codigo : null,
+        nome_produto:   it.nome,
+        quantidade:     it.qtd,
+        preco_unitario: it.preco,
+        valor_compra:   valorCompra,
+        tipo:           (it.tipo==='peca' ? 'produto' : it.tipo)
+      });
+
+      /* atualiza estoque para produto */
+      if(it.tipo==='produto' || it.tipo==='peca'){
+        /* tenta RPC — se falhar usa fallback direto */
+        var rpc = await db.rpc('decrementar_estoque', {p_codigo: it.codigo, p_qtd: it.qtd});
+        if(rpc.error){
+          /* fallback: decrementa manualmente */
+          var re = await db.from('itens').select('estoque').eq('codigo', it.codigo).single();
+          if(re.data){
+            await db.from('itens').update({estoque: re.data.estoque - it.qtd}).eq('codigo', it.codigo);
+          }
+        }
+        /* registra movimentação */
+        await db.from('movimentacoes').insert({
+          item_codigo: it.codigo, tipo: 'VENDA',
+          quantidade:  it.qtd,
+          data:        new Date().toISOString(),
+          responsavel: USERNAME
+        });
+      }
+    }
+    var ri = await db.from('itens_venda').insert(itensBatch);
+    if(ri.error) throw new Error(ri.error.message);
+
+    /* 3. Fecha modal e mostra cupom */
+    document.getElementById('modal-fin').classList.remove('ab');
+    mostrarCupom(vendaId, cliNome, metodo, bruto, total, desc, obs);
+
+    /* 4. Limpa carrinho e recarrega produtos */
+    _carrinho=[];
+    await carregarProdutos();
+    renderCarrinho();
+
+  }catch(e){
+    toast('❌ Erro: '+e.message,'er');
+    console.error(e);
+  }
+}
+
+async function getValorCompra(codigo){
+  var r = await db.from('itens').select('valor_unitario').eq('codigo',codigo).single();
+  return r.data ? r.data.valor_unitario : 0;
+}
+
+/* ══════════════════════════════════════════
+   CUPOM — gerar_cupom (HTML popup inline)
+══════════════════════════════════════════ */
+var _cupomDados = null;
+
+function mostrarCupom(vendaId, cliNome, metodo, bruto, total, desc, obs){
+  _cupomDados = {vendaId, cliNome, metodo, bruto, total, desc};
+
+  document.getElementById('cupom-info').innerHTML =
+    '<b>Venda #'+vendaId+'</b><br>'+
+    '📅 '+new Date().toLocaleString('pt-BR')+'<br>'+
+    '👤 '+eh(cliNome)+'<br>'+
+    '💳 '+metodo+
+    (obs?'<br>📝 '+eh(obs):'');
+
+  var itensHtml = _carrinho.length ? '' : '';
+  /* _carrinho ainda tem os dados antes de limpar — capturamos antes */
+  /* Na prática vamos buscar do banco */
+  carregarItensCupom(vendaId);
+
+  document.getElementById('cupom-bruto').textContent = desc>0 ? 'Subtotal: '+brl(bruto) : '';
+  document.getElementById('cupom-desc').textContent  = desc>0 ? 'Desconto: '+desc+'%' : '';
+  document.getElementById('cupom-liq').textContent   = 'Total: '+brl(total);
+  document.getElementById('cupom-metodo').textContent= '💳 '+metodo;
+
+  var hasZap = _clienteFinSel && _clienteFinSel.telefone;
+  document.getElementById('btn-zap-cupom').style.display = hasZap ? 'flex' : 'none';
+
+  /* confetti */
+  lancaConfetti();
+  document.getElementById('cupom-popup').classList.add('ab');
+}
+
+async function carregarItensCupom(vendaId){
+  var r = await db.from('itens_venda').select('*').eq('venda_id',vendaId);
+  if(r.error||!r.data) return;
+  document.getElementById('cupom-itens').innerHTML = r.data.map(function(it){
+    var total = it.preco_unitario * it.quantidade;
+    if(it.tipo==='servico'){
+      return '<tr class="serv"><td colspan="3">🔧 Serviço: '+eh(it.nome_produto)+'</td>'+
+        '<td>'+it.quantidade+'</td><td>'+brl(it.preco_unitario)+'</td><td>'+brl(total)+'</td></tr>';
+    }
+    return '<tr><td>'+eh(it.nome_produto)+'</td><td>—</td><td>—</td>'+
+      '<td>'+it.quantidade+'</td><td>'+brl(it.preco_unitario)+'</td><td>'+brl(total)+'</td></tr>';
+  }).join('');
+}
+
+function fecharCupom(){
+  document.getElementById('cupom-popup').classList.remove('ab');
+  _cupomDados=null; _clienteFinSel=null;
+}
+
+function enviarZapCupom(){
+  if(!_clienteFinSel||!_clienteFinSel.telefone){ toast('Sem telefone!','av'); return; }
+  var d = _cupomDados;
+  var msg='🔧 *Mendezza Auto Peças*\n\n';
+  msg+='📋 *Venda #'+d.vendaId+'*\n';
+  msg+='📅 '+new Date().toLocaleString('pt-BR')+'\n\n';
+  if(d.desc>0){ msg+='Subtotal: '+brl(d.bruto)+'\nDesconto: '+d.desc+'%\n'; }
+  msg+='*Total: '+brl(d.total)+'*\n💳 '+d.metodo+'\n\n';
+  msg+='✅ Obrigado pela preferência!\n🏪 Rua Roque Ferreira Pimenta, 418A\n📞 38 2100-4246';
+  var tel=_clienteFinSel.telefone.replace(/\D/g,'');
+  if(tel.length===11) tel='55'+tel;
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+function lancaConfetti(){
+  var colors=['#3498db','#2ecc71','#e74c3c','#f39c12','#9b59b6'];
+  for(var i=0;i<40;i++){
+    var el=document.createElement('div');
+    el.style.cssText='position:fixed;width:10px;height:10px;border-radius:50%;pointer-events:none;z-index:9999;'+
+      'background:'+colors[Math.floor(Math.random()*colors.length)]+';'+
+      'left:'+Math.random()*100+'vw;top:-10px;'+
+      'animation:fall '+(Math.random()*2+1.5)+'s linear forwards';
+    document.body.appendChild(el);
+    setTimeout(function(e){ e.remove(); },(Math.random()*2+1.5)*1000+100,el);
+  }
+  var s=document.createElement('style');
+  s.textContent='@keyframes fall{to{transform:translateY(105vh) rotate(360deg)}}';
+  document.head.appendChild(s);
+}
+
+/* ══════════════════════════════════════════
+   MODAL CADASTRO CLIENTE
+══════════════════════════════════════════ */
+function abrirModalCadCli(){
+  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('modal-cad-cli').classList.add('ab');
+  setTimeout(function(){ document.getElementById('cc-nome').focus(); },80);
+}
+
+async function salvarNovoCliente(){
+  var nome  = document.getElementById('cc-nome').value.trim();
+  var cpf   = document.getElementById('cc-cpf').value.trim()||null;
+  var tel   = document.getElementById('cc-tel').value.trim()||null;
+  var end   = document.getElementById('cc-end').value.trim()||null;
+  var email = document.getElementById('cc-email').value.trim()||null;
+
+  if(!nome){ toast('Nome obrigatório!','er'); return; }
+
+  var r = await db.from('clientes').insert({nome,cpf,telefone:tel,email,endereco:end||''}).select('id,nome,telefone').single();
+  if(r.error){ toast('❌ Erro: '+(r.error.code==='23505'?'CPF já cadastrado!':r.error.message),'er'); return; }
+
+  toast('✅ Cliente cadastrado!','ok');
+  document.getElementById('modal-cad-cli').classList.remove('ab');
+  selecionarClienteFin(r.data.id, r.data.nome, r.data.telefone||'');
+}
+
+/* ══════════════════════════════════════════
+   HISTÓRICO DE VENDAS
+══════════════════════════════════════════ */
+async function carregarHistorico(){
+  var el = document.getElementById('hist-lista');
+  el.innerHTML='<div style="text-align:center;color:#bbb;padding:32px">Carregando...</div>';
+
+  var de     = document.getElementById('hist-de').value;
+  var ate    = document.getElementById('hist-ate').value;
+  var metodo = document.getElementById('hist-metodo').value;
+  var busca  = document.getElementById('hist-busca').value.trim().toLowerCase();
+
+  /* query direta — sem view para evitar cache miss */
+  var q = db.from('vendas')
+    .select('id,data,total,total_bruto,desconto,metodo_pagamento,cliente_nome,responsavel,status,observacoes,cliente_id,clientes(telefone)');
+
+  if(de)     q = q.gte('data', de+'T00:00:00');
+  if(ate)    q = q.lte('data', ate+'T23:59:59');
+  if(metodo) q = q.eq('metodo_pagamento', metodo);
+
+  var r = await q.order('data',{ascending:false}).limit(100);
+  if(r.error){
+    el.innerHTML='<div style="color:red;padding:20px">❌ '+eh(r.error.message)+'</div>';
+    return;
+  }
+
+  var dados = (r.data||[]).filter(function(v){
+    if(!busca) return true;
+    return (v.cliente_nome||'').toLowerCase().includes(busca);
+  });
+
+  if(!dados.length){
+    el.innerHTML='<div style="text-align:center;color:#bbb;padding:32px">Nenhuma venda encontrada.</div>';
+    return;
+  }
+
+  /* busca contagem de itens por venda em lote */
+  var ids = dados.map(function(v){ return v.id; });
+  var riv = await db.from('itens_venda').select('venda_id').in('venda_id', ids);
+  var contagem = {};
+  (riv.data||[]).forEach(function(x){ contagem[x.venda_id]=(contagem[x.venda_id]||0)+1; });
+
+  var totalGeral = dados.reduce(function(s,v){ return s+Number(v.total||0); },0);
+  document.getElementById('hist-resumo').textContent =
+    dados.length+' venda(s) · Total: '+brl(totalGeral);
+
+  var badges = {'Dinheiro':'bdinheiro','Cartão Crédito':'bcredito','Cartão Débito':'bdebito','PIX':'bpix'};
+
+  el.innerHTML = dados.map(function(v){
+    var bcls   = badges[v.metodo_pagamento]||'';
+    var telCli = v.clientes ? v.clientes.telefone : null;
+    var canc   = v.status==='cancelada';
+    return '<div class="hist-card" style="border-left-color:'+(canc?'#dc3545':'var(--azul2)')+'">'+
+      '<div>'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">'+
+          '<span class="badge '+bcls+'">'+eh(v.metodo_pagamento||'—')+'</span>'+
+          (canc?'<span class="badge" style="background:#f8d7da;color:#721c24">❌ Cancelada</span>':'')+
+          '<span style="font-size:.74rem;color:#aaa">#'+v.id+' · '+dHora(v.data)+'</span>'+
+        '</div>'+
+        '<h4>'+eh(v.cliente_nome||'Consumidor Final')+'</h4>'+
+        '<p>'+(contagem[v.id]||0)+' item(ns)'+
+          (v.desconto>0?' · Desconto: '+v.desconto+'%':'')+
+          (v.responsavel?' · '+v.responsavel:'')+
+        '</p>'+
+        (v.observacoes?'<p style="font-size:.76rem;color:#999;margin-top:2px">📝 '+eh(v.observacoes)+'</p>':'')+
+      '</div>'+
+      '<div style="text-align:right;flex-shrink:0">'+
+        (v.total_bruto&&Number(v.total_bruto)>Number(v.total)?
+          '<div style="font-size:.76rem;color:#aaa;text-decoration:line-through">'+brl(v.total_bruto)+'</div>':'')+
+        '<div class="total" style="'+(canc?'text-decoration:line-through;color:#aaa':'')+'">'+brl(v.total)+'</div>'+
+        '<div style="display:flex;gap:5px;margin-top:6px;justify-content:flex-end;flex-wrap:wrap">'+
+          '<button class="btn ba" style="padding:4px 10px;font-size:.76rem" onclick="verDetalhesVenda('+v.id+')">📋 Detalhes / Reverter</button>'+
+          (telCli?'<button class="btn bwp" style="padding:4px 10px;font-size:.76rem" onclick="reenviarZapVenda('+v.id+',\''+eq(telCli)+'\')">📲</button>':'')+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* ══════════════════════════════════════════
+   DETALHES DA VENDA — com reversão por item
+══════════════════════════════════════════ */
+async function verDetalhesVenda(vendaId){
+  document.getElementById('modal-det').classList.add('ab');
+  document.getElementById('det-titulo').textContent = 'Venda #'+vendaId;
+  document.getElementById('det-body').innerHTML = '<div style="text-align:center;padding:24px;color:#aaa">Carregando...</div>';
+  document.getElementById('det-resumo').innerHTML = '';
+  document.getElementById('det-total-val').textContent = '';
+
+  var rv = await db.from('vendas').select('*').eq('id',vendaId).single();
+  var ri = await db.from('itens_venda').select('*').eq('venda_id',vendaId).order('id');
+  if(rv.error||!rv.data){ toast('Erro ao carregar venda','er'); return; }
+
+  renderModalDetalhe(rv.data, ri.data||[]);
+}
+
+function renderModalDetalhe(v, itens){
+  var canc = v.status==='cancelada';
+  var vendaId = v.id;
+
+  /* Título */
+  document.getElementById('det-titulo').textContent =
+    'Venda #'+vendaId + (canc?' — ❌ CANCELADA':'');
+
+  /* Resumo */
+  document.getElementById('det-resumo').innerHTML =
+    '<div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;font-size:.83rem;line-height:1.9;flex:1">'+
+      '<b>📅</b> '+dHora(v.data)+'<br>'+
+      '<b>👤</b> '+eh(v.cliente_nome||'Consumidor Final')+'<br>'+
+      '<b>💳</b> '+eh(v.metodo_pagamento||'—')+
+      (v.desconto>0?' &nbsp;·&nbsp; <b>Desconto:</b> '+v.desconto+'%':'')+
+      (v.observacoes?'<br><b>📝</b> '+eh(v.observacoes):'')+
+    '</div>';
+
+  /* Total + botão adicionar produto */
+  document.getElementById('det-total-val').textContent = brl(v.total);
+
+  /* Botão adicionar produto à venda */
+  var btnAdd = document.getElementById('det-btn-add');
+  if(!canc){
+    btnAdd.style.display='inline-flex';
+    btnAdd.onclick=function(){ abrirAddProd(vendaId, v.desconto||0, v.total); };
+  }else{
+    btnAdd.style.display='none';
+  }
+
+  /* Tabela de itens */
+  document.getElementById('det-body').innerHTML =
+    '<table style="width:100%;border-collapse:collapse;font-size:.84rem">'+
+    '<thead><tr style="background:var(--azul);color:#fff">'+
+      '<th style="padding:9px 10px;text-align:left">Produto / Serviço</th>'+
+      '<th style="padding:9px 10px;text-align:center">Qtd</th>'+
+      '<th style="padding:9px 10px;text-align:right">Unit.</th>'+
+      '<th style="padding:9px 10px;text-align:right">Total</th>'+
+      '<th style="padding:9px 10px;text-align:center;background:#c0392b">↩️ Reverter</th>'+
+    '</tr></thead><tbody>'+
+    itens.map(function(it){
+      var rev   = it.revertido;
+      var totIt = it.preco_unitario * it.quantidade;
+      var nome  = (it.tipo==='servico'?'🔧 ':'')+eh(it.nome_produto||it.produto_codigo||'—');
+
+      return '<tr style="border-bottom:1px solid #eee;'+(rev?'background:#fdf2f2':'')+'">'+
+        '<td style="padding:8px 10px">'+
+          (rev?'<s style="color:#bbb">'+nome+'</s>':nome)+
+          (rev?'<br><span style="font-size:.72rem;color:#dc3545">↩️ Revertido em '+dHora(it.data_reversao)+'</span>':'')+
+        '</td>'+
+        '<td style="padding:8px 10px;text-align:center;'+(rev?'color:#bbb;text-decoration:line-through':'')+'">'+it.quantidade+'</td>'+
+        '<td style="padding:8px 10px;text-align:right;'+(rev?'color:#bbb;text-decoration:line-through':'')+'">'+brl(it.preco_unitario)+'</td>'+
+        '<td style="padding:8px 10px;text-align:right;font-weight:700;'+(rev?'color:#bbb;text-decoration:line-through':'')+'">'+brl(totIt)+'</td>'+
+        '<td style="padding:8px 10px;text-align:center">'+
+          (rev
+            ? '<span style="font-size:.75rem;color:#dc3545;font-weight:700">Revertido</span>'
+            : '<button class="btn br" style="padding:5px 14px;font-size:.82rem;font-weight:700"'+
+              ' onclick="abrirRevQtd('+it.id+',\''+eq(it.nome_produto||'')+'\','+it.quantidade+','+it.preco_unitario+','+vendaId+','+v.desconto+','+v.total+')">'+
+              '↩️ Reverter</button>'
+          )+
+        '</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table>';
+}
+
+/* ── Confirmação de reversão de item ── */
+function confirmarReversaoItem(itemId, nomeItem, vendaId){
+  if(!confirm('Reverter o item "'+nomeItem+'"?\n\nIsso irá:\n• Devolver a quantidade ao estoque\n• Recalcular o total da venda\n• Se for o último item → venda ficará cancelada')){
+    return;
+  }
+  reverterItem(itemId, vendaId);
+}
+
+async function reverterItem(itemId, vendaId){
+  var r = await db.rpc('reverter_item_venda', { p_item_id: itemId, p_usuario: USERNAME });
+
+  if(r.error){
+    await reverterItemManual(itemId, vendaId);
+    return;
+  }
+
+  var res = r.data;
+  if(res && !res.ok){ toast('❌ '+res.erro,'er'); return; }
+
+  var msg = '✅ Item revertido! Estoque devolvido.';
+  if(res && res.cancelada) msg += ' Venda cancelada.';
+  toast(msg,'ok');
+
+  /* Atualiza total na tela imediatamente */
+  if(res && res.novo_total !== undefined){
+    document.getElementById('det-total-val').textContent = brl(res.novo_total);
+  }
+
+  /* Recarrega tabela de itens e histórico */
+  verDetalhesVenda(vendaId);
+  carregarHistorico();
+}
+
+async function reverterItemManual(itemId, vendaId){
+  try{
+    var ri = await db.from('itens_venda').select('*').eq('id',itemId).single();
+    if(ri.error||!ri.data){ toast('Item não encontrado','er'); return; }
+    var it = ri.data;
+    if(it.revertido){ toast('Item já foi revertido!','av'); return; }
+
+    /* Marca como revertido */
+    await db.from('itens_venda').update({
+      revertido:     true,
+      data_reversao: new Date().toISOString(),
+      revertido_por: USERNAME
+    }).eq('id', itemId);
+
+    /* Devolve estoque se for produto */
+    if(it.tipo==='produto' && it.produto_codigo){
+      var re = await db.from('itens').select('estoque').eq('codigo',it.produto_codigo).single();
+      if(re.data){
+        var novoEst = re.data.estoque + it.quantidade;
+        await db.from('itens').update({estoque: novoEst}).eq('codigo',it.produto_codigo);
+        /* atualiza cache local para refletir na tela de vendas */
+        var p = _produtos.find(function(x){ return x.codigo===it.produto_codigo; });
+        if(p){ p.estoque = novoEst; filtrarProdutos(); }
+      }
+      await db.from('movimentacoes').insert({
+        item_codigo: it.produto_codigo, tipo: 'REVERSAO_VENDA',
+        quantidade:  it.quantidade,
+        data:        new Date().toISOString(),
+        responsavel: USERNAME
+      });
+    }
+
+    /* ── Recalcula total da venda com desconto proporcional ──
+       Lógica: novo_total = total_atual - (preco_item * qtd * (1 - desc/100))
+       Ex: total R$90 (10% desc), item R$20 → subtrai R$18 → novo total R$72  */
+
+    /* Busca total atual e desconto da venda */
+    var rvd = await db.from('vendas').select('total,desconto').eq('id',vendaId).single();
+    var totalAtual = rvd.data ? Number(rvd.data.total||0)    : 0;
+    var desc       = rvd.data ? Number(rvd.data.desconto||0) : 0;
+
+    /* Valor do item já com desconto aplicado */
+    var valorItemComDesc = it.preco_unitario * it.quantidade * (1 - desc/100);
+    var novoTotal = Math.max(0, totalAtual - valorItemComDesc);
+    novoTotal = parseFloat(novoTotal.toFixed(2));
+
+    /* Verifica se todos revertidos */
+    var rv3 = await db.from('itens_venda').select('id').eq('venda_id',vendaId).eq('revertido',false);
+    var todosRev = !rv3.data || rv3.data.length===0;
+    if(todosRev) novoTotal = 0;
+
+    await db.from('vendas').update({
+      total:  novoTotal,
+      status: todosRev ? 'cancelada' : 'ativa'
+    }).eq('id', vendaId);
+
+    /* Atualiza total na tela imediatamente */
+    document.getElementById('det-total-val').textContent = brl(novoTotal);
+
+    var valorDesc = desc>0 ? ' (com '+desc+'% desc = -'+brl(valorItemComDesc)+')' : ' (-'+brl(it.preco_unitario*it.quantidade)+')';
+    var msg = '✅ Item revertido! Estoque devolvido. Novo total: '+brl(novoTotal)+valorDesc;
+    if(todosRev) msg = '✅ Todos os itens revertidos. Venda cancelada.';
+    toast(msg,'ok');
+
+    verDetalhesVenda(vendaId);
+    carregarHistorico();
+  }catch(e){
+    toast('❌ Erro: '+e.message,'er');
+    console.error(e);
+  }
+}
+
+async function reenviarZapVenda(vendaId, tel){
+  var rv = await db.from('vendas').select('*').eq('id',vendaId).single();
+  var ri = await db.from('itens_venda').select('*').eq('venda_id',vendaId).eq('revertido',false);
+  if(!rv.data) return;
+  var v=rv.data; var itens=ri.data||[];
+
+  var msg='🔧 *Mendezza Auto Peças*\n\n';
+  msg+='📋 *Venda #'+v.id+'*\n';
+  msg+='📅 '+dHora(v.data)+'\n\n';
+  itens.forEach(function(it){
+    msg+=(it.tipo==='servico'?'🔧 ':'📦 ')+eh(it.nome_produto||'')+
+      ' × '+it.quantidade+' = '+brl(it.preco_unitario*it.quantidade)+'\n';
+  });
+  if(v.desconto>0) msg+='\nDesconto: '+v.desconto+'%\n';
+  msg+='*Total: '+brl(v.total)+'*\n💳 '+v.metodo_pagamento+'\n\n';
+  msg+='✅ Obrigado pela preferência!\n📞 38 2100-4246';
+
+  var t=tel.replace(/\D/g,'');
+  if(t.length===11) t='55'+t;
+  window.open('https://wa.me/'+t+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+/* ══════════════════════════════════════════
+   REVERSÃO PARCIAL POR QUANTIDADE
+══════════════════════════════════════════ */
+var _revDados = null; /* {itemId, nome, qtdMax, preco, vendaId, desconto, totalAtual} */
+
+function abrirRevQtd(itemId, nome, qtdMax, preco, vendaId, desconto, totalAtual){
+  _revDados = {itemId, nome, qtdMax, preco, vendaId, desconto:Number(desconto||0), totalAtual:Number(totalAtual||0)};
+
+  document.getElementById('rev-qtd').value = 1;
+  document.getElementById('rev-qtd').max   = qtdMax;
+
+  document.getElementById('rev-info').innerHTML =
+    '<b>Produto:</b> '+eh(nome)+'<br>'+
+    '<b>Qtd vendida:</b> '+qtdMax+' un.  ·  '+
+    '<b>Preço unit.:</b> '+brl(preco)+
+    (desconto>0?' &nbsp;·&nbsp; <b>Desconto venda:</b> '+desconto+'%':'');
+
+  atualizarPreviewReversao();
+  document.getElementById('modal-rev-qtd').classList.add('ab');
+  setTimeout(function(){ document.getElementById('rev-qtd').focus(); document.getElementById('rev-qtd').select(); },80);
+}
+
+function atualizarPreviewReversao(){
+  if(!_revDados) return;
+  var qtd      = Math.min(Math.max(1, parseInt(document.getElementById('rev-qtd').value)||1), _revDados.qtdMax);
+  var brutoIt  = _revDados.preco * qtd;
+  var desc     = _revDados.desconto;
+  var comDesc  = brutoIt * (1 - desc/100);
+  var novoTot  = Math.max(0, _revDados.totalAtual - comDesc);
+
+  document.getElementById('rev-preview').innerHTML =
+    '↩️ Reverter <b>'+qtd+' un.</b> de '+eh(_revDados.nome)+'<br>'+
+    'Valor bruto do item: '+brl(brutoIt)+
+    (desc>0?' — desconto '+desc+'% = <b style="color:#dc3545">-'+brl(comDesc)+'</b>':'<b style="color:#dc3545"> -'+brl(brutoIt)+'</b>')+'<br>'+
+    'Novo total da venda: <b style="color:var(--verde2)">'+brl(novoTot)+'</b>';
+}
+
+async function executarReversao(){
+  if(!_revDados) return;
+  var qtd = Math.min(Math.max(1, parseInt(document.getElementById('rev-qtd').value)||1), _revDados.qtdMax);
+  document.getElementById('modal-rev-qtd').classList.remove('ab');
+
+  await reverterItemParcial(_revDados.itemId, qtd, _revDados.vendaId, _revDados.desconto, _revDados.totalAtual, _revDados.preco, _revDados.qtdMax);
+  _revDados = null;
+}
+
+async function reverterItemParcial(itemId, qtdReverter, vendaId, desconto, totalAtual, preco, qtdTotal){
+  try{
+    var comDesc  = preco * qtdReverter * (1 - desconto/100);
+    var novoTotal = Math.max(0, parseFloat((totalAtual - comDesc).toFixed(2)));
+    var qtdRestante = qtdTotal - qtdReverter;
+    var todosRev = qtdRestante <= 0;
+
+    if(todosRev){
+      /* reverte o item inteiro */
+      await db.from('itens_venda').update({
+        revertido: true, data_reversao: new Date().toISOString(), revertido_por: USERNAME
+      }).eq('id', itemId);
+    }else{
+      /* atualiza quantidade do item (deixa o restante) */
+      await db.from('itens_venda').update({ quantidade: qtdRestante }).eq('id', itemId);
+    }
+
+    /* devolve estoque */
+    var ri = await db.from('itens_venda').select('produto_codigo,tipo').eq('id',itemId).single();
+    if(ri.data && ri.data.tipo==='produto' && ri.data.produto_codigo){
+      var re = await db.from('itens').select('estoque').eq('codigo',ri.data.produto_codigo).single();
+      if(re.data){
+        var novoEst = re.data.estoque + qtdReverter;
+        await db.from('itens').update({estoque: novoEst}).eq('codigo',ri.data.produto_codigo);
+        var p = _produtos.find(function(x){ return x.codigo===ri.data.produto_codigo; });
+        if(p){ p.estoque = novoEst; filtrarProdutos(); }
+      }
+      await db.from('movimentacoes').insert({
+        item_codigo: ri.data.produto_codigo, tipo:'REVERSAO_VENDA',
+        quantidade: qtdReverter, data: new Date().toISOString(), responsavel: USERNAME
+      });
+    }
+
+    /* atualiza total e status da venda */
+    var rv3 = await db.from('itens_venda').select('id').eq('venda_id',vendaId).eq('revertido',false);
+    var todosRevFinal = todosRev && (!rv3.data || rv3.data.length===0);
+    await db.from('vendas').update({
+      total: novoTotal, status: todosRevFinal ? 'cancelada' : 'ativa'
+    }).eq('id', vendaId);
+
+    document.getElementById('det-total-val').textContent = brl(novoTotal);
+    var msg = '✅ '+qtdReverter+' un. revertida(s)! Estoque devolvido. Novo total: '+brl(novoTotal);
+    if(todosRevFinal) msg = '✅ Venda cancelada (todos itens revertidos).';
+    toast(msg, 'ok');
+    verDetalhesVenda(vendaId);
+    carregarHistorico();
+  }catch(e){
+    toast('❌ Erro: '+e.message,'er');
+    console.error(e);
+  }
+}
+
+/* ══════════════════════════════════════════
+   ADICIONAR PRODUTO À VENDA JÁ REALIZADA
+══════════════════════════════════════════ */
+var _addVenda  = null; /* {vendaId, desconto, totalAtual} */
+var _addProdSel = null;
+var _addComDesc = true;
+
+function abrirAddProd(vendaId, desconto, totalAtual){
+  _addVenda   = {vendaId, desconto:Number(desconto||0), totalAtual:Number(totalAtual||0)};
+  _addProdSel = null;
+  _addComDesc = true;
+
+  document.getElementById('add-busca').value    = '';
+  document.getElementById('add-drop').style.display = 'none';
+  document.getElementById('add-sel').style.display  = 'none';
+  document.getElementById('add-campos').style.display = 'none';
+  document.getElementById('btn-add-prod').disabled = true;
+  document.getElementById('add-venda-info').innerHTML =
+    'Adicionando à <b>Venda #'+vendaId+'</b>'+
+    (desconto>0?' &nbsp;·&nbsp; Desconto da venda: <b>'+desconto+'%</b>':'');
+  setDescAdd(true);
+  document.getElementById('modal-add-prod').classList.add('ab');
+  setTimeout(function(){ document.getElementById('add-busca').focus(); },80);
+}
+
+function fecharAddProd(){
+  document.getElementById('modal-add-prod').classList.remove('ab');
+  _addVenda=null; _addProdSel=null;
+}
+
+async function buscarProdAdd(){
+  var t = document.getElementById('add-busca').value.trim();
+  var drop = document.getElementById('add-drop');
+  if(t.length<2){ drop.style.display='none'; return; }
+
+  var r = await db.from('itens').select('codigo,nome,marca,estoque,preco_venda')
+    .or('codigo.ilike.%'+t+'%,nome.ilike.%'+t+'%,marca.ilike.%'+t+'%')
+    .gt('estoque',0).limit(8);
+
+  if(!r.data||!r.data.length){
+    drop.innerHTML='<div style="padding:10px 14px;color:#aaa;font-size:.85rem">Nenhum produto encontrado</div>';
+    drop.style.display='block'; return;
+  }
+  drop.innerHTML = r.data.map(function(p){
+    return '<div onclick="selecionarProdAdd(\''+eq(p.codigo)+'\',\''+eq(p.nome)+'\','+p.estoque+','+p.preco_venda+',\''+eq(p.marca||'')+'\')'+
+      '" style="padding:9px 14px;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f0f0f0;transition:.1s"'+
+      ' onmouseover="this.style.background=\'#eef2ff\'" onmouseout="this.style.background=\'\'">' +
+      '<b>'+eh(p.nome)+'</b> <span style="color:#aaa;font-size:.78rem">['+eh(p.codigo)+']</span><br>'+
+      '<span style="font-size:.78rem;color:#666">'+eh(p.marca||'')+'  ·  Estoque: '+p.estoque+' un.  ·  '+brl(p.preco_venda)+'</span>'+
+    '</div>';
+  }).join('');
+  drop.style.display='block';
+}
+
+function selecionarProdAdd(codigo, nome, estoque, preco, marca){
+  _addProdSel = {codigo, nome, estoque, preco};
+  document.getElementById('add-drop').style.display='none';
+  document.getElementById('add-busca').value='';
+  document.getElementById('add-qtd').value='1';
+  document.getElementById('add-qtd').max=estoque;
+  document.getElementById('add-preco').value=preco.toFixed(2);
+  document.getElementById('add-sel-info').innerHTML=
+    '<b>'+eh(nome)+'</b> ['+eh(codigo)+']<br>'+
+    (marca?'Marca: '+eh(marca)+'<br>':'')+
+    'Estoque disponível: <b>'+estoque+' un.</b>  ·  Preço padrão: <b>'+brl(preco)+'</b>';
+  document.getElementById('add-sel').style.display='block';
+  document.getElementById('add-campos').style.display='block';
+  document.getElementById('btn-add-prod').disabled=false;
+  setDescAdd(_addComDesc);
+  atualizarPreviewAdd();
+}
+
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#modal-add-prod')) document.getElementById('add-drop').style.display='none';
+});
+
+function setDescAdd(sim){
+  _addComDesc = sim;
+  document.getElementById('add-desc-sim').style.background = sim?'var(--azul)':'#e9ecef';
+  document.getElementById('add-desc-sim').style.color      = sim?'#fff':'#555';
+  document.getElementById('add-desc-nao').style.background = !sim?'var(--azul)':'#e9ecef';
+  document.getElementById('add-desc-nao').style.color      = !sim?'#fff':'#555';
+  var desc = _addVenda ? _addVenda.desconto : 0;
+  document.getElementById('add-desc-info').textContent =
+    desc>0
+      ? (sim ? 'Desconto de '+desc+'% será aplicado neste produto' : 'Produto será adicionado sem desconto')
+      : 'Esta venda não tem desconto';
+  atualizarPreviewAdd();
+}
+
+function atualizarPreviewAdd(){
+  if(!_addProdSel||!_addVenda) return;
+  var qtd   = Math.max(1, parseInt(document.getElementById('add-qtd').value)||1);
+  var preco = parseFloat(document.getElementById('add-preco').value)||0;
+  var desc  = _addComDesc ? _addVenda.desconto : 0;
+  var bruto = preco * qtd;
+  var comDesc = bruto * (1 - desc/100);
+  var novoTotal = _addVenda.totalAtual + comDesc;
+
+  document.getElementById('add-preview').innerHTML =
+    '➕ Adicionar <b>'+qtd+' × '+eh(_addProdSel.nome)+'</b><br>'+
+    'Subtotal: '+brl(bruto)+
+    (desc>0?' com '+desc+'% desc = <b>+'+brl(comDesc)+'</b>':'<b> +'+brl(bruto)+'</b>')+'<br>'+
+    'Novo total da venda: <b style="font-size:1.05rem">'+brl(novoTotal)+'</b>';
+}
+
+async function confirmarAddProd(){
+  if(!_addProdSel||!_addVenda){ toast('Selecione um produto!','er'); return; }
+
+  var qtd   = Math.max(1, parseInt(document.getElementById('add-qtd').value)||1);
+  var preco = parseFloat(document.getElementById('add-preco').value)||0;
+  if(qtd<1||preco<=0){ toast('Verifique quantidade e preço!','er'); return; }
+  if(qtd>_addProdSel.estoque){ toast('Quantidade maior que o estoque ('+_addProdSel.estoque+'u)!','er'); return; }
+
+  var desc     = _addComDesc ? _addVenda.desconto : 0;
+  var bruto    = preco * qtd;
+  var comDesc  = bruto * (1 - desc/100);
+  var novoTotal = parseFloat((_addVenda.totalAtual + comDesc).toFixed(2));
+  var vendaId   = _addVenda.vendaId;
+
+  try{
+    document.getElementById('btn-add-prod').disabled=true;
+
+    /* busca valor de compra */
+    var rv = await db.from('itens').select('valor_unitario').eq('codigo',_addProdSel.codigo).single();
+    var valorCompra = rv.data ? rv.data.valor_unitario : 0;
+
+    /* insere item na venda */
+    var ri = await db.from('itens_venda').insert({
+      venda_id:       vendaId,
+      produto_codigo: _addProdSel.codigo,
+      nome_produto:   _addProdSel.nome,
+      quantidade:     qtd,
+      preco_unitario: preco,
+      valor_compra:   valorCompra,
+      tipo:           'produto'
+    });
+    if(ri.error) throw new Error(ri.error.message);
+
+    /* abate estoque */
+    var re = await db.from('itens').select('estoque').eq('codigo',_addProdSel.codigo).single();
+    if(re.data){
+      var novoEst = re.data.estoque - qtd;
+      await db.from('itens').update({estoque: novoEst}).eq('codigo',_addProdSel.codigo);
+      var p = _produtos.find(function(x){ return x.codigo===_addProdSel.codigo; });
+      if(p){ p.estoque=novoEst; filtrarProdutos(); }
+    }
+
+    /* registra movimentação */
+    await db.from('movimentacoes').insert({
+      item_codigo: _addProdSel.codigo, tipo:'VENDA',
+      quantidade: qtd, data: new Date().toISOString(), responsavel: USERNAME
+    });
+
+    /* atualiza total da venda */
+    await db.from('vendas').update({ total: novoTotal }).eq('id', vendaId);
+
+    fecharAddProd();
+    document.getElementById('det-total-val').textContent = brl(novoTotal);
+    toast('✅ Produto adicionado! Novo total: '+brl(novoTotal),'ok');
+    verDetalhesVenda(vendaId);
+    carregarHistorico();
+
+  }catch(e){
+    toast('❌ Erro: '+e.message,'er');
+    document.getElementById('btn-add-prod').disabled=false;
+    console.error(e);
+  }
+}
+/* ══════════════════════════════════════════
+   ORDEM DE SERVIÇO
+══════════════════════════════════════════ */
+var _osSel    = null;  /* OS vinculada ao carrinho atual */
+var _osCliSel = null;  /* cliente selecionado no modal nova OS */
+
+/* ── Badge OS no header do carrinho ── */
+function atualizarBadgeOS(){
+  var el = document.getElementById('carr-os-badge');
+  if(!el) return;
+  if(_osSel){
+    el.style.display='block';
+    el.innerHTML='📋 <b>'+eh(_osSel.numero)+'</b> — '+eh(_osSel.cliente_nome||'');
+  }else{
+    el.style.display='none';
+  }
+}
+
+/* ── Painel de OSs ── */
+/* ══════════════════════════════════════════
+   ORDEM DE SERVIÇO
+══════════════════════════════════════════ */
+var _osSel    = null;   /* OS atualmente selecionada */
+var _osCliSel = null;   /* cliente selecionado na nova OS */
+
+function atualizarBadgeOS(){
+  var hNormal = document.getElementById('carr-header-normal');
+  var hOS     = document.getElementById('carr-header-os');
+  var badge   = document.getElementById('carr-os-badge');
+
+  if(_osSel){
+    /* modo OS — mostra header azul com botão voltar */
+    hNormal.style.display = 'none';
+    hOS.style.display     = 'block';
+    document.getElementById('carr-os-num').textContent    = '📋 '+_osSel.numero;
+    document.getElementById('carr-os-cliente').textContent= '👤 '+(_osSel.cliente_nome||'')
+      +(_osSel.veiculo_marca?' · 🚗 '+_osSel.veiculo_marca+' '+(_osSel.veiculo_modelo||''):'');
+    badge.style.display = 'none';
+  }else{
+    /* modo normal */
+    hNormal.style.display = 'block';
+    hOS.style.display     = 'none';
+    badge.style.display   = 'none';
+  }
+}
+
+function voltarCarrinhoNormal(){
+  if(_osSel){
+    if(!confirm('Sair do modo OS?\n\nA '+_osSel.numero+' continua salva e pode ser retomada depois pelo painel de OS.\n\nO carrinho será limpo para nova venda.')){
+      return;
+    }
+  }
+  /* salva totais finais da OS antes de sair */
+  if(_osSel) sincronizarItensOS();
+  _osSel    = null;
+  _carrinho = [];
+  atualizarBadgeOS();
+  renderCarrinho();
+  toast('✅ Voltou ao carrinho normal. OS salva e disponível no painel.','ok');
+}
+
+async function abrirPainelOS(){
+  await carregarOrdens();
+  document.getElementById('modal-os-painel').classList.add('ab');
+}
+
+async function carregarOrdens(){
+  var el = document.getElementById('os-lista');
+  el.innerHTML='<div style="text-align:center;padding:20px;color:#aaa">Carregando...</div>';
+  var statusFil = document.getElementById('os-fil-status').value;
+  var statuses  = statusFil ? statusFil.split(',') : null;
+
+  var q = db.from('ordens_servico').select('*').order('data_abertura',{ascending:false}).limit(60);
+  if(statuses && statuses.length===1) q=q.eq('status',statuses[0]);
+  else if(statuses)                   q=q.in('status',statuses);
+
+  var r = await q;
+  if(r.error){ el.innerHTML='<div style="color:red;padding:12px">❌ '+eh(r.error.message)+'</div>'; return; }
+  var oss = r.data||[];
+  if(!oss.length){ el.innerHTML='<div style="text-align:center;padding:24px;color:#aaa">Nenhuma OS encontrada.</div>'; return; }
+
+  var cores  ={aberta:'#3498db',em_execucao:'#e67e22',aguardando_peca:'#9b59b6',concluida:'#27ae60',entregue:'#95a5a6',cancelada:'#e74c3c'};
+  var labels ={aberta:'🔵 Aberta',em_execucao:'🔧 Em execução',aguardando_peca:'⏳ Aguard. peça',concluida:'✅ Concluída',entregue:'🏁 Entregue',cancelada:'❌ Cancelada'};
+
+  el.innerHTML=oss.map(function(os){
+    var cor = cores[os.status]||'#aaa';
+    var veiDesc = [os.veiculo_marca,os.veiculo_modelo,os.veiculo_placa].filter(Boolean).join(' ');
+    return '<div style="padding:12px 16px;border-bottom:1px solid #f0f0f0;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start">'+
+      '<div>'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">'+
+          '<b style="font-size:1rem;color:'+cor+'">'+eh(os.numero)+'</b>'+
+          '<span style="background:'+cor+';color:#fff;padding:2px 8px;border-radius:10px;font-size:.73rem;font-weight:700">'+labels[os.status]+'</span>'+
+          '<span style="font-size:.73rem;color:#aaa">'+dHora(os.data_abertura)+'</span>'+
+        '</div>'+
+        '<div style="font-weight:600;font-size:.9rem">'+eh(os.cliente_nome||'—')+'</div>'+
+        (veiDesc?'<div style="font-size:.8rem;color:#666">🚗 '+eh(veiDesc)+(os.km_entrada?' · '+os.km_entrada+' km':'')+'</div>':'')+
+        (os.total_geral>0?'<div style="font-size:.82rem;font-weight:700;color:var(--verde2)">'+brl(os.total_geral)+'</div>':'')+
+        (os.diagnostico?'<div style="font-size:.76rem;color:#888;margin-top:2px">'+eh(os.diagnostico.substring(0,60))+'</div>':'')+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">'+
+        '<button class="btn ba" style="padding:4px 10px;font-size:.76rem" onclick="selecionarOS('+os.id+')">🛒 Selecionar</button>'+
+        '<button class="btn" style="padding:4px 10px;font-size:.76rem;background:#8e44ad;color:#fff" onclick="verImprimirOS('+os.id+')">🖨️ Imprimir</button>'+
+        (os.status!=='concluida'&&os.status!=='entregue'&&os.status!=='cancelada'?
+          '<select onchange="mudarStatusOS('+os.id+',this.value)" style="font-size:.74rem;padding:3px 6px;border:1px solid var(--borda);border-radius:6px">'+
+            '<option value="">▼ Status</option>'+
+            '<option value="aberta">🔵 Aberta</option>'+
+            '<option value="em_execucao">🔧 Em execução</option>'+
+            '<option value="aguardando_peca">⏳ Aguard. peça</option>'+
+            '<option value="concluida">✅ Concluída</option>'+
+            '<option value="cancelada">❌ Cancelar</option>'+
+          '</select>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+async function selecionarOS(osId){
+  var r = await db.from('ordens_servico').select('*').eq('id',osId).single();
+  if(r.error||!r.data){ toast('Erro ao carregar OS','er'); return; }
+  _osSel = r.data;
+
+  /* carrega itens já na OS pro carrinho */
+  var ri = await db.from('os_itens').select('*').eq('os_id',osId);
+  _carrinho=[];
+  (ri.data||[]).forEach(function(it){
+    _carrinho.push({
+      tipo:it.tipo, codigo:it.produto_codigo||('SERV-'+it.id),
+      nome:it.nome, qtd:it.quantidade, preco:it.preco_unitario,
+      marca:'', aplicacao:'', osItemId:it.id
+    });
+  });
+
+  atualizarBadgeOS();
+  renderCarrinho();
+  document.getElementById('modal-os-painel').classList.remove('ab');
+  toast('📋 OS '+_osSel.numero+' selecionada! Adicione itens ao carrinho.','ok');
+}
+
+async function mudarStatusOS(osId,status){
+  if(!status) return;
+  await db.from('ordens_servico').update({status}).eq('id',osId);
+  toast('Status atualizado!','ok');
+  carregarOrdens();
+}
+
+/* ── Nova OS ── */
+function abrirNovaOS(){
+  _osCliSel=null;
+  ['os-cli-busca','os-vei-marca','os-vei-modelo','os-vei-placa','os-descricao','os-obs'].forEach(function(id){
+    document.getElementById(id).value='';
+  });
+  document.getElementById('os-km').value='';
+  document.getElementById('os-cli-id').value='';
+  document.getElementById('os-vei-id').value='';
+  document.getElementById('os-cli-sel').style.display='none';
+  document.getElementById('os-veiculos-wrap').style.display='none';
+  document.getElementById('modal-nova-os').classList.add('ab');
+  setTimeout(function(){ document.getElementById('os-cli-busca').focus(); },80);
+}
+
+async function buscarClienteOS(){
+  var t=document.getElementById('os-cli-busca').value.trim();
+  var drop=document.getElementById('os-cli-drop');
+  if(t.length<2){ drop.style.display='none'; return; }
+  var r=await db.from('clientes').select('id,nome,telefone').or('nome.ilike.%'+t+'%,telefone.ilike.%'+t+'%').limit(8);
+  if(!r.data||!r.data.length){ drop.innerHTML='<div class="it" style="color:#aaa">Nenhum cliente</div>'; drop.style.display='block'; return; }
+  drop.innerHTML=r.data.map(function(c){
+    return '<div class="it" onclick="selecionarClienteOS('+c.id+',\''+eq(c.nome)+'\',\''+eq(c.telefone||'')+'\')">'+
+      '<div>'+eh(c.nome)+'</div><div class="sub">📞 '+(c.telefone||'—')+'</div></div>';
+  }).join('');
+  drop.style.display='block';
+}
+
+async function selecionarClienteOS(id,nome,tel){
+  _osCliSel={id,nome,telefone:tel};
+  document.getElementById('os-cli-id').value=id;
+  document.getElementById('os-cli-drop').style.display='none';
+  document.getElementById('os-cli-busca').value='';
+  document.getElementById('os-cli-nome').textContent=nome+(tel?' — '+tel:'');
+  document.getElementById('os-cli-sel').style.display='flex';
+  var rv=await db.from('veiculos').select('*').eq('cliente_id',id);
+  var chips=document.getElementById('os-vei-chips');
+  var wrap=document.getElementById('os-veiculos-wrap');
+  if(rv.data&&rv.data.length){
+    chips.innerHTML=rv.data.map(function(v){
+      return '<div onclick="preencherVeiOS('+JSON.stringify(v).replace(/"/g,'&quot;')+')"'+
+        ' style="padding:5px 12px;background:#eef2ff;border:2px solid var(--azul2);border-radius:16px;'+
+        'cursor:pointer;font-size:.8rem;font-weight:600;color:var(--azul2)">'+
+        '🚗 '+eh(v.marca)+' '+eh(v.modelo)+(v.placa?' — '+eh(v.placa):'')+
+      '</div>';
+    }).join('');
+    wrap.style.display='block';
+  }else{ wrap.style.display='none'; }
+}
+
+function limparClienteOS(){
+  _osCliSel=null;
+  document.getElementById('os-cli-id').value='';
+  document.getElementById('os-cli-sel').style.display='none';
+  document.getElementById('os-veiculos-wrap').style.display='none';
+}
+
+function preencherVeiOS(v){
+  document.getElementById('os-vei-marca').value  = v.marca||'';
+  document.getElementById('os-vei-modelo').value = v.modelo||'';
+  document.getElementById('os-vei-placa').value  = v.placa||'';
+  document.getElementById('os-vei-id').value     = v.id;
+}
+
+function abrirCadCliOS(){
+  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('modal-cad-cli').classList.add('ab');
+}
+
+async function criarOS(){
+  var cliId   = document.getElementById('os-cli-id').value;
+  var cliNome = _osCliSel ? _osCliSel.nome : '';
+  var cliTel  = _osCliSel ? _osCliSel.telefone : '';
+  var diag    = document.getElementById('os-descricao').value.trim();
+  var obs     = document.getElementById('os-obs').value.trim();
+  var marca   = document.getElementById('os-vei-marca').value.trim();
+  var modelo  = document.getElementById('os-vei-modelo').value.trim();
+  var placa   = document.getElementById('os-vei-placa').value.trim();
+  var km      = parseInt(document.getElementById('os-km').value)||null;
+
+  if(!cliId)         { toast('Selecione um cliente!','er'); return; }
+  if(!diag)          { toast('Descreva o problema/serviço!','er'); return; }
+  if(!marca||!modelo){ toast('Informe marca e modelo do veículo!','er'); return; }
+
+  /* gera número da OS via RPC */
+  var rn = await db.rpc('gerar_numero_os');
+  var numero = (rn.data && !rn.error) ? rn.data : ('OS-'+Date.now());
+
+  var r = await db.from('ordens_servico').insert({
+    numero,
+    cliente_id:   parseInt(cliId),
+    cliente_nome: cliNome,
+    cliente_tel:  cliTel||null,
+    veiculo_marca: marca,
+    veiculo_modelo: modelo,
+    veiculo_placa:  placa||null,
+    km_entrada: km,
+    diagnostico: diag,
+    observacoes: obs||null,
+    status: 'aberta',
+    responsavel: USERNAME
+  }).select('*').single();
+
+  if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+
+  _osSel = r.data;
+  _carrinho = [];
+  atualizarBadgeOS();
+  renderCarrinho();
+  document.getElementById('modal-nova-os').classList.remove('ab');
+  document.getElementById('modal-os-painel').classList.remove('ab');
+  toast('📋 OS '+numero+' criada! Adicione peças e serviços ao carrinho.','ok');
+}
+
+/* ── Sincroniza carrinho com os_itens quando OS está aberta ── */
+async function sincronizarItensOS(){
+  if(!_osSel) return;
+  /* recalcula totais */
+  var totalSrv  = _carrinho.filter(function(x){ return x.tipo==='servico'; }).reduce(function(s,x){ return s+x.preco; },0);
+  var totalPeca = _carrinho.filter(function(x){ return x.tipo==='produto'||x.tipo==='peca'; }).reduce(function(s,x){ return s+x.preco*x.qtd; },0);
+  var total     = totalSrv + totalPeca;
+  await db.from('ordens_servico').update({
+    total_servicos: parseFloat(totalSrv.toFixed(2)),
+    total_pecas:    parseFloat(totalPeca.toFixed(2)),
+    total_geral:    parseFloat(total.toFixed(2))
+  }).eq('id',_osSel.id);
+}
+
+async function salvarItemOS(tipo, codigo, nome, qtd, preco){
+  if(!_osSel){ console.warn('[OS] salvarItemOS chamado sem _osSel'); return; }
+  console.log('[OS] salvando item:', tipo, nome, qtd, preco, '→ os_id:', _osSel.id);
+
+  var r = await db.from('os_itens').insert({
+    os_id:          _osSel.id,
+    tipo:           tipo,
+    produto_codigo: codigo||null,
+    nome:           nome,
+    quantidade:     qtd,
+    preco_unitario: preco
+  });
+
+  if(r.error){
+    console.error('[OS] erro insert os_itens:', r.error);
+    toast('⚠️ Erro ao salvar item na OS: '+r.error.message,'av');
+    return;
+  }
+  console.log('[OS] item salvo com sucesso');
+  await sincronizarItensOS();
+}
+
+/* ── hooks nos adicionadores ── */
+/* OS auto-save: feito diretamente dentro de adicionarAoCarrinho, confirmarServicoCatalogo
+   e confirmarServicoExclusivo — sem sobrescrita de função */
+
+/* ── Limpar OS ── */
+function limparOS(){
+  _osSel=null;
+  atualizarBadgeOS();
+}
+
+/* ── Ao confirmar venda, fecha a OS ── */
+var _confirmarVendaBase = confirmarVenda;
+confirmarVenda = async function(){
+  var osLocal = _osSel;
+  await _confirmarVendaBase.apply(this,arguments);
+  if(osLocal && osLocal.id){
+    var rv = await db.from('vendas').select('id').order('id',{ascending:false}).limit(1).single();
+    await db.from('ordens_servico').update({
+      status:'concluida',
+      data_conclusao: new Date().toISOString(),
+      venda_id: rv.data ? rv.data.id : null
+    }).eq('id',osLocal.id);
+    limparOS();
+  }
+};
+
+/* ── Imprimir OS ── */
+async function verImprimirOS(osId){
+  var ros = await db.from('ordens_servico').select('*').eq('id',osId).single();
+  var rit = await db.from('os_itens').select('*').eq('os_id',osId);
+  if(!ros.data){ toast('Erro ao carregar OS','er'); return; }
+  var os=ros.data; var itens=rit.data||[];
+
+  var cores  ={aberta:'#3498db',em_execucao:'#e67e22',aguardando_peca:'#9b59b6',concluida:'#27ae60',entregue:'#95a5a6',cancelada:'#e74c3c'};
+  var labels ={aberta:'Aberta',em_execucao:'Em execução',aguardando_peca:'Aguardando peça',concluida:'Concluída',entregue:'Entregue',cancelada:'Cancelada'};
+  var totalIt= itens.reduce(function(s,it){ return s+it.preco_unitario*it.quantidade; },0);
+  var veiDesc= [os.veiculo_marca,os.veiculo_modelo,os.veiculo_placa].filter(Boolean).join(' ');
+
+  var html=
+    '<div id="os-print-area" style="font-size:.88rem;line-height:1.8">'+
+    /* cabeçalho */
+    '<div style="text-align:center;border-bottom:3px solid #2c3e50;padding-bottom:14px;margin-bottom:16px">'+
+      '<div style="font-size:1.4rem;font-weight:800;color:#2c3e50;letter-spacing:1px">MENDEZZA AUTO PEÇAS</div>'+
+      '<div style="font-size:.8rem;color:#666">Rua Roque Ferreira Pimenta, 418A &nbsp;|&nbsp; (38) 2100-4246</div>'+
+      '<div style="font-size:.8rem;color:#666">mendezzaautopecas@gmail.com &nbsp;|&nbsp; Garantia 90 dias</div>'+
+    '</div>'+
+    /* número + status */
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'+
+      '<div style="font-size:1.8rem;font-weight:800;color:#2c3e50;letter-spacing:2px">'+eh(os.numero)+'</div>'+
+      '<div style="background:'+(cores[os.status]||'#aaa')+';color:#fff;padding:6px 18px;border-radius:20px;font-weight:700">'+
+        (labels[os.status]||os.status)+'</div>'+
+      '<div style="font-size:.78rem;color:#888;text-align:right">'+
+        'Abertura: '+dHora(os.data_abertura)+'<br>Emissão: '+new Date().toLocaleString('pt-BR')+
+      '</div>'+
+    '</div>'+
+    /* dados */
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'+
+      '<div style="background:#f8f9fa;border-radius:8px;padding:12px 14px;border-left:4px solid var(--azul,#004aad)">'+
+        '<div style="font-weight:700;margin-bottom:6px;font-size:.9rem">👤 Cliente</div>'+
+        '<div style="font-weight:600">'+eh(os.cliente_nome||'—')+'</div>'+
+        (os.cliente_tel?'<div style="font-size:.82rem;color:#666">📞 '+eh(os.cliente_tel)+'</div>':'')+
+      '</div>'+
+      '<div style="background:#f8f9fa;border-radius:8px;padding:12px 14px;border-left:4px solid #e67e22">'+
+        '<div style="font-weight:700;margin-bottom:6px;font-size:.9rem">🚗 Veículo</div>'+
+        '<div style="font-weight:600">'+eh(veiDesc||'—')+'</div>'+
+        (os.km_entrada?'<div style="font-size:.82rem;color:#666">KM: '+os.km_entrada+'</div>':'')+
+        (os.veiculo_motor?'<div style="font-size:.82rem;color:#666">Motor: '+eh(os.veiculo_motor)+'</div>':'')+
+      '</div>'+
+    '</div>'+
+    /* problema */
+    '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:14px">'+
+      '<div style="font-weight:700;margin-bottom:4px">🔧 Problema / Serviço Solicitado</div>'+
+      '<div style="white-space:pre-line">'+eh(os.diagnostico||'—')+'</div>'+
+      (os.observacoes?'<div style="margin-top:8px;font-size:.82rem;color:#666;border-top:1px solid #ffc10766;padding-top:6px">📝 '+eh(os.observacoes)+'</div>':'')+
+    '</div>'+
+    /* itens */
+    (itens.length?
+      '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-bottom:16px">'+
+      '<thead><tr style="background:#2c3e50;color:#fff">'+
+        '<th style="padding:9px 10px;text-align:left">Peça / Serviço</th>'+
+        '<th style="padding:9px 10px;text-align:center">Qtd</th>'+
+        '<th style="padding:9px 10px;text-align:right">Unitário</th>'+
+        '<th style="padding:9px 10px;text-align:right">Total</th>'+
+      '</tr></thead><tbody>'+
+      itens.map(function(it,i){
+        var isServ = it.tipo==='servico';
+        return '<tr style="background:'+(i%2?'#f8f9fa':'#fff')+';border-bottom:1px solid #eee">'+
+          '<td style="padding:8px 10px">'+(isServ?'<span style="background:#cce5ff;color:#004085;padding:1px 6px;border-radius:4px;font-size:.74rem;margin-right:4px">SERV</span>':'<span style="background:#d4edda;color:#155724;padding:1px 6px;border-radius:4px;font-size:.74rem;margin-right:4px">PEÇA</span>')+eh(it.nome)+'</td>'+
+          '<td style="padding:8px 10px;text-align:center">'+it.quantidade+'</td>'+
+          '<td style="padding:8px 10px;text-align:right">'+brl(it.preco_unitario)+'</td>'+
+          '<td style="padding:8px 10px;text-align:right;font-weight:700">'+brl(it.preco_unitario*it.quantidade)+'</td>'+
+        '</tr>';
+      }).join('')+
+      '<tr style="background:#2c3e50;color:#fff;font-weight:800">'+
+        '<td colspan="3" style="padding:10px">TOTAL GERAL</td>'+
+        '<td style="padding:10px;text-align:right;font-size:1.1rem">'+brl(os.total_geral||totalIt)+'</td>'+
+      '</tr></tbody></table>':
+      '<div style="text-align:center;color:#aaa;padding:16px;border:1px dashed #ddd;border-radius:8px;margin-bottom:14px">Nenhum item lançado ainda.</div>')+
+    /* assinaturas */
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:32px">'+
+      '<div style="text-align:center">'+
+        '<div style="border-top:1px solid #2c3e50;padding-top:6px;font-size:.8rem;color:#666">Assinatura do Cliente</div>'+
+      '</div>'+
+      '<div style="text-align:center">'+
+        '<div style="border-top:1px solid #2c3e50;padding-top:6px;font-size:.8rem;color:#666">Responsável Técnico</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="text-align:center;font-size:.7rem;color:#bbb;margin-top:20px;border-top:1px solid #eee;padding-top:8px">'+
+      'Emitido por OMG Softwares &nbsp;•&nbsp; Peças com garantia de 90 dias'+
+    '</div>'+
+    '</div>';
+
+  document.getElementById('imp-os-titulo').textContent='📋 '+os.numero+' — '+os.cliente_nome;
+  document.getElementById('imp-os-body').innerHTML=html;
+  document.getElementById('modal-imprimir-os').classList.add('ab');
+}
+
+function imprimirOS(){
+  var el=document.getElementById('os-print-area');
+  if(!el) return;
+  var w=window.open('','_blank','width=720,height=920');
+  w.document.write('<html><head><title>OS<\/title>'+
+    '<style>body{font-family:Arial,sans-serif;padding:24px;color:#2c3e50;font-size:13px}'+
+    '*{box-sizing:border-box}table{width:100%;border-collapse:collapse}'+
+    '@media print{body{padding:12px}}<\/style><\/head><body>'+el.innerHTML+'<\/body><\/html>');
+  w.document.close();
+  w.focus();
+  setTimeout(function(){ w.print(); },400);
+}
+var _repDados = null;
+
+function abrirReposicao(codigo, nome, estoqueAtual){
+  _repDados = {codigo, nome, estoqueAtual};
+  document.getElementById('rep-qtd').value = '1';
+  document.getElementById('rep-info').innerHTML =
+    '<b>Produto:</b> '+eh(nome)+'<br>'+
+    '<b>Estoque atual:</b> <span style="font-weight:700;color:var(--azul)">'+estoqueAtual+' un.</span>';
+  document.getElementById('rep-preview').style.display = 'none';
+  document.getElementById('modal-rep').classList.add('ab');
+  setTimeout(function(){ document.getElementById('rep-qtd').focus(); document.getElementById('rep-qtd').select(); },80);
+}
+
+function atualizarPreviewRep(){
+  if(!_repDados) return;
+  var qtd = Math.max(1, parseInt(document.getElementById('rep-qtd').value)||1);
+  var novo = _repDados.estoqueAtual + qtd;
+  var el = document.getElementById('rep-preview');
+  el.style.display = 'block';
+  el.innerHTML = '📦 Estoque: '+_repDados.estoqueAtual+' + '+qtd+' = <b style="font-size:1.05rem">'+novo+' un.</b>';
+}
+
+async function confirmarReposicao(){
+  if(!_repDados) return;
+  var qtd = Math.max(1, parseInt(document.getElementById('rep-qtd').value)||1);
+  var novoEst = _repDados.estoqueAtual + qtd;
+
+  var upd = await db.from('itens').update({estoque: novoEst}).eq('codigo', _repDados.codigo);
+  if(upd.error){ toast('❌ Erro: '+upd.error.message,'er'); return; }
+
+  await db.from('movimentacoes').insert({
+    item_codigo: _repDados.codigo, tipo: 'REPOSICAO',
+    quantidade: qtd, data: new Date().toISOString(), responsavel: USERNAME
+  });
+
+  /* atualiza cache e visual da tabela */
+  var p = _produtos.find(function(x){ return x.codigo===_repDados.codigo; });
+  if(p){
+    p.estoque = novoEst;
+    atualizarEstoqueVisual(_repDados.codigo, novoEst);
+  }
+
+  document.getElementById('modal-rep').classList.remove('ab');
+  toast('✅ +'+qtd+' un. adicionadas! Estoque de "'+_repDados.nome+'": '+novoEst+' un.','ok');
+  _repDados = null;
+}
+
+document.addEventListener('keydown',function(e){
+  if(e.key==='F2'){ e.preventDefault(); if(_carrinho.length) abrirModalFinalizar(); }
+});
+
+/* ══════════════════════════════════════════
+   PAGAMENTOS PENDENTES — FIADO
+══════════════════════════════════════════ */
+var _fiadoCliSel = null;
+var _fiadoLinhas = []; /* [{nome,qtd,preco}] */
+
+/* ── Abrir / fechar modal ── */
+function abrirNovoFiado(){
+  _fiadoCliSel = null;
+  _fiadoLinhas = [];
+  document.getElementById('fiad-cli-busca').value = '';
+  document.getElementById('fiad-cli-sel').style.display = 'none';
+  document.getElementById('fiad-cli-id').value = '';
+  document.getElementById('fiad-venc').value = '';
+  document.getElementById('fiad-obs').value = '';
+
+  /* Se tem carrinho, pré-popula com os itens */
+  if(_carrinho.length){
+    _fiadoLinhas = _carrinho.map(function(it){
+      return {nome:it.nome, qtd:it.tipo==='servico'?1:it.qtd, preco:it.preco};
+    });
+    /* pré-seleciona cliente se tiver */
+    if(_clienteFinSel){
+      _fiadoCliSel = _clienteFinSel;
+      document.getElementById('fiad-cli-id').value   = _fiadoCliSel.id;
+      document.getElementById('fiad-cli-nome').textContent = _fiadoCliSel.nome+((_fiadoCliSel.telefone)?' — '+_fiadoCliSel.telefone:'');
+      document.getElementById('fiad-cli-sel').style.display = 'flex';
+    }
+  }else{
+    _fiadoLinhas = [{nome:'',qtd:1,preco:0}];
+  }
+
+  renderLinhasFiado();
+  document.getElementById('modal-fiado').classList.add('ab');
+}
+
+function fecharModalFiado(){
+  document.getElementById('modal-fiado').classList.remove('ab');
+}
+
+/* ── Busca cliente no modal fiado ── */
+async function buscarClienteFiado(){
+  var t = document.getElementById('fiad-cli-busca').value.trim();
+  var drop = document.getElementById('fiad-cli-drop');
+  if(t.length<2){ drop.style.display='none'; return; }
+  var r = await db.from('clientes').select('id,nome,telefone')
+    .or('nome.ilike.%'+t+'%,telefone.ilike.%'+t+'%').limit(8);
+  if(!r.data||!r.data.length){ drop.innerHTML='<div class="it" style="color:#aaa">Nenhum cliente</div>'; drop.style.display='block'; return; }
+  drop.innerHTML = r.data.map(function(c){
+    return '<div class="it" onclick="selecionarClienteFiado('+c.id+',\''+eq(c.nome)+'\',\''+eq(c.telefone||'')+'\')">'+
+      '<div>'+eh(c.nome)+'</div><div class="sub">📞 '+(c.telefone||'—')+'</div></div>';
+  }).join('');
+  drop.style.display='block';
+}
+
+function selecionarClienteFiado(id,nome,tel){
+  _fiadoCliSel = {id,nome,telefone:tel};
+  document.getElementById('fiad-cli-id').value = id;
+  document.getElementById('fiad-cli-drop').style.display = 'none';
+  document.getElementById('fiad-cli-busca').value = '';
+  document.getElementById('fiad-cli-nome').textContent = nome+(tel?' — '+tel:'');
+  document.getElementById('fiad-cli-sel').style.display = 'flex';
+}
+
+function limparClienteFiado(){
+  _fiadoCliSel = null;
+  document.getElementById('fiad-cli-id').value = '';
+  document.getElementById('fiad-cli-sel').style.display = 'none';
+}
+
+function abrirCadCliFiado(){
+  ['cc-nome','cc-cpf','cc-tel','cc-end','cc-email'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('modal-cad-cli').classList.add('ab');
+}
+
+/* ── Linhas de itens ── */
+function adicionarLinhaFiado(){
+  _fiadoLinhas.push({nome:'',qtd:1,preco:0});
+  renderLinhasFiado();
+  /* foca no nome do último item */
+  setTimeout(function(){
+    var inputs = document.querySelectorAll('.fiad-nome-inp');
+    if(inputs.length) inputs[inputs.length-1].focus();
+  },50);
+}
+
+function removerLinhaFiado(i){
+  _fiadoLinhas.splice(i,1);
+  if(!_fiadoLinhas.length) _fiadoLinhas.push({nome:'',qtd:1,preco:0});
+  renderLinhasFiado();
+}
+
+function atualizarLinhaFiado(i,campo,val){
+  if(campo==='qtd')   val = Math.max(1,parseInt(val)||1);
+  if(campo==='preco') val = parseFloat(val)||0;
+  _fiadoLinhas[i][campo] = val;
+  recalcularTotalFiado();
+}
+
+function recalcularTotalFiado(){
+  var total = _fiadoLinhas.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
+  document.getElementById('fiad-total-exib').textContent = brl(total);
+}
+
+function renderLinhasFiado(){
+  var el = document.getElementById('fiad-itens-lista');
+  if(!_fiadoLinhas.length){ el.innerHTML=''; recalcularTotalFiado(); return; }
+
+  el.innerHTML = _fiadoLinhas.map(function(l,i){
+    return '<div style="display:grid;grid-template-columns:1fr 60px 90px 32px;gap:6px;'+
+      'padding:8px 10px;border-bottom:1px solid #f0f0f0;align-items:center">'+
+      '<input class="fiad-nome-inp" value="'+eh(l.nome)+'" placeholder="Produto/serviço..."'+
+        ' oninput="atualizarLinhaFiado('+i+',\'nome\',this.value)"'+
+        ' style="padding:5px 8px;border:1px solid var(--borda);border-radius:5px;font-size:.85rem;outline:none">'+
+      '<input type="number" min="1" value="'+l.qtd+'"'+
+        ' oninput="atualizarLinhaFiado('+i+',\'qtd\',this.value)"'+
+        ' style="padding:5px 6px;border:1px solid var(--borda);border-radius:5px;font-size:.85rem;outline:none;text-align:center">'+
+      '<input type="number" min="0" step="0.01" value="'+l.preco.toFixed(2)+'"'+
+        ' oninput="atualizarLinhaFiado('+i+',\'preco\',this.value)"'+
+        ' style="padding:5px 6px;border:1px solid var(--borda);border-radius:5px;font-size:.85rem;outline:none;text-align:right"'+
+        ' placeholder="R$">'+
+      '<button onclick="removerLinhaFiado('+i+')"'+
+        ' style="background:none;border:none;cursor:pointer;color:#dc3545;font-size:1.1rem;line-height:1">✕</button>'+
+    '</div>';
+  }).join('');
+
+  /* header */
+  el.insertAdjacentHTML('afterbegin',
+    '<div style="display:grid;grid-template-columns:1fr 60px 90px 32px;gap:6px;'+
+    'padding:6px 10px;background:#f8f9fa;font-size:.75rem;font-weight:700;color:#666">'+
+    '<span>Item</span><span style="text-align:center">Qtd</span>'+
+    '<span style="text-align:right">Preço</span><span></span></div>');
+
+  recalcularTotalFiado();
+}
+
+/* ── Salvar fiado ── */
+async function salvarFiado(){
+  var cliId   = document.getElementById('fiad-cli-id').value;
+  var cliNome = _fiadoCliSel ? _fiadoCliSel.nome : '';
+  var cliTel  = _fiadoCliSel ? (_fiadoCliSel.telefone||'') : '';
+  var venc    = document.getElementById('fiad-venc').value||null;
+  var obs     = document.getElementById('fiad-obs').value.trim()||null;
+
+  if(!cliNome){ toast('Selecione ou informe o cliente!','er'); return; }
+
+  var itensFilt = _fiadoLinhas.filter(function(l){ return l.nome.trim(); });
+  if(!itensFilt.length){ toast('Adicione ao menos um item!','er'); return; }
+
+  var totalGeral = itensFilt.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
+  if(totalGeral<=0){ toast('O valor total deve ser maior que zero!','er'); return; }
+
+  var descResumo = itensFilt.map(function(l){ return l.qtd+'x '+l.nome; }).join(', ');
+
+  try{
+    /* 1. Insere pagamento pendente */
+    var rp = await db.from('pagamentos_pendentes').insert({
+      cliente_id:     cliId ? parseInt(cliId) : null,
+      cliente_nome:   cliNome,
+      cliente_tel:    cliTel||null,
+      descricao:      descResumo,
+      valor_total:    parseFloat(totalGeral.toFixed(2)),
+      valor_pago:     0,
+      status:         'pendente',
+      responsavel:    USERNAME,
+      data_vencimento: venc,
+      observacoes:    obs
+    }).select('id').single();
+    if(rp.error) throw new Error(rp.error.message);
+    var ppId = rp.data.id;
+
+    /* 2. Insere itens */
+    var itBatch = itensFilt.map(function(l){
+      return {pp_id:ppId, nome:l.nome.trim(), quantidade:l.qtd, preco_unitario:l.preco};
+    });
+    await db.from('pp_itens').insert(itBatch);
+
+    toast('✅ Lançado como pendente! '+cliNome+' deve '+brl(totalGeral),'ok');
+    fecharModalFiado();
+
+    /* Limpa carrinho se foi lançado direto */
+    if(_carrinho.length){
+      if(confirm('Limpar o carrinho atual?')){
+        _carrinho.forEach(function(it){
+          if(it.tipo==='produto'||it.tipo==='peca'){
+            var p=_produtos.find(function(x){ return x.codigo===it.codigo; });
+            if(p) atualizarEstoqueVisual(it.codigo,p.estoque+it.qtd);
+          }
+        });
+        _carrinho=[]; renderCarrinho();
+      }
+    }
+    carregarFiados();
+  }catch(e){
+    toast('❌ Erro: '+e.message,'er');
+  }
+}
+
+/* ── Carregar lista de fiados ── */
+async function carregarFiados(){
+  var el = document.getElementById('fiad-lista');
+  el.innerHTML='<div style="text-align:center;padding:28px;color:#aaa">Carregando...</div>';
+
+  var fil   = document.getElementById('fiad-fil').value;
+  var busca = document.getElementById('fiad-busca').value.trim().toLowerCase();
+  var statuses = fil ? fil.split(',') : null;
+
+  var q = db.from('pagamentos_pendentes').select('*').order('data_venda',{ascending:false});
+  if(statuses&&statuses.length===1) q=q.eq('status',statuses[0]);
+  else if(statuses) q=q.in('status',statuses);
+  var r = await q.limit(100);
+
+  if(r.error){ el.innerHTML='<div style="color:red;padding:16px">❌ '+eh(r.error.message)+'</div>'; return; }
+  var dados = (r.data||[]).filter(function(p){
+    return !busca || p.cliente_nome.toLowerCase().includes(busca);
+  });
+
+  if(!dados.length){ el.innerHTML='<div style="text-align:center;padding:28px;color:#aaa">Nenhum pendente encontrado.</div>'; return; }
+
+  /* resumo */
+  var totalAberto = dados.filter(function(p){ return p.status!=='quitado'; })
+    .reduce(function(s,p){ return s+(p.valor_total-p.valor_pago); },0);
+  document.getElementById('fiad-resumo').textContent =
+    dados.length+' registro(s) · Total em aberto: '+brl(totalAberto);
+
+  var corStatus = {pendente:'#e74c3c',parcial:'#e67e22',quitado:'#28a745'};
+  var lblStatus = {pendente:'⏳ Pendente',parcial:'⚡ Parcial',quitado:'✅ Quitado'};
+
+  el.innerHTML = dados.map(function(p){
+    var restante = p.valor_total - p.valor_pago;
+    var pct = p.valor_total>0 ? (p.valor_pago/p.valor_total)*100 : 0;
+    var cor = corStatus[p.status]||'#aaa';
+    return '<div style="background:#fff;border-radius:10px;box-shadow:var(--sombra);'+
+      'padding:14px 18px;margin-bottom:10px;border-left:4px solid '+cor+'">'+
+      '<div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start">'+
+        '<div>'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">'+
+            '<span style="background:'+cor+';color:#fff;padding:2px 9px;border-radius:10px;font-size:.73rem;font-weight:700">'+lblStatus[p.status]+'</span>'+
+            '<span style="font-size:.74rem;color:#aaa">'+dHora(p.data_venda)+'</span>'+
+            (p.data_vencimento?'<span style="font-size:.74rem;color:#e74c3c">Vence: '+p.data_vencimento+'</span>':'')+
+          '</div>'+
+          '<div style="font-weight:700;font-size:.95rem">'+eh(p.cliente_nome)+'</div>'+
+          (p.cliente_tel?'<div style="font-size:.78rem;color:#888">📞 '+eh(p.cliente_tel)+'</div>':'')+
+          '<div style="font-size:.82rem;color:#666;margin-top:3px">'+eh(p.descricao)+'</div>'+
+          /* barra de progresso */
+          (p.status!=='pendente'?
+            '<div style="margin-top:6px;background:#eee;border-radius:4px;height:6px">'+
+              '<div style="background:'+cor+';width:'+Math.min(100,pct).toFixed(0)+'%;height:6px;border-radius:4px;transition:.3s"></div>'+
+            '</div>':'')+
+        '</div>'+
+        '<div style="text-align:right;flex-shrink:0">'+
+          '<div style="font-size:.75rem;color:#aaa;text-decoration:line-through">'+brl(p.valor_total)+'</div>'+
+          '<div style="font-size:1.1rem;font-weight:800;color:'+cor+'">'+brl(restante)+'</div>'+
+          '<div style="font-size:.72rem;color:#aaa">restante</div>'+
+          '<div style="display:flex;gap:5px;margin-top:8px;justify-content:flex-end;flex-wrap:wrap">'+
+            (p.status!=='quitado'?
+              '<button class="btn bv" style="padding:4px 10px;font-size:.76rem" onclick="abrirBaixa('+p.id+')">💰 Dar Baixa</button>':'')+ 
+            '<button class="btn ba" style="padding:4px 10px;font-size:.76rem" onclick="verDetalhesFiado('+p.id+')">👁️ Ver</button>'+
+            (p.cliente_tel?
+              '<button class="btn bwp" style="padding:4px 10px;font-size:.76rem" onclick="cobrarZap('+p.id+')">📲</button>':'')+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* ── Detalhes do fiado ── */
+async function verDetalhesFiado(ppId){
+  var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
+  var ri = await db.from('pp_itens').select('*').eq('pp_id',ppId);
+  var rg = await db.from('pp_pagamentos').select('*').eq('pp_id',ppId).order('data');
+  if(!rp.data) return;
+  var p=rp.data; var itens=ri.data||[]; var pags=rg.data||[];
+
+  document.getElementById('baixa-titulo').textContent='💳 '+p.cliente_nome;
+  document.getElementById('baixa-body').innerHTML=
+    '<div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;font-size:.84rem;line-height:1.9;margin-bottom:12px">'+
+      '<b>Cliente:</b> '+eh(p.cliente_nome)+(p.cliente_tel?' &nbsp;📞 '+eh(p.cliente_tel):'')+'<br>'+
+      '<b>Data:</b> '+dHora(p.data_venda)+'<br>'+
+      (p.data_vencimento?'<b>Vencimento:</b> '+p.data_vencimento+'<br>':'')+
+      (p.observacoes?'<b>Obs:</b> '+eh(p.observacoes)+'<br>':'')+
+    '</div>'+
+    /* itens */
+    '<table style="width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px">'+
+    '<thead><tr style="background:var(--azul2);color:#fff">'+
+      '<th style="padding:7px 10px;text-align:left">Item</th>'+
+      '<th style="padding:7px 10px;text-align:center">Qtd</th>'+
+      '<th style="padding:7px 10px;text-align:right">Unit.</th>'+
+      '<th style="padding:7px 10px;text-align:right">Total</th>'+
+    '</tr></thead><tbody>'+
+    itens.map(function(it,i){
+      return '<tr style="background:'+(i%2?'#f9f9f9':'#fff')+';border-bottom:1px solid #eee">'+
+        '<td style="padding:6px 10px">'+eh(it.nome)+'</td>'+
+        '<td style="padding:6px 10px;text-align:center">'+it.quantidade+'</td>'+
+        '<td style="padding:6px 10px;text-align:right">'+brl(it.preco_unitario)+'</td>'+
+        '<td style="padding:6px 10px;text-align:right;font-weight:700">'+brl(it.preco_unitario*it.quantidade)+'</td>'+
+      '</tr>';
+    }).join('')+
+    '<tr style="background:var(--azul);color:#fff;font-weight:700">'+
+      '<td colspan="3" style="padding:8px 10px">Total</td>'+
+      '<td style="padding:8px 10px;text-align:right">'+brl(p.valor_total)+'</td>'+
+    '</tr></tbody></table>'+
+    /* histórico de pagamentos */
+    (pags.length?
+      '<div style="font-weight:700;margin-bottom:6px;font-size:.85rem">💰 Pagamentos recebidos:</div>'+
+      pags.map(function(pg){
+        return '<div style="display:flex;justify-content:space-between;font-size:.83rem;'+
+          'padding:5px 10px;background:#d4edda;border-radius:6px;margin-bottom:4px">'+
+          '<span>'+dHora(pg.data)+(pg.metodo?' · '+pg.metodo:'')+(pg.observacoes?' · '+eh(pg.observacoes):'')+'</span>'+
+          '<b style="color:#28a745">'+brl(pg.valor)+'</b></div>';
+      }).join(''):'');
+
+  var restante = p.valor_total - p.valor_pago;
+  document.getElementById('baixa-acoes').innerHTML =
+    (p.status!=='quitado'?
+      '<button class="btn bv" onclick="abrirBaixa('+ppId+')">💰 Dar Baixa</button>':'')+
+    '<button class="btn bc" onclick="document.getElementById(\'modal-baixa\').classList.remove(\'ab\')">Fechar</button>';
+
+  document.getElementById('modal-baixa').classList.add('ab');
+}
+
+/* ── Dar baixa (parcial ou total) ── */
+async function abrirBaixa(ppId){
+  var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
+  if(!rp.data) return;
+  var p = rp.data;
+  var restante = p.valor_total - p.valor_pago;
+
+  document.getElementById('baixa-titulo').textContent = '💰 Dar Baixa — '+p.cliente_nome;
+  document.getElementById('baixa-body').innerHTML =
+    '<div style="background:#f8f9fa;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:.85rem;line-height:1.9">'+
+      '<b>Total da dívida:</b> '+brl(p.valor_total)+'<br>'+
+      '<b>Já pago:</b> '+brl(p.valor_pago)+'<br>'+
+      '<b style="color:#e74c3c">Restante:</b> <b style="font-size:1.1rem;color:#e74c3c">'+brl(restante)+'</b>'+
+    '</div>'+
+    '<div class="cmp"><label>Valor recebido (R$) *</label>'+
+      '<input type="number" id="baixa-valor" min="0.01" step="0.01" value="'+restante.toFixed(2)+'"'+
+        ' style="font-size:1.1rem;text-align:right;font-weight:700">'+
+    '</div>'+
+    '<div class="cmp"><label>Método de pagamento</label>'+
+      '<select id="baixa-metodo" style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:7px;font-size:.9rem">'+
+        '<option>Dinheiro</option><option>PIX</option><option>Cartão Crédito</option><option>Cartão Débito</option>'+
+      '</select>'+
+    '</div>'+
+    '<div class="cmp"><label>Observações</label>'+
+      '<input id="baixa-obs" placeholder="Opcional...">'+
+    '</div>';
+
+  document.getElementById('baixa-acoes').innerHTML =
+    '<button class="btn bc" onclick="document.getElementById(\'modal-baixa\').classList.remove(\'ab\')">Cancelar</button>'+
+    '<button class="btn bv" onclick="confirmarBaixa('+ppId+','+restante+')">✅ Confirmar Pagamento</button>';
+
+  document.getElementById('modal-baixa').classList.add('ab');
+}
+
+async function confirmarBaixa(ppId, restante){
+  var valor  = parseFloat(document.getElementById('baixa-valor').value)||0;
+  var metodo = document.getElementById('baixa-metodo').value;
+  var obs    = document.getElementById('baixa-obs').value.trim()||null;
+
+  if(valor<=0){ toast('Informe o valor recebido!','er'); return; }
+  if(valor>restante+0.01){ toast('Valor maior que a dívida! Restante: '+brl(restante),'er'); return; }
+
+  /* Busca valor já pago */
+  var rp = await db.from('pagamentos_pendentes').select('valor_pago,valor_total').eq('id',ppId).single();
+  var novoPago = (rp.data.valor_pago||0) + valor;
+  var total    = rp.data.valor_total;
+  var novoStatus = novoPago >= total-0.01 ? 'quitado' : 'parcial';
+
+  /* Insere pagamento */
+  await db.from('pp_pagamentos').insert({pp_id:ppId, valor, metodo, observacoes:obs});
+
+  /* Atualiza total pago e status */
+  await db.from('pagamentos_pendentes').update({
+    valor_pago:   parseFloat(novoPago.toFixed(2)),
+    status:       novoStatus,
+    data_quitacao: novoStatus==='quitado' ? new Date().toISOString() : null
+  }).eq('id',ppId);
+
+  document.getElementById('modal-baixa').classList.remove('ab');
+  var msg = novoStatus==='quitado'
+    ? '✅ Dívida quitada! Recebido: '+brl(valor)
+    : '💰 Pagamento registrado! Recebido: '+brl(valor)+' · Restante: '+brl(total-novoPago);
+  toast(msg,'ok');
+  carregarFiados();
+}
+
+/* ── Cobrar por WhatsApp ── */
+async function cobrarZap(ppId){
+  var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
+  if(!rp.data||!rp.data.cliente_tel) return;
+  var p = rp.data;
+  var restante = p.valor_total - p.valor_pago;
+  var msg = '🔧 *Mendezza Auto Peças*\n\n';
+  msg += 'Olá, *'+p.cliente_nome+'*! 👋\n\n';
+  msg += 'Passamos para lembrar que há um valor pendente:\n\n';
+  msg += '📋 *'+p.descricao+'*\n';
+  msg += '💰 *Valor: '+brl(restante)+'*\n';
+  if(p.data_vencimento) msg += '📅 Vencimento: '+p.data_vencimento+'\n';
+  msg += '\nQualquer dúvida estamos à disposição!\n📞 (38) 2100-4246';
+  var tel = p.cliente_tel.replace(/\D/g,'');
+  if(tel.length===11) tel='55'+tel;
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
+}
+var hoje = new Date().toISOString().split('T')[0];
+document.getElementById('hist-de').value  = hoje;
+document.getElementById('hist-ate').value = hoje;
+
+carregarProdutos();
+
+/* Verifica se veio com OS pendente do check-in */
+(async function(){
+  var osPend = localStorage.getItem('os_pendente');
+  if(!osPend) return;
+  localStorage.removeItem('os_pendente');
+
+  try{
+    var os = JSON.parse(osPend);
+    /* Carrega OS do banco para garantir que existe */
+    var r = await db.from('ordens_servico').select('*').eq('id',os.id).single();
+    if(r.error||!r.data) return;
+
+    _osSel = r.data;
+    _carrinho = [];
+    atualizarBadgeOS();
+    renderCarrinho();
+
+    /* Mostra aviso */
+    toast('📋 OS '+os.numero+' aberta! ('+os.cliente_nome+' — '+os.veiculo_marca+' '+os.veiculo_modelo+') Adicione peças e serviços.','ok');
+
+    /* Abre painel da OS automaticamente após 600ms */
+    setTimeout(function(){
+      abrirPainelOS();
+    }, 600);
+
+  }catch(e){ console.warn('OS pendente inválida:', e); }
+})();
+
+/* Trata navegação por hash (#fiado, #os) */
+window.addEventListener('load', function(){
+  var hash = window.location.hash.toLowerCase();
+  if(hash === '#fiado'){
+    aba('fiado');
+  } else if(hash === '#os'){
+    setTimeout(function(){
+      abrirPainelOS();
+    }, 500);
+  }
+});
+
+window.addEventListener('hashchange', function(){
+  var hash = window.location.hash.toLowerCase();
+  if(hash === '#fiado') aba('fiado');
+  if(hash === '#os') abrirPainelOS();
+});
+</script>
+<script src="sidebar.js"></script>
+</body>
+</html>
