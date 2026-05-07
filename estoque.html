@@ -78,7 +78,7 @@ tbody td{padding:8px 12px}
 .cmp input,.cmp select{width:100%;padding:8px 10px;border:1px solid var(--borda);
   border-radius:6px;font-size:.88rem;outline:none;transition:border .14s}
 .cmp input:focus,.cmp select:focus{border-color:var(--azul2)}
-/* .cmp input[readonly]{background:#f4f6fa} */
+.cmp input[readonly]{background:#f4f6fa}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mac{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
 
@@ -100,7 +100,6 @@ tbody td{padding:8px 12px}
 #toast.er{background:var(--vermelho)}
 #toast.av{background:#e67e22}
 </style>
-<link rel="stylesheet" href="sidebar.css">
 </head>
 <body>
 
@@ -109,7 +108,28 @@ tbody td{padding:8px 12px}
   <span>👤 Admin</span>
 </header>
 
-<div class="abas">
+<!-- ── TOKEN TRACKER ── -->
+<div id="token-bar" style="background:#1e1e2e;color:#cdd6f4;font-size:.75rem;
+  display:flex;align-items:center;gap:16px;padding:5px 18px;flex-wrap:wrap;cursor:pointer"
+  onclick="toggleTokenDetail()" title="Clique para ver detalhes">
+  <span style="font-weight:700;color:#89b4fa">🤖 DeepSeek IA</span>
+  <span>📥 Input: <b id="tk-in">0</b> tokens</span>
+  <span>📤 Output: <b id="tk-out">0</b> tokens</span>
+  <span>🔢 Total: <b id="tk-tot">0</b> tokens</span>
+  <span>💰 Custo: <b id="tk-custo">$0.000000</b></span>
+  <span style="color:#a6e3a1">⚡ <b id="tk-calls">0</b> consultas</span>
+  <span style="margin-left:auto;color:#585b70;font-size:.68rem">▼ detalhes</span>
+</div>
+<div id="token-detail" style="display:none;background:#181825;color:#cdd6f4;
+  padding:10px 18px;font-size:.75rem;border-bottom:1px solid #313244">
+  <div style="font-weight:700;color:#89b4fa;margin-bottom:6px">📊 Histórico de consultas</div>
+  <div id="token-log" style="max-height:120px;overflow-y:auto;font-family:monospace;font-size:.72rem"></div>
+  <div style="margin-top:8px;display:flex;gap:12px">
+    <span style="color:#585b70">Preço DeepSeek: $0.07/M input · $0.27/M output</span>
+    <button onclick="resetTokens(event)" style="background:#f38ba8;border:none;color:#1e1e2e;
+      border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.7rem;font-weight:700">🗑 Zerar</button>
+  </div>
+</div>
   <button class="aba ativa" onclick="aba('itens')">📦 Itens Detalhados</button>
   <button class="aba"       onclick="aba('edicao')">📝 Edição Rápida</button>
   <button class="aba"       onclick="aba('historico')">📜 Histórico NF-e</button>
@@ -148,9 +168,9 @@ tbody td{padding:8px 12px}
   <div class="tw">
     <table>
       <thead><tr>
-        <th>Código</th><th>Item</th><th>Categoria</th><th>Marca</th><th>Aplicação</th><th>Estoque</th><th>Preço Venda</th>
+        <th>Código</th><th>Item</th><th>Marca</th><th>Aplicação</th><th>Estoque</th><th>Preço Venda</th>
       </tr></thead>
-      <tbody id="te"><tr class="vz"><td colspan="7">Carregando...</td></tr></tbody>
+      <tbody id="te"><tr class="vz"><td colspan="6">Carregando...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -250,7 +270,7 @@ tbody td{padding:8px 12px}
     <button class="mf" onclick="fecharForm()">✕</button>
     <h2 id="mf-titulo">➕ Novo Item</h2>
 
-    <div class="cmp"><label>Código *</label><input id="fc"></div>
+    <div class="cmp"><label>Código *</label><input id="fc" readonly></div>
     <div class="cmp">
       <label>Nome *</label>
       <input id="fn" placeholder="Nome do item" oninput="buscaSug()" onkeydown="tecladoSug(event)">
@@ -288,10 +308,20 @@ tbody td{padding:8px 12px}
     <!-- Aplicação -->
     <div class="cmp">
       <label>Aplicação (marcas e modelos de carros)</label>
+      <!-- Status IA -->
+      <div id="ai-status" style="display:none;font-size:.75rem;margin-bottom:6px;
+        padding:6px 10px;border-radius:6px;background:#eef2ff;color:var(--azul2)">
+        🤖 Consultando DeepSeek...
+      </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="fapl" readonly placeholder="Clique em Editar para adicionar..."
+        <input type="text" id="fapl" readonly placeholder="Clique em Editar ou use IA para preencher..."
           style="flex:1;background:#f9f9f9;cursor:default">
         <button class="btn ba2" type="button" onclick="abrirAplForm()" style="white-space:nowrap">🚗 Editar</button>
+        <button class="btn" type="button" onclick="sugerirAplicacaoIA()"
+          title="Preencher aplicação automaticamente com IA"
+          style="white-space:nowrap;background:linear-gradient(135deg,#6e40c9,#5271ff);color:#fff;padding:8px 12px">
+          🤖 IA
+        </button>
       </div>
     </div>
 
@@ -490,10 +520,9 @@ function aba(nome){
   ns.forEach(function(n){
     document.getElementById('p-'+n).classList.toggle('ativo',n===nome);
   });
-  if(nome==='itens')     carregarItens('');
-  if(nome==='edicao')    carregarEdicao('');
+  if(nome==='edicao')   carregarEdicao('');
   if(nome==='historico') carregarHistorico();
-  if(nome==='gestao')    carregarGestao();
+  if(nome==='gestao')   carregarGestao();
 }
 
 function carregarTudo(){
@@ -510,31 +539,40 @@ async function carregarItens(termo){
   var el=document.getElementById('ti');
   el.innerHTML='<tr class="vz"><td colspan="12">Carregando...</td></tr>';
 
+  /* tenta view primeiro, fallback na tabela direta */
   var q=db.from('vw_itens_detalhados').select('*');
   if(termo){
     q=q.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%,aplicacao.ilike.%'+termo+'%');
   }
   var r=await q.order('codigo');
-  if(r.error){ el.innerHTML='<tr class="vz"><td colspan="12">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+
+  /* fallback: se a view falhar usa tabela itens diretamente */
+  if(r.error){
+    var q2=db.from('itens').select('codigo,nome,unidade,qtd_por_caixa,valor_unitario,preco_venda,estoque,estoque_min,estoque_max,marca,aplicacao,data_criacao,categoria_id');
+    if(termo) q2=q2.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%');
+    r=await q2.order('codigo');
+    if(r.error){ el.innerHTML='<tr class="vz"><td colspan="12">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+  }
 
   var rows=r.data||[];
   if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="12">Nenhum item encontrado.</td></tr>'; return; }
 
   el.innerHTML=rows.map(function(x){
-    var cls=x.estoque<x.estoque_min?'eb':x.estoque>x.estoque_max?'ea':'';
-    var unid=x.unidade==='CX'&&x.qtd_por_caixa ? x.unidade+' ('+x.qtd_por_caixa+' un)' : (x.unidade||'');
+    var cls=x.estoque<(x.estoque_min||0)?'eb':x.estoque>(x.estoque_max||9999)?'ea':'';
+    var unid=x.unidade==='CX'&&x.qtd_por_caixa?x.unidade+' ('+x.qtd_por_caixa+' un)':(x.unidade||'');
+    var vTotal=(x.valor_total!==undefined)?brl(x.valor_total):brl((x.valor_unitario||0)*(x.estoque||0));
     return '<tr>'+
       '<td>'+eh(x.codigo)+'</td>'+
       '<td>'+eh(x.nome)+'</td>'+
       '<td>'+eh(unid)+'</td>'+
       '<td>'+brl(x.valor_unitario)+'</td>'+
       '<td class="'+cls+'">'+x.estoque+'</td>'+
-      '<td>'+brl(x.valor_total)+'</td>'+
-      '<td>'+x.estoque_min+'</td>'+
-      '<td>'+x.estoque_max+'</td>'+
+      '<td>'+vTotal+'</td>'+
+      '<td>'+(x.estoque_min||0)+'</td>'+
+      '<td>'+(x.estoque_max||'—')+'</td>'+
       '<td>'+dShort(x.data_criacao)+'</td>'+
-      '<td>'+eh(x.ultimo_fornecedor||'N/A')+'</td>'+
-      '<td>'+eh(x.cnpj_fornecedor||'N/A')+'</td>'+
+      '<td>'+eh(x.ultimo_fornecedor||'—')+'</td>'+
+      '<td>'+eh(x.cnpj_fornecedor||'—')+'</td>'+
       '<td>'+
         '<button class="btn ba2 bsm" onclick="abrirForm(\''+eq(x.codigo)+'\')">✏️ Editar</button> '+
         '<button class="btn br bsm" onclick="excluirItem(\''+eq(x.codigo)+'\')">🗑️</button>'+
@@ -551,24 +589,23 @@ function pesqItens(){ carregarItens(document.getElementById('bi').value.trim());
 ══════════════════════════════════════════ */
 async function carregarEdicao(termo){
   var el=document.getElementById('te');
-  el.innerHTML='<tr class="vz"><td colspan="7">Carregando...</td></tr>';
+  el.innerHTML='<tr class="vz"><td colspan="6">Carregando...</td></tr>';
 
-  var q=db.from('itens').select('codigo,nome,marca,aplicacao,estoque,preco_venda,categoria_id');
+  var q=db.from('itens').select('codigo,nome,marca,aplicacao,estoque,preco_venda,estoque_min,estoque_max');
   if(termo){
     q=q.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%,aplicacao.ilike.%'+termo+'%');
   }
   var r=await q.order('codigo');
-  if(r.error){ el.innerHTML='<tr class="vz"><td colspan="7">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+  if(r.error){ el.innerHTML='<tr class="vz"><td colspan="6">❌ '+eh(r.error.message)+'</td></tr>'; return; }
 
   var rows=r.data||[];
-  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="7">Nenhum item com estoque.</td></tr>'; return; }
+  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="6">Nenhum item com estoque.</td></tr>'; return; }
 
   el.innerHTML=rows.map(function(x,i){
     var bg=i%2===0?'#fff':'#f9f9f9';
     return '<tr style="background:'+bg+'">'+
       '<td>'+eh(x.codigo)+'</td>'+
       '<td>'+eh(x.nome)+'</td>'+
-      '<td><select onchange="salvarCategoriaRapida(\''+eq(x.codigo)+'\', this)" style="padding:2px 4px;border-radius:4px;border:1px solid #ccc;font-size:.8rem;width:100%">'+buildCatOptions(x.categoria_id)+'</select></td>'+
       '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'marca\')">'+eh(x.marca||'N/A')+'</td>'+
       '<td ondblclick="abrirAplicacao(\''+eq(x.codigo)+'\')" style="cursor:pointer">'+eh(x.aplicacao||'N/A')+'</td>'+
       '<td ondblclick="editCel(this,\''+eq(x.codigo)+'\',\'estoque\')">'+x.estoque+'</td>'+
@@ -578,17 +615,6 @@ async function carregarEdicao(termo){
 }
 
 function pesqEdicao(){ carregarEdicao(document.getElementById('be').value.trim()); }
-
-async function salvarCategoriaRapida(codigo, sel){
-  var novaCat = sel.value || null;
-  try {
-    var res = await db.from('itens').update({categoria_id: novaCat}).eq('codigo', codigo);
-    if(res.error) throw new Error(res.error.message);
-    toast('Categoria atualizada!','ok');
-  } catch(e) {
-    toast('Erro ao atualizar categoria: ' + e.message, 'er');
-  }
-}
 
 /* ══════════════════════════════════════════
    EDIÇÃO INLINE (iniciar_edicao + salvar_edicao + atualizar_linha)
@@ -1189,8 +1215,8 @@ async function confirmarImportacao(){
 var _formAberto=false;
 
 async function abrirForm(codigo){
-  // Adicionado pequeno delay para evitar conflitos de renderização no carregamento inicial
-  setTimeout(async function(){
+  if(_formAberto) return;
+  _formAberto=true;
 
   /* limpa todos os campos */
   ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax'].forEach(function(id){
@@ -1210,7 +1236,7 @@ async function abrirForm(codigo){
     document.getElementById('forig').value=codigo;
 
     var r=await db.from('itens').select('*').eq('codigo',codigo).single();
-    if(r.error||!r.data){ toast('Erro ao carregar item.','er'); return; }
+    if(r.error||!r.data){ toast('Erro ao carregar item.','er'); _formAberto=false; return; }
     var d=r.data;
     document.getElementById('fc').value    = d.codigo;
     document.getElementById('fn').value    = d.nome;
@@ -1227,7 +1253,7 @@ async function abrirForm(codigo){
     mudaUnidade();
   }else{
     document.getElementById('mf-titulo').textContent='➕ Novo Item';
-    document.getElementById('fc').readOnly=false;
+    document.getElementById('fc').readOnly=true;
     document.getElementById('fmodo').value='novo';
     document.getElementById('forig').value='';
     document.getElementById('fe').value   ='0';
@@ -1245,12 +1271,12 @@ async function abrirForm(codigo){
     document.getElementById('fc').value='AL-'+prox;
   }
   document.getElementById('mf').classList.add('ab');
-  }, 50);
 }
 
 function fecharForm(){
   document.getElementById('mf').classList.remove('ab');
   document.getElementById('sug').style.display='none';
+  _formAberto=false;
 }
 
 function mudaUnidade(){
@@ -1669,9 +1695,7 @@ async function carregarGestao(){
     if(!it.aplicacao) return;
     it.aplicacao.split('|').forEach(function(p){
       var m = p.split(':')[0].trim();
-      // Se houver ":" no texto original p, m será a marca. 
-      // O usuário quer mostrar apenas se tiver ":" no final (ou seja, se for uma marca com modelos).
-      if(p.indexOf(':') !== -1 && m && m!=='N/A') marcasSet[m]=1;
+      if(m && m!=='N/A') marcasSet[m]=1;
     });
   });
   var sel = document.getElementById('fg-marca');
@@ -1863,12 +1887,153 @@ function setCatPrev(sel){
 /* ══════════════════════════════════════════
    BOOT
 ══════════════════════════════════════════ */
-carregarCategorias().then(function(){ 
-  // Carrega apenas os itens detalhados inicialmente para evitar conflitos de carregamento paralelo
-  carregarItens(''); 
-});
-</script>
-<script src="sidebar.js"></script>
-</body>
+/* ══════════════════════════════════════════
+   TOKEN TRACKER — DeepSeek
+══════════════════════════════════════════ */
+var _tk = JSON.parse(localStorage.getItem('ds_tokens')||'{"in":0,"out":0,"calls":0,"log":[]}');
 
+var PRECO_IN  = 0.07  / 1_000_000; /* $0.07 por 1M tokens input  */
+var PRECO_OUT = 0.27  / 1_000_000; /* $0.27 por 1M tokens output */
+
+function salvarTokens(){ localStorage.setItem('ds_tokens', JSON.stringify(_tk)); }
+
+function registrarTokens(promptTokens, completionTokens, nomeProduto){
+  _tk.in    += promptTokens;
+  _tk.out   += completionTokens;
+  _tk.calls += 1;
+  _tk.log.unshift({
+    ts:  new Date().toLocaleString('pt-BR'),
+    nome: nomeProduto,
+    in:  promptTokens,
+    out: completionTokens,
+    custo: (promptTokens*PRECO_IN + completionTokens*PRECO_OUT)
+  });
+  if(_tk.log.length > 50) _tk.log.pop(); /* mantém só últimas 50 */
+  salvarTokens();
+  atualizarBarraTokens();
+}
+
+function atualizarBarraTokens(){
+  var custo = _tk.in*PRECO_IN + _tk.out*PRECO_OUT;
+  document.getElementById('tk-in').textContent    = _tk.in.toLocaleString('pt-BR');
+  document.getElementById('tk-out').textContent   = _tk.out.toLocaleString('pt-BR');
+  document.getElementById('tk-tot').textContent   = (_tk.in+_tk.out).toLocaleString('pt-BR');
+  document.getElementById('tk-custo').textContent = '$'+custo.toFixed(6);
+  document.getElementById('tk-calls').textContent = _tk.calls;
+
+  /* log detalhado */
+  document.getElementById('token-log').innerHTML = _tk.log.length
+    ? _tk.log.map(function(l){
+        return '<div style="padding:2px 0;border-bottom:1px solid #313244;display:flex;gap:12px;align-items:center">'+
+          '<span style="color:#585b70;white-space:nowrap">'+l.ts+'</span>'+
+          '<span style="flex:1;color:#cba6f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+eh(l.nome)+'</span>'+
+          '<span style="color:#89b4fa;white-space:nowrap">📥'+l.in+'</span>'+
+          '<span style="color:#a6e3a1;white-space:nowrap">📤'+l.out+'</span>'+
+          '<span style="color:#f9e2af;white-space:nowrap">$'+l.custo.toFixed(6)+'</span>'+
+        '</div>';
+      }).join('')
+    : '<div style="color:#585b70;padding:4px">Nenhuma consulta ainda.</div>';
+}
+
+function toggleTokenDetail(){
+  var d = document.getElementById('token-detail');
+  d.style.display = d.style.display==='none' ? 'block' : 'none';
+}
+
+function resetTokens(e){
+  e.stopPropagation();
+  if(!confirm('Zerar histórico de tokens?')) return;
+  _tk = {in:0,out:0,calls:0,log:[]};
+  salvarTokens();
+  atualizarBarraTokens();
+  toast('Tokens zerados!','ok');
+}
+var DEEPSEEK_KEY = 'sk-d38850084a4c43868ad8208b5dcbb50e';
+
+async function sugerirAplicacaoIA(){
+  var codigo = document.getElementById('fc').value.trim();
+  var nome   = document.getElementById('fn').value.trim();
+  var marca  = document.getElementById('fmarca').value.trim();
+
+  if(!nome){ toast('Preencha o nome do produto primeiro!','er'); return; }
+
+  var status = document.getElementById('ai-status');
+  status.style.display    = 'block';
+  status.style.background = '#eef2ff';
+  status.style.color      = 'var(--azul2)';
+  status.textContent      = '🤖 Consultando IA...';
+
+  var prompt = 'Peça BR: '+nome
+    +(codigo?' ['+codigo+']':'')
+    +(marca?' fab:'+marca:'')
+    +'\nResponda APENAS neste formato: Fiat: Uno; Palio | VW: Gol; Fox\nSe universal: Universal';
+
+  try{
+    var resp = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer '+DEEPSEEK_KEY
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'Peças automotivas BR. Responda APENAS no formato: Marca: Modelo; Modelo | Marca: Modelo' },
+          { role: 'user', content: prompt },
+          { role: 'assistant', content: '' }
+        ],
+        max_tokens: 150,
+        temperature: 0
+      })
+    });
+
+    if(!resp.ok){
+      var err = await resp.json();
+      throw new Error(err.error?.message || 'Erro '+resp.status);
+    }
+
+    var data  = await resp.json();
+    var texto = ((data.choices||[])[0]?.message?.content || '').trim();
+
+    /* registra tokens usados */
+    var uso = data.usage || {};
+    registrarTokens(uso.prompt_tokens||0, uso.completion_tokens||0, nome);
+
+    if(!texto){ throw new Error('Resposta vazia da IA'); }
+
+    var limpo = texto.replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
+
+    document.getElementById('fapl').value = limpo;
+
+    status.style.background = '#d4edda';
+    status.style.color      = '#155724';
+    status.textContent      = '✅ Aplicação sugerida! Revise e clique em 🚗 Editar para ajustar.';
+    setTimeout(function(){
+      status.style.display='none';
+      status.style.background='#eef2ff';
+      status.style.color='var(--azul2)';
+    }, 5000);
+    toast('🤖 Aplicação preenchida!','ok');
+
+  }catch(e){
+    status.style.background='#f8d7da';
+    status.style.color='#721c24';
+    status.textContent='❌ Erro: '+e.message;
+    setTimeout(function(){
+      status.style.display='none';
+      status.style.background='#eef2ff';
+      status.style.color='var(--azul2)';
+    }, 4000);
+    toast('❌ IA: '+e.message,'er');
+    console.error('[DeepSeek]',e);
+  }
+}
+
+/* ══════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════ */
+carregarCategorias().then(function(){ carregarTudo(); });
+atualizarBarraTokens();
+</script>
+</body>
 </html>
