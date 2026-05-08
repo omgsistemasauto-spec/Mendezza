@@ -83,7 +83,16 @@ tbody td{padding:9px 12px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mac{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
 
-/* BADGE */
+/* TOAST */
+#toast{position:fixed;bottom:80px;right:16px;z-index:9999;color:#fff;
+  padding:11px 18px;border-radius:8px;font-size:.85rem;display:none;box-shadow:var(--sombra);max-width:calc(100vw - 32px)}
+@media(min-width:769px){
+  #toast{bottom:24px;right:24px;max-width:340px}
+}
+#toast.vis{display:block}
+#toast.ok{background:var(--verde)}
+#toast.er{background:var(--vermelho)}
+#toast.av{background:#e67e22}
 .badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.73rem;font-weight:700}
 .badge-ok{background:#d4edda;color:#155724}
 .badge-pend{background:#fff3cd;color:#856404}
@@ -93,13 +102,183 @@ tbody td{padding:9px 12px}
 .radio-group{display:flex;gap:14px;flex-wrap:wrap}
 .radio-group label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.88rem}
 
-/* TOAST */
-#toast{position:fixed;bottom:24px;right:24px;z-index:9999;color:#fff;
-  padding:11px 20px;border-radius:8px;font-size:.88rem;display:none;box-shadow:var(--sombra)}
-#toast.vis{display:block}
-#toast.ok{background:var(--verde)}
-#toast.er{background:var(--vermelho)}
-	#toast.av{background:#e67e22}
+/* ══════════════════════════════════════════
+   MOBILE — 100% responsivo para celular
+══════════════════════════════════════════ */
+@media(max-width:768px){
+
+  /* Layout */
+  body{ font-size:14px; }
+  .app-layout{ flex-direction:column; }
+  .main-content{ margin-right:0 !important; }
+  .dashboard-body{ padding:12px 10px 80px; }
+
+  /* Oculta calendário no mobile */
+  .sidebar-calendar{ display:none !important; }
+
+  /* Caixa principal */
+  .caixa-card{
+    flex-direction:column !important;
+    gap:16px !important;
+    padding:16px !important;
+    text-align:center;
+  }
+  .caixa-card > div:nth-child(2){ display:none !important; } /* separador */
+  .caixa-valor{ font-size:2rem !important; }
+
+  /* MEI grid vira coluna */
+  .caixa-card > div:last-child{ width:100% !important; }
+  .caixa-card [style*="grid-template-columns:repeat(3"]{ grid-template-columns:1fr 1fr 1fr !important; gap:6px !important; }
+  .caixa-card [style*="grid-template-columns:repeat(3"] > div{ padding:6px !important; }
+  .caixa-card [style*="grid-template-columns:repeat(3"] [style*="font-size:10px"]{ font-size:9px !important; }
+  .caixa-card [style*="grid-template-columns:repeat(3"] [style*=".95rem"]{ font-size:.82rem !important; }
+
+  /* Mini cards: 2 colunas */
+  .grid4{
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+    margin-bottom:12px !important;
+  }
+  .mini-card{ padding:12px 8px; }
+  .mini-card .val{ font-size:1.1rem; }
+  .mini-card .lbl{ font-size:.7rem; }
+
+  /* Grid 2 colunas vira 1 */
+  .grid2{ grid-template-columns:1fr !important; gap:10px !important; }
+
+  /* Botões de ação — linha com scroll */
+  .dashboard-body > div:first-child{
+    overflow-x:auto;
+    flex-wrap:nowrap !important;
+    padding-bottom:4px;
+    margin-bottom:12px !important;
+    -webkit-overflow-scrolling:touch;
+  }
+  .dashboard-body > div:first-child h2{ display:none; }
+  .dashboard-body > div:first-child .btn{
+    flex-shrink:0;
+    padding:7px 12px;
+    font-size:.78rem;
+  }
+
+  /* Tabelas: scroll horizontal */
+  .tw{ font-size:.75rem; border-radius:8px; }
+  .tw table{ min-width:500px; }
+  thead th{ padding:8px 8px; font-size:.72rem; }
+  tbody td{ padding:7px 8px; font-size:.75rem; }
+
+  /* Cards */
+  .card{ padding:14px 12px; border-radius:10px; margin-bottom:10px; }
+  .card > div:first-child{ font-size:.88rem !important; }
+
+  /* Modais: tela cheia no mobile */
+  .bd{ padding:0; align-items:flex-end; }
+  .modal{
+    width:100% !important;
+    max-width:100% !important;
+    border-radius:16px 16px 0 0 !important;
+    max-height:88vh;
+    padding:20px 18px;
+    animation:slide-up .22s ease !important;
+  }
+  @keyframes slide-up{ from{ transform:translateY(100%); } }
+  .g2{ grid-template-columns:1fr !important; gap:8px !important; }
+  .mac{ flex-direction:column; }
+  .mac .btn{ width:100%; justify-content:center; }
+
+  /* Gráfico anual */
+  .card canvas{ max-height:220px !important; }
+
+  /* Barra de ações flutuante no rodapé */
+  #mobile-bottom-bar{
+    display:flex !important;
+  }
+}
+
+/* BOTTOM BAR — só aparece no mobile */
+#mobile-bottom-bar{
+  display:none;
+  position:fixed;
+  bottom:0; left:0; right:0;
+  background:#fff;
+  border-top:1px solid var(--borda);
+  box-shadow:0 -2px 12px rgba(0,0,0,.1);
+  z-index:500;
+  padding:6px 0 env(safe-area-inset-bottom, 6px);
+}
+#mobile-bottom-bar a, #mobile-bottom-bar button{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding:6px 4px;
+  font-size:.62rem;
+  font-weight:600;
+  color:#64748b;
+  text-decoration:none;
+  transition:color .15s;
+}
+#mobile-bottom-bar a:hover, #mobile-bottom-bar button:hover{ color:var(--azul2); }
+#mobile-bottom-bar .ico-wrap{
+  font-size:1.3rem;
+  line-height:1;
+}
+
+/* FAB — botão flutuante de ação rápida */
+#mobile-fab{
+  display:none;
+  position:fixed;
+  bottom:72px; right:16px;
+  width:52px; height:52px;
+  background:var(--azul2);
+  color:#fff;
+  border:none;
+  border-radius:50%;
+  font-size:1.5rem;
+  box-shadow:0 4px 16px rgba(82,113,255,.45);
+  cursor:pointer;
+  z-index:499;
+  align-items:center;
+  justify-content:center;
+  transition:.2s;
+}
+#mobile-fab:hover{ transform:scale(1.08); }
+@media(max-width:768px){
+  #mobile-fab{ display:flex; }
+  #mobile-fab-menu{
+    display:none;
+    position:fixed;
+    bottom:134px; right:16px;
+    flex-direction:column;
+    gap:10px;
+    z-index:498;
+    align-items:flex-end;
+  }
+  #mobile-fab-menu.aberto{ display:flex; }
+  .fab-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:#fff;
+    border:none;
+    border-radius:24px;
+    padding:8px 14px;
+    font-size:.82rem;
+    font-weight:700;
+    box-shadow:0 2px 10px rgba(0,0,0,.15);
+    cursor:pointer;
+    white-space:nowrap;
+    transition:.15s;
+  }
+  .fab-item:hover{ transform:translateX(-4px); }
+  .fab-item .fab-ico{ font-size:1.1rem; }
+}
+
 
 		/* LAYOUT LATERAL */
 		.app-layout{display:flex;min-height:100vh;background:var(--cinza)}
@@ -502,6 +681,43 @@ tbody td{padding:9px 12px}
 
 <div id="toast"></div>
 
+<!-- ══ MOBILE: BARRA INFERIOR ══ -->
+<div id="mobile-bottom-bar">
+  <a href="vendas.html">
+    <span class="ico-wrap">🛒</span>
+    <span>Vendas</span>
+  </a>
+  <a href="checkin.html">
+    <span class="ico-wrap">🔑</span>
+    <span>Check-in</span>
+  </a>
+  <a href="estoque.html">
+    <span class="ico-wrap">📦</span>
+    <span>Estoque</span>
+  </a>
+  <a href="financeiro.html" style="color:var(--azul2)">
+    <span class="ico-wrap">💰</span>
+    <span>Financeiro</span>
+  </a>
+</div>
+
+<!-- ══ MOBILE: FAB ══ -->
+<button id="mobile-fab" onclick="toggleFab()" title="Ações rápidas">＋</button>
+<div id="mobile-fab-menu">
+  <button class="fab-item" onclick="toggleFab();abrirCaixa()">
+    <span class="fab-ico">🔓</span> Abrir Caixa
+  </button>
+  <button class="fab-item" onclick="toggleFab();abrirFormRetirada()">
+    <span class="fab-ico">💸</span> Lançar Despesa
+  </button>
+  <button class="fab-item" onclick="toggleFab();abrirModalHistDia()">
+    <span class="fab-ico">📊</span> Vendas do Dia
+  </button>
+  <button class="fab-item" onclick="toggleFab();abrirFecharCaixa()">
+    <span class="fab-ico">🔒</span> Fechar Caixa
+  </button>
+</div>
+
 <script>
 /* ══════════════════════════════════════════
    CONFIG
@@ -546,26 +762,28 @@ async function carregarTudo(){
    CAIXA — equivale a atualizar_caixa
 ══════════════════════════════════════════ */
 async function atualizarCaixa(){
-  /* busca saldo inicial do mês */
-  var rc = await db.from('caixa').select('*').order('id',{ascending:false}).limit(1).maybeSingle();
+  var hj = hoje();
+
+  /* busca caixa de HOJE — se não tiver, pega o mais recente */
+  var rc = await db.from('caixa').select('*').eq('data', hj).limit(1).maybeSingle();
+  if(!rc.data){
+    rc = await db.from('caixa').select('*').order('data',{ascending:false}).limit(1).maybeSingle();
+  }
   var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
 
-  /* vendas do mês */
-  var mes = new Date();
-  var inicio = new Date(mes.getFullYear(), mes.getMonth(), 1).toISOString().split('T')[0];
-  var fim    = new Date(mes.getFullYear(), mes.getMonth()+1, 0).toISOString().split('T')[0];
-
-  var rv = await db.from('vendas').select('total').gte('data',inicio).lte('data',fim+'T23:59:59');
+  /* vendas de HOJE */
+  var rv = await db.from('vendas').select('total')
+    .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
   var totalVendas = (rv.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
 
-  /* contas pagas no mês */
-  var rcp = await db.from('contas_pagar').select('valor').eq('pago',true).gte('data_pagamento',inicio).lte('data_pagamento',fim);
+  /* contas pagas HOJE */
+  var rcp = await db.from('contas_pagar').select('valor').eq('pago',true).eq('data_pagamento', hj);
   var totalRetiradas = (rcp.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); },0);
 
   var saldoAtual = saldoInicial + totalVendas - totalRetiradas;
 
   /* atualiza no banco */
-  if(rc.data){
+  if(rc.data && rc.data.data === hj){
     await db.from('caixa').update({
       total_vendas: parseFloat(totalVendas.toFixed(2)),
       retiradas:    parseFloat(totalRetiradas.toFixed(2)),
@@ -697,7 +915,7 @@ async function carregarVendasMes(){
    CONTAS A PAGAR — equivale a carregar_dados / atualizar_contas
 ══════════════════════════════════════════ */
 async function carregarContas(){
-  var r = await db.from('contas_pagar').select('*').order('data_vencimento', { ascending: false }).limit(100);
+  var r = await db.from('contas_pagar').select('*').order('data_vencimento').limit(100);
   var tbody = document.getElementById('t-contas');
   if(!r.data||!r.data.length){
     tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px">Nenhuma conta cadastrada.</td></tr>';
@@ -762,11 +980,10 @@ async function excluirConta(id){
    ABRIR CAIXA
 ══════════════════════════════════════════ */
 async function abrirCaixa(){
-  /* verifica se já existe caixa do mês */
-  var mes = new Date();
-  var inicio = new Date(mes.getFullYear(), mes.getMonth(), 1).toISOString().split('T')[0];
-  var r = await db.from('caixa').select('id').gte('data',inicio).limit(1).maybeSingle();
-  if(r.data){ toast('Caixa já aberto para este mês!','av'); return; }
+  /* verifica se já existe caixa aberto HOJE (por dia, não por mês) */
+  var hj = hoje();
+  var r = await db.from('caixa').select('id').eq('data', hj).limit(1).maybeSingle();
+  if(r.data){ toast('Caixa já aberto hoje! Feche o caixa primeiro para abrir um novo.','av'); return; }
 
   document.getElementById('abrir-data').textContent = new Date().toLocaleDateString('pt-BR');
   document.getElementById('abrir-saldo').value = '0.00';
@@ -859,12 +1076,9 @@ async function salvarDespesa(){
       if(!venc){ toast('Informe o vencimento!','er'); return; }
       
       batch.push({
-        descricao: desc + (obs ? ' — ' + obs : ''),
-        valor,
-        data_vencimento: venc,
+        descricao: desc, valor, data_vencimento: venc,
         tipo: 'Único', num_parcelas: 1, parcela_atual: 1,
-        pago: false,
-        status: 'PENDENTE'
+        pago: false, status: 'PENDENTE', observacoes: obs
       });
     } else {
       var inputsValor = document.querySelectorAll('.parc-valor');
@@ -878,14 +1092,15 @@ async function salvarDespesa(){
         if(v <= 0 || !d){ toast(`Preencha corretamente a parcela ${i+1}!`,'er'); return; }
         
         batch.push({
-          descricao: `${desc} (${i+1}/${inputsValor.length})` + (obs ? ` — ${obs}` : ''),
+          descricao: `${desc} (${i+1}/${inputsValor.length})`,
           valor: v,
           data_vencimento: d,
           tipo: 'Parcelado',
           num_parcelas: inputsValor.length,
           parcela_atual: i+1,
           pago: false,
-          status: 'PENDENTE'
+          status: 'PENDENTE',
+          observacoes: obs
         });
       }
     }
@@ -929,8 +1144,11 @@ async function abrirFecharCaixa(){
   var rcp = await db.from('contas_pagar').select('valor').eq('pago',true).eq('data_pagamento',hoje2);
   var totalRet = (rcp.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); },0);
 
-  /* busca saldo inicial registrado na tabela caixa para o mes/periodo atual */
-  var rc = await db.from('caixa').select('saldo_inicial').order('id',{ascending:false}).limit(1).maybeSingle();
+  /* busca saldo inicial do caixa de HOJE */
+  var rc = await db.from('caixa').select('saldo_inicial').eq('data', hoje2).limit(1).maybeSingle();
+  if(!rc.data){
+    rc = await db.from('caixa').select('saldo_inicial').order('data',{ascending:false}).limit(1).maybeSingle();
+  }
   var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
 
   /* saldo esperado em dinheiro = saldo inicial + vendas em dinheiro - retiradas em dinheiro */
@@ -1419,6 +1637,27 @@ async function verDetalhesVendasDia(diaStr){
   
   body.innerHTML = html;
 }
+
+
+/* ── FAB mobile ── */
+function toggleFab(){
+  var menu=document.getElementById('mobile-fab-menu');
+  var fab=document.getElementById('mobile-fab');
+  var aberto=menu.classList.toggle('aberto');
+  fab.textContent=aberto?'✕':'＋';
+  fab.style.background=aberto?'#ef4444':'var(--azul2)';
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#mobile-fab')&&!e.target.closest('#mobile-fab-menu')){
+    var menu=document.getElementById('mobile-fab-menu');
+    var fab=document.getElementById('mobile-fab');
+    if(menu&&menu.classList.contains('aberto')){
+      menu.classList.remove('aberto');
+      fab.textContent='＋';
+      fab.style.background='var(--azul2)';
+    }
+  }
+});
 
 /* ══════════════════════════════════════════
    BOOT
