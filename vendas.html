@@ -224,6 +224,24 @@ tbody td{padding:8px 12px}
   .painel-carrinho{width:100%}
   .main{flex-direction:column}
 }
+
+/* ── NF-e Modal ── */
+#modal-nfe{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:2100;align-items:center;justify-content:center;padding:20px}
+#modal-nfe.ab{display:flex}
+.nfe-box{background:#fff;border-radius:14px;width:560px;max-width:100%;max-height:94vh;
+  overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.3);animation:pop .2s ease;position:relative}
+.nfe-header{background:#0066cc;color:#fff;padding:18px 24px;border-radius:14px 14px 0 0}
+.nfe-header h2{font-size:1.05rem;margin:0}
+.nfe-header p{font-size:.76rem;opacity:.8;margin:4px 0 0}
+.nfe-body{padding:22px 24px}
+.nfe-status{border-radius:8px;padding:12px 16px;font-size:.86rem;margin-bottom:14px;
+  display:none;line-height:1.6}
+.nfe-status.info{background:#e3f0ff;color:#004aad;display:block}
+.nfe-status.ok{background:#d4edda;color:#155724;display:block}
+.nfe-status.er{background:#f8d7da;color:#721c24;display:block}
+.nfe-status.av{background:#fff3cd;color:#856404;display:block}
+.nfe-acoes{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
 </style>
 <link rel="stylesheet" href="sidebar.css">
 </head>
@@ -599,6 +617,9 @@ tbody td{padding:8px 12px}
       <button class="btn bwp" id="btn-zap-cupom" onclick="enviarZapCupom()">
         📲 Enviar WhatsApp
       </button>
+      <button class="btn" style="background:#0066cc;color:#fff" onclick="abrirModalNFe(_cupomDados&&_cupomDados.vendaId)">
+        📄 Emitir NF-e
+      </button>
       <button class="btn bc" onclick="fecharCupom()">✕ Fechar</button>
     </div>
     <div style="text-align:center;font-size:.72rem;color:#bbb;padding:0 28px 20px">
@@ -942,6 +963,103 @@ tbody td{padding:8px 12px}
   </div>
 </div>
 
+<!-- ══════════════════════════════════
+     MODAL: EMITIR NF-e (Focus NF-e)
+══════════════════════════════════ -->
+<div id="modal-nfe">
+  <div class="nfe-box">
+    <div class="nfe-header">
+      <h2>📄 Emitir NF-e</h2>
+      <p>Notas com valor fiscal real — Produção</p>
+    </div>
+    <div class="nfe-body">
+      <div class="nfe-status" id="nfe-status"></div>
+
+      <!-- Dados do cliente -->
+      <div style="font-weight:700;font-size:.85rem;color:#555;margin-bottom:10px">👤 Destinatário</div>
+      <div class="g2">
+        <div class="cmp" style="grid-column:1/-1">
+          <label>Razão Social / Nome *</label>
+          <input id="nfe-dest-nome" placeholder="Nome do cliente ou empresa">
+        </div>
+        <div class="cmp">
+          <label>CPF</label>
+          <input id="nfe-dest-cpf" placeholder="000.000.000-00" maxlength="14">
+        </div>
+        <div class="cmp">
+          <label>IE (Inscrição Estadual)</label>
+          <input id="nfe-dest-ie" placeholder="Isento ou número" value="Isento">
+        </div>
+      </div>
+      <div class="g2">
+        <div class="cmp" style="grid-column:1/-1">
+          <label>Logradouro</label>
+          <input id="nfe-dest-rua" placeholder="Rua, nº">
+        </div>
+        <div class="cmp">
+          <label>Bairro</label>
+          <input id="nfe-dest-bairro" placeholder="Bairro">
+        </div>
+        <div class="cmp">
+          <label>CEP</label>
+          <input id="nfe-dest-cep" placeholder="00000-000" maxlength="9">
+        </div>
+        <div class="cmp">
+          <label>Município</label>
+          <input id="nfe-dest-mun" placeholder="Cidade" value="Jaíba">
+        </div>
+        <div class="cmp">
+          <label>UF</label>
+          <select id="nfe-dest-uf">
+            <option value="MG" selected>MG</option>
+            <option value="SP">SP</option><option value="RJ">RJ</option>
+            <option value="DF">DF</option><option value="BA">BA</option>
+            <option value="GO">GO</option><option value="PR">PR</option>
+            <option value="RS">RS</option><option value="SC">SC</option>
+            <option value="ES">ES</option><option value="MT">MT</option>
+            <option value="MS">MS</option><option value="PA">PA</option>
+            <option value="CE">CE</option><option value="PE">PE</option>
+            <option value="MA">MA</option><option value="AM">AM</option>
+            <option value="PB">PB</option><option value="RN">RN</option>
+            <option value="AL">AL</option><option value="PI">PI</option>
+            <option value="SE">SE</option><option value="TO">TO</option>
+            <option value="AC">AC</option><option value="RO">RO</option>
+            <option value="RR">RR</option><option value="AP">AP</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Operação -->
+      <div style="font-weight:700;font-size:.85rem;color:#555;margin:14px 0 10px">⚙️ Operação</div>
+      <div class="g2">
+        <div class="cmp">
+          <label>CFOP</label>
+          <select id="nfe-cfop">
+            <option value="5102">5102 — Venda de produção própria (dentro do estado)</option>
+            <option value="5405">5405 — Venda de mercadoria (ST, dentro do estado)</option>
+            <option value="6102">6102 — Venda de produção própria (fora do estado)</option>
+            <option value="5949">5949 — Outras saídas</option>
+          </select>
+        </div>
+        <div class="cmp">
+          <label>Natureza da Operação</label>
+          <input id="nfe-nat-op" value="Venda de mercadoria">
+        </div>
+      </div>
+
+      <div id="nfe-itens-preview" style="background:#f8f9fa;border-radius:8px;padding:10px 14px;
+        font-size:.82rem;margin-bottom:6px;max-height:140px;overflow-y:auto"></div>
+
+      <div class="nfe-acoes">
+        <button class="btn bc" onclick="fecharModalNFe()">Cancelar</button>
+        <button class="btn" style="background:#0066cc;color:#fff" id="nfe-btn-emitir" onclick="emitirNFe()">
+          📄 Emitir NF-e
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -949,7 +1067,7 @@ tbody td{padding:8px 12px}
    CONFIG
 ══════════════════════════════════════════ */
 var SUPA_URL = 'https://xyvsgvzgmwmvxtdxhjiw.supabase.co';
-var SUPA_KEY = 'sb_publishable_da-bSRiEwES37SKPryK-Uw_fvNuiLNE';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dnNndnpnbXdtdnh0ZHhoaml3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4ODgxMTQsImV4cCI6MjA5MzQ2NDExNH0.qPJpyKnQmCoC2FhxFA-_6wZxggymMl9RGRzIsfaaVlE';
 var USERNAME = 'Admin';
 
 var db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
@@ -1878,6 +1996,7 @@ async function carregarHistorico(){
         '<div style="display:flex;gap:5px;margin-top:6px;justify-content:flex-end;flex-wrap:wrap">'+
           '<button class="btn ba" style="padding:4px 10px;font-size:.76rem" onclick="verDetalhesVenda('+v.id+')">📋 Detalhes / Reverter</button>'+
           (telCli?'<button class="btn bwp" style="padding:4px 10px;font-size:.76rem" onclick="reenviarZapVenda('+v.id+',\''+eq(telCli)+'\')">📲</button>':'')+
+          (!canc?'<button class="btn" style="padding:4px 10px;font-size:.76rem;background:#0066cc;color:#fff" onclick="abrirModalNFe('+v.id+')">📄 NF-e</button>':'')+
         '</div>'+
       '</div>'+
     '</div>';
@@ -3244,6 +3363,305 @@ async function cobrarZap(ppId){
 var hoje = new Date().toISOString().split('T')[0];
 document.getElementById('hist-de').value  = hoje;
 document.getElementById('hist-ate').value = hoje;
+
+/* ══════════════════════════════════════════
+   INTEGRAÇÃO FOCUS NF-e
+   API de HOMOLOGAÇÃO
+══════════════════════════════════════════ */
+/* Proxy via Supabase Edge Function — resolve CORS */
+/* Troque SEU_PROJECT_REF pelo project ref do Supabase da Mendezza */
+var FOCUS_PROXY = 'https://xyvsgvzgmwmvxtdxhjiw.supabase.co/functions/v1/focus-nfe-proxy';
+var _nfeVendaId  = null;
+var _nfeItens    = [];
+
+async function abrirModalNFe(vendaId){
+  if(!vendaId){ toast('Venda não encontrada!','er'); return; }
+  _nfeVendaId = vendaId;
+
+  /* Carrega dados da venda */
+  var rv = await db.from('vendas').select('*').eq('id', vendaId).single();
+  var ri = await db.from('itens_venda').select('*').eq('venda_id', vendaId).eq('revertido', false);
+  if(rv.error || !rv.data){ toast('Erro ao carregar venda','er'); return; }
+
+  var v = rv.data;
+  _nfeItens = ri.data || [];
+
+  /* Pré-preenche nome do destinatário */
+  document.getElementById('nfe-dest-nome').value = v.cliente_nome && v.cliente_nome !== 'Consumidor Final' ? v.cliente_nome : '';
+
+  /* Se tem cliente_id, tenta buscar CPF/endereço */
+  if(v.cliente_id){
+    var rc = await db.from('clientes').select('*').eq('id', v.cliente_id).single();
+    if(rc.data){
+      var cli = rc.data;
+      document.getElementById('nfe-dest-cpf').value    = cli.cpf || '';
+      /* Tenta separar endereço em rua e bairro */
+      if(cli.endereco){
+        var partes = cli.endereco.split(',');
+        document.getElementById('nfe-dest-rua').value    = partes[0] ? partes[0].trim() : cli.endereco;
+        document.getElementById('nfe-dest-bairro').value = partes[1] ? partes[1].trim() : '';
+      }
+    }
+  }
+
+  /* Preview dos itens */
+  document.getElementById('nfe-itens-preview').innerHTML =
+    '<b style="font-size:.8rem;color:#555">📦 Itens da venda #'+vendaId+':</b><br>' +
+    _nfeItens.map(function(it){
+      return '• '+eh(it.nome_produto)+' × '+it.quantidade+' = '+brl(it.preco_unitario * it.quantidade);
+    }).join('<br>') +
+    '<br><b style="color:#004aad">Total: '+brl(v.total)+'</b>';
+
+  /* Limpa status anterior */
+  nfeSetStatus('','');
+  document.getElementById('nfe-btn-emitir').disabled = false;
+  document.getElementById('nfe-btn-emitir').textContent = '📄 Emitir NF-e';
+  document.getElementById('modal-nfe').classList.add('ab');
+}
+
+function fecharModalNFe(){
+  document.getElementById('modal-nfe').classList.remove('ab');
+  _nfeVendaId = null;
+  _nfeItens   = [];
+}
+
+function nfeSetStatus(tipo, html){
+  var el = document.getElementById('nfe-status');
+  el.className = 'nfe-status' + (tipo ? ' '+tipo : '');
+  el.innerHTML = html;
+}
+
+async function emitirNFe(){
+  var nome   = document.getElementById('nfe-dest-nome').value.trim();
+  var cpf    = document.getElementById('nfe-dest-cpf').value.replace(/\D/g,'');
+  var ie     = document.getElementById('nfe-dest-ie').value.trim() || 'Isento';
+  var rua    = document.getElementById('nfe-dest-rua').value.trim();
+  var bairro = document.getElementById('nfe-dest-bairro').value.trim();
+  var cep    = document.getElementById('nfe-dest-cep').value.replace(/\D/g,'');
+  var mun    = document.getElementById('nfe-dest-mun').value.trim() || 'Jaíba';
+  var uf     = document.getElementById('nfe-dest-uf').value;
+  var cfop   = document.getElementById('nfe-cfop').value;
+  var natOp  = document.getElementById('nfe-nat-op').value.trim();
+
+  if(!nome){ toast('Informe o nome do destinatário!','er'); return; }
+  if(!_nfeItens.length){ toast('Sem itens na venda!','er'); return; }
+
+  document.getElementById('nfe-btn-emitir').disabled = true;
+  document.getElementById('nfe-btn-emitir').textContent = '⏳ Enviando...';
+  nfeSetStatus('info', '⏳ Enviando para a SEFAZ (homologação)...');
+
+  /* Monta referência única */
+  var refBase   = 'MEND'+String(_nfeVendaId).padStart(8,'0');
+  /* Garante unicidade com timestamp para reemissões */
+  var ref       = refBase + '_' + Date.now().toString(36).toUpperCase();
+
+  /* Monta itens para a NF-e */
+  var itensNfe = _nfeItens.map(function(it, idx){
+    var vUnit  = parseFloat((it.preco_unitario).toFixed(2));
+    var qtd    = it.quantidade;
+    var vTotal = parseFloat((vUnit * qtd).toFixed(2));
+    return {
+      numero_item:              idx + 1,
+      codigo_produto:           it.produto_codigo || ('SRV'+String(idx+1).padStart(3,'0')),
+      descricao:                it.nome_produto || 'Item',
+      cfop:                     cfop,
+      unidade_comercial:        it.tipo === 'servico' ? 'UN' : 'PC',
+      quantidade_comercial:     qtd,
+      valor_unitario_comercial: vUnit,
+      valor_bruto:              vTotal,
+      unidade_tributavel:       it.tipo === 'servico' ? 'UN' : 'PC',
+      quantidade_tributavel:    qtd,
+      valor_unitario_tributavel:vUnit,
+      codigo_ncm:               '87089990',
+      icms_situacao_tributaria: '400',
+      icms_origem:              '0',
+      pis_situacao_tributaria:  '07',
+      cofins_situacao_tributaria:'07',
+    };
+  });
+
+  /* Calcula totais */
+  var vProdutos = _nfeItens.reduce(function(s,it){ return s + it.preco_unitario * it.quantidade; }, 0);
+  vProdutos = parseFloat(vProdutos.toFixed(2));
+
+  /* Payload Focus NF-e */
+  /* Data no fuso de Brasília (UTC-3) */
+  function dataEmissao(){
+    var d = new Date();
+    var off = -3 * 60;
+    var local = new Date(d.getTime() + (off - d.getTimezoneOffset()) * 60000);
+    return local.toISOString().substring(0,19) + '-03:00';
+  }
+  var agora = dataEmissao();
+
+  var payload = {
+    natureza_operacao:    natOp,
+    data_emissao:         agora,
+    data_entrada_saida:   agora,
+    tipo_documento:       '1',        /* saída */
+    finalidade_emissao:   '1',        /* normal */
+    consumidor_final:     '1',
+    presenca_comprador:   '1',        /* presencial */
+    modalidade_frete:     '9',        /* sem frete */
+
+    /* Emitente — dados da Mendezza (homologação usa dados do certificado da Focus) */
+    nome_emitente:            'MENDEZZA AUTO PECAS',
+    cnpj_emitente:            '59755617000160',
+    inscricao_estadual_emitente: '0051365550052',
+    logradouro_emitente:      'Rua Roque Ferreira Pimenta',
+    numero_emitente:          '418A',
+    bairro_emitente:          'Centro',
+    municipio_emitente:       'Jaíba',
+    uf_emitente:              'MG',
+    cep_emitente:             '39448000',
+    telefone_emitente:        '3821004246',
+    regime_tributario_emitente: '1', /* 1=Simples Nacional */
+
+    /* Destinatário */
+    nome_destinatario:        nome,
+    cpf_destinatario:         cpf || undefined,
+    indicador_inscricao_estadual_destinatario: '9', /* não contribuinte */
+    inscricao_estadual_destinatario: ie !== 'Isento' ? ie : undefined,
+    logradouro_destinatario:  rua  || 'Não informado',
+    numero_destinatario:      'S/N',
+    bairro_destinatario:      bairro || 'Não informado',
+    municipio_destinatario:   mun,
+    uf_destinatario:          uf,
+    cep_destinatario:         cep || '00000000',
+    telefone_destinatario:    undefined,
+
+    items: itensNfe,
+
+    valor_produtos:        vProdutos,
+    valor_frete:           0,
+    valor_seguro:          0,
+    valor_desconto:        0,
+    valor_total:           vProdutos,
+    valor_ipi:             0,
+    valor_pis:             0,
+    valor_cofins:          0,
+    valor_icms:            0,
+    base_icms:             0,
+
+    /* Informações adicionais */
+    informacoes_adicionais_contribuinte: 'Venda #'+_nfeVendaId+' — OMG Softwares'
+  };
+
+  /* Remove campos undefined */
+  Object.keys(payload).forEach(function(k){ if(payload[k]===undefined) delete payload[k]; });
+  console.log('[NF-e] Payload completo:', JSON.stringify(payload, null, 2));
+
+  try{
+    var resp = await fetch(FOCUS_PROXY + '?action=emitir&ref=' + ref, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+
+    var data = await resp.json();
+    console.log('[Focus NF-e] Resposta:', resp.status, data);
+
+    var statusNFe = data.status || '';
+
+    /* processando_autorizacao pode vir em qualquer HTTP status */
+    if(statusNFe === 'processando_autorizacao' || statusNFe === 'autorizado' || resp.status === 200 || resp.status === 201){
+      var refFinal = data.ref || ref;
+      if(statusNFe === 'autorizado'){
+        /* Já autorizou direto — chama o handler de status */
+        consultarStatusNFe(refFinal);
+        return;
+      }
+      nfeSetStatus('av', '⏳ NF-e enviada! Aguardando SEFAZ...<br>Ref: <b>'+refFinal+'</b>');
+      var btn = document.getElementById('nfe-btn-emitir');
+      btn.textContent = '🔄 Consultar Status';
+      btn.disabled    = false;
+      btn.onclick     = function(){ consultarStatusNFe(refFinal); };
+      /* Salva ref na venda */
+      await db.from('vendas').update({ observacoes: (await (async function(){
+        var rv = await db.from('vendas').select('observacoes').eq('id',_nfeVendaId).single();
+        var obs = rv.data ? (rv.data.observacoes||'') : '';
+        return obs + (obs?'\n':'') + '[NF-e ref: '+refFinal+']';
+      })()) }).eq('id', _nfeVendaId);
+      /* Polling automático após 6s */
+      setTimeout(function(){ consultarStatusNFe(refFinal); }, 6000);
+    } else {
+      var erros = data.erros ? data.erros.map(function(e){ return e.mensagem||e.codigo; }).join('<br>') : JSON.stringify(data);
+      nfeSetStatus('er', '❌ Erro ao enviar NF-e:<br>'+erros);
+      document.getElementById('nfe-btn-emitir').disabled = false;
+      document.getElementById('nfe-btn-emitir').textContent = '📄 Tentar Novamente';
+      document.getElementById('nfe-btn-emitir').onclick = emitirNFe;
+    }
+  }catch(e){
+    nfeSetStatus('er', '❌ Falha na requisição: '+e.message);
+    document.getElementById('nfe-btn-emitir').disabled = false;
+    document.getElementById('nfe-btn-emitir').textContent = '📄 Tentar Novamente';
+    document.getElementById('nfe-btn-emitir').onclick = emitirNFe;
+    console.error('[Focus NF-e]', e);
+  }
+}
+
+async function baixarDanfe(ref, path){
+  try{
+    var url = FOCUS_PROXY + '?action=download&path=' + encodeURIComponent(path);
+    var resp = await fetch(url, {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    });
+    if(!resp.ok){ toast('Erro ao baixar DANFE: '+resp.status,'er'); return; }
+    var blob = await resp.blob();
+    var burl = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = burl;
+    a.download = 'DANFE_' + ref + '.pdf';
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(burl); }, 5000);
+  }catch(e){
+    toast('Erro ao baixar DANFE: '+e.message,'er');
+  }
+}
+
+async function consultarStatusNFe(ref){
+  nfeSetStatus('info', '🔄 Consultando status na SEFAZ...');
+  /* Mantém botão sempre visível durante polling */
+  var btn = document.getElementById('nfe-btn-emitir');
+  btn.textContent = '🔄 Consultar Status';
+  btn.disabled    = false;
+  btn.onclick     = function(){ consultarStatusNFe(ref); };
+  try{
+    var resp = await fetch(FOCUS_PROXY + '?action=consultar&ref=' + ref, {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    });
+    var data = await resp.json();
+    console.log('[Focus NF-e] Status:', resp.status, data);
+
+    var sit = data.status || '';
+    if(sit === 'autorizado'){
+      var danfeUrl = data.caminho_danfe || '';
+      nfeSetStatus('ok',
+        '✅ <b>NF-e AUTORIZADA!</b><br>'+
+        'Chave: <small>'+data.chave_nfe+'</small><br>'+
+        'Protocolo: '+data.protocolo+'<br>'+
+        (danfeUrl ? '<button onclick="baixarDanfe(\''+ref+'\',\''+danfeUrl+'\')" style="margin-top:8px;background:#004aad;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:.88rem">📥 Baixar DANFE</button>' : '')
+      );
+      btn.textContent = '✅ Autorizada';
+      btn.disabled    = true;
+    } else if(sit === 'processando_autorizacao'){
+      nfeSetStatus('av', '⏳ Ainda processando na SEFAZ...<br>Clique em <b>Consultar Status</b> para atualizar.');
+    } else if(sit === 'erro_autorizacao' || sit === 'denegado'){
+      var msg = data.mensagem_sefaz || data.status_sefaz || JSON.stringify(data);
+      nfeSetStatus('er', '❌ <b>'+sit.toUpperCase()+'</b><br>'+msg);
+      btn.textContent = '📄 Tentar Novamente';
+      btn.onclick     = emitirNFe;
+    } else {
+      nfeSetStatus('av', '🔍 Status: <b>'+sit+'</b><br><pre style="font-size:.74rem;margin-top:6px;white-space:pre-wrap">'+JSON.stringify(data,null,2).substring(0,400)+'</pre>');
+    }
+  }catch(e){
+    nfeSetStatus('er', '❌ Erro ao consultar: '+e.message);
+  }
+}
 
 carregarProdutos();
 
