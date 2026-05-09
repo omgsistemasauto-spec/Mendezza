@@ -245,7 +245,7 @@ tbody td{padding:8px 12px}
 #cupom-oleo-popup.ab{display:flex}
 .cupom-oleo-box{
   background:#fff;border-radius:16px;
-  width:480px;max-width:100%;max-height:94vh;overflow-y:auto;
+  width:420px;max-width:100%;max-height:94vh;overflow-y:auto;
   box-shadow:0 10px 40px rgba(0,0,0,.3);animation:pop .2s ease;
   font-family:'Segoe UI',Arial,sans-serif
 }
@@ -1876,8 +1876,9 @@ function imprimirCupomOleo(){
     '<style>'+
       '*{box-sizing:border-box;margin:0;padding:0}'+
       'body{font-family:"Segoe UI",Arial,sans-serif;background:#fff;margin:0;padding:0}'+
-      '@page{size:A4;margin:0}'+
+      '@page{size:A4;margin:10mm 12mm}'+
       '@media print{body{margin:0}}'+
+      'table{border-collapse:collapse}'+
     '</style>'+
     '</head><body>'+html+'</body></html>'
   );
@@ -1889,118 +1890,108 @@ function imprimirCupomOleo(){
 function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, metodo){
   var agora = new Date().toLocaleString('pt-BR');
 
-  /* ── Monta grade de selos (latas de óleo SVG) ── */
+  /* ── Lata de óleo SVG compacta ── */
   function svgLataOleo(feito, num){
-    var cor    = feito ? '#e0a800' : '#d0d0d0';
-    var corEsc = feito ? '#a07800' : '#aaa';
-    var corTxt = feito ? '#fff'    : '#bbb';
-    var sombra = feito ? 'drop-shadow(0 3px 6px rgba(0,0,0,.25))' : 'none';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">'+
-      '<svg width="44" height="54" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" style="filter:'+sombra+'">'+
-        /* Corpo da lata */
+    var cor    = feito ? '#e0a800' : '#d8d8d8';
+    var corEsc = feito ? '#a07800' : '#bbb';
+    var corTxt = feito ? '#856404' : '#bbb';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">'+
+      '<svg width="30" height="37" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg">'+
         '<rect x="6" y="14" width="32" height="34" rx="4" fill="'+cor+'"/>'+
-        /* Sombra lateral */
         '<rect x="32" y="14" width="6" height="34" rx="0 4 4 0" fill="'+corEsc+'" opacity=".4"/>'+
-        /* Tampa */
         '<rect x="4" y="10" width="36" height="6" rx="3" fill="'+corEsc+'"/>'+
-        /* Bico/tampa superior */
         '<rect x="14" y="5" width="16" height="7" rx="2" fill="'+corEsc+'"/>'+
         '<rect x="18" y="2" width="8" height="5" rx="2" fill="'+corEsc+'"/>'+
-        /* Faixa central decorativa */
         (feito
-          ? '<rect x="6" y="26" width="32" height="10" fill="#fff" opacity=".15"/>'+
-            '<text x="22" y="34" text-anchor="middle" font-size="8" fill="#fff" font-weight="bold" font-family="Arial">ÓLEO</text>'
-          : '<rect x="6" y="26" width="32" height="10" fill="#fff" opacity=".08"/>') +
-        /* Número embaixo da lata */
+          ? '<rect x="6" y="26" width="32" height="10" fill="#fff" opacity=".18"/>'+
+            '<text x="22" y="34" text-anchor="middle" font-size="7" fill="#fff" font-weight="bold" font-family="Arial">ÓLEO</text>'
+          : '') +
       '</svg>'+
-      '<span style="font-size:.68rem;font-weight:700;color:'+corTxt+'">'+num+'ª</span>'+
+      '<span style="font-size:.58rem;font-weight:700;color:'+corTxt+'">'+num+'ª</span>'+
     '</div>';
   }
 
   var selos = '';
-  for(var s=0;s<10;s++){
-    selos += svgLataOleo(s < quantidade, s+1);
-  }
+  for(var s=0;s<10;s++) selos += svgLataOleo(s < quantidade, s+1);
 
-  /* ── Tabela de itens ── */
+  /* ── Tabela de itens compacta ── */
   var tabelaItens =
-    '<table style="width:100%;border-collapse:collapse;font-size:.88rem">'+
+    '<table style="width:100%;border-collapse:collapse;font-size:.75rem">'+
     '<thead><tr style="background:#004aad;color:#fff">'+
-      '<th style="padding:8px 12px;text-align:left;border-radius:6px 0 0 0">Produto / Serviço</th>'+
-      '<th style="padding:8px 12px;text-align:center">Qtd</th>'+
-      '<th style="padding:8px 12px;text-align:right;border-radius:0 6px 0 0">Total</th>'+
+      '<th style="padding:4px 8px;text-align:left">Produto / Serviço</th>'+
+      '<th style="padding:4px 8px;text-align:center">Qtd</th>'+
+      '<th style="padding:4px 8px;text-align:right">Total</th>'+
     '</tr></thead><tbody>'+
     itensVenda.map(function(it,i){
       var n = it.nome_produto || it.nome || '';
       var q = it.quantidade || 1;
       var t = (it.preco_unitario * q).toFixed(2).replace('.',',');
       return '<tr style="background:'+(i%2===0?'#fff':'#f8f9fa')+'">'+
-        '<td style="padding:8px 12px;color:#2c3e50">'+eh(n)+'</td>'+
-        '<td style="padding:8px 12px;text-align:center;color:#666">'+q+'</td>'+
-        '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#004aad">R$ '+t+'</td>'+
+        '<td style="padding:4px 8px">'+eh(n)+'</td>'+
+        '<td style="padding:4px 8px;text-align:center;color:#666">'+q+'</td>'+
+        '<td style="padding:4px 8px;text-align:right;font-weight:700;color:#004aad">R$ '+t+'</td>'+
       '</tr>';
     }).join('')+
-    '<tr style="background:#e8f0fe;font-weight:900;font-size:.95rem">'+
-      '<td colspan="2" style="padding:10px 12px;color:#004aad">TOTAL PAGO</td>'+
-      '<td style="padding:10px 12px;text-align:right;color:#004aad">R$ '+Number(total).toFixed(2).replace('.',',')+'</td>'+
+    '<tr style="background:#e8f0fe;font-weight:900">'+
+      '<td colspan="2" style="padding:5px 8px;color:#004aad;font-size:.78rem">TOTAL PAGO</td>'+
+      '<td style="padding:5px 8px;text-align:right;color:#004aad;font-size:.78rem">R$ '+Number(total).toFixed(2).replace('.',',')+'</td>'+
     '</tr>'+
     '</tbody></table>';
 
-  /* ── Rodapé de progresso ── */
-
-
   document.getElementById('cupom-oleo-inner').innerHTML =
-  /* ══ CABEÇALHO ══ */
-  '<div style="background:linear-gradient(135deg,#004aad,#5271ff);color:#fff;padding:36px 40px 28px;text-align:center">'+
-    '<div style="font-size:3.5rem;margin-bottom:8px">🛢️</div>'+
-    '<div style="font-size:1.7rem;font-weight:900;letter-spacing:2px;text-transform:uppercase">Mendezza Auto Peças</div>'+
-    '<div style="font-size:.85rem;opacity:.8;margin-top:6px">Rua Roque Ferreira Pimenta, 418A · (38) 2100-4246</div>'+
-    '<div style="margin-top:20px;background:rgba(255,255,255,.15);border-radius:10px;padding:10px 20px;display:inline-block">'+
-      '<div style="font-size:.75rem;letter-spacing:3px;text-transform:uppercase;opacity:.8">Cartão Fidelidade</div>'+
-      '<div style="font-size:1.3rem;font-weight:900;letter-spacing:1px">TROCA DE ÓLEO</div>'+
+  /* CABEÇALHO */
+  '<div style="background:linear-gradient(135deg,#004aad,#5271ff);color:#fff;padding:14px 20px 12px;text-align:center">'+
+    '<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+
+      '<span style="font-size:1.6rem">🛢️</span>'+
+      '<div>'+
+        '<div style="font-size:1.05rem;font-weight:900;letter-spacing:1px;text-transform:uppercase">Mendezza Auto Peças</div>'+
+        '<div style="font-size:.68rem;opacity:.8">Rua Roque Ferreira Pimenta, 418A · (38) 2100-4246</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="margin-top:8px;background:rgba(255,255,255,.15);border-radius:6px;padding:5px 14px;display:inline-block">'+
+      '<div style="font-size:.6rem;letter-spacing:2px;text-transform:uppercase;opacity:.8">Cartão Fidelidade — TROCA DE ÓLEO</div>'+
     '</div>'+
   '</div>'+
 
-  /* ══ CLIENTE + CONTADOR ══ */
-  '<div style="padding:32px 40px;border-bottom:2px dashed #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:20px">'+
+  /* CLIENTE + CONTADOR numa linha */
+  '<div style="padding:10px 16px;border-bottom:1px dashed #ddd;display:flex;align-items:center;justify-content:space-between;gap:12px">'+
     '<div>'+
-      '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:4px">Cliente</div>'+
-      '<div style="font-size:1.5rem;font-weight:900;color:#2c3e50">'+eh(clienteNome)+'</div>'+
-      '<div style="font-size:.8rem;color:#888;margin-top:6px">📅 '+agora+'</div>'+
-      '<div style="font-size:.8rem;color:#888">🔖 Venda #'+vendaId+' · 💳 '+metodo+'</div>'+
+      '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888">Cliente</div>'+
+      '<div style="font-size:1.1rem;font-weight:900;color:#2c3e50">'+eh(clienteNome)+'</div>'+
+      '<div style="font-size:.68rem;color:#888;margin-top:2px">'+agora+' · Venda #'+vendaId+'</div>'+
+      '<div style="font-size:.68rem;color:#888">💳 '+metodo+'</div>'+
     '</div>'+
     '<div style="text-align:center;flex-shrink:0">'+
-      '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:4px">Nº de trocas</div>'+
-      '<div style="font-size:5rem;font-weight:900;color:#004aad;line-height:1">'+quantidade+'</div>'+
-      '<div style="font-size:.78rem;color:#888;margin-top:2px">vezes aqui</div>'+
+      '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888">Trocas</div>'+
+      '<div style="font-size:3.2rem;font-weight:900;color:#004aad;line-height:1">'+quantidade+'</div>'+
+      '<div style="font-size:.65rem;color:#888">vez(es)</div>'+
     '</div>'+
   '</div>'+
 
-  /* ══ GRADE DE SELOS ══ */
-  '<div style="padding:28px 40px;border-bottom:2px dashed #e0e0e0">'+
-    '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:16px">Seu histórico de trocas</div>'+
-    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;justify-items:center">'+selos+'</div>'+
+  /* GRADE DE SELOS */
+  '<div style="padding:10px 16px;border-bottom:1px dashed #ddd">'+
+    '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Histórico de trocas</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px 4px;justify-items:center">'+selos+'</div>'+
   '</div>'+
 
-  /* ══ ITENS DA VISITA ══ */
-  '<div style="padding:28px 40px;border-bottom:2px dashed #e0e0e0">'+
-    '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:14px">Itens desta visita</div>'+
+  /* ITENS */
+  '<div style="padding:10px 16px;border-bottom:1px dashed #ddd">'+
+    '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:6px">Itens desta visita</div>'+
     tabelaItens+
   '</div>'+
 
-  /* ══ RODAPÉ ══ */
-  '<div style="padding:28px 40px;text-align:center;color:#aaa">'+
-    '<div style="font-size:.82rem;line-height:1.8;color:#666">'+
-      'Guarde este comprovante.<br>'+
-      '<b style="color:#004aad;font-size:.9rem">Obrigado pela confiança! 🤝</b>'+
+  /* RODAPÉ */
+  '<div style="padding:10px 16px;text-align:center">'+
+    '<div style="font-size:.72rem;color:#666">'+
+      'Guarde este comprovante · <b style="color:#004aad">Obrigado pela confiança! 🤝</b>'+
     '</div>'+
-    '<div style="margin-top:12px;font-size:.65rem;color:#ccc">OMG Softwares · Sistema Mendezza</div>'+
+    '<div style="margin-top:4px;font-size:.58rem;color:#ccc">OMG Softwares · Sistema Mendezza</div>'+
   '</div>'+
 
-  /* ══ BOTÕES (ocultos na impressão) ══ */
-  '<div class="cupom-oleo-acoes" style="display:flex;gap:10px;padding:16px 40px 24px;justify-content:center;background:#f8f9fa;border-radius:0 0 16px 16px">'+
-    '<button onclick="imprimirCupomOleo()" style="background:#004aad;color:#fff;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:8px">🖨️ Imprimir A4</button>'+
-    '<button onclick="document.getElementById(\'cupom-oleo-popup\').classList.remove(\'ab\')" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:12px 22px;cursor:pointer;font-size:.9rem;font-weight:700">✕ Fechar</button>'+
+  /* BOTÕES */
+  '<div class="cupom-oleo-acoes" style="display:flex;gap:10px;padding:10px 16px 14px;justify-content:center;background:#f8f9fa;border-radius:0 0 16px 16px">'+
+    '<button onclick="imprimirCupomOleo()" style="background:#004aad;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:.88rem;font-weight:700">🖨️ Imprimir A4</button>'+
+    '<button onclick="document.getElementById(\'cupom-oleo-popup\').classList.remove(\'ab\')" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:.88rem;font-weight:700">✕ Fechar</button>'+
   '</div>';
 
   document.getElementById('cupom-oleo-popup').classList.add('ab');
