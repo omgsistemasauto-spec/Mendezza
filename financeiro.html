@@ -98,8 +98,64 @@ tbody td{padding:9px 12px}
 .badge-pend{background:#fff3cd;color:#856404}
 .badge-venc{background:#f8d7da;color:#721c24}
 
-/* RADIO */
-.radio-group{display:flex;gap:14px;flex-wrap:wrap}
+/* ══ VISÃO DO CAIXA ══ */
+#modal-visao-caixa .modal{width:680px;max-width:98vw;max-height:90vh;padding:0;overflow:hidden;display:flex;flex-direction:column}
+.vc-header{background:var(--azul);color:#fff;padding:20px 24px;flex-shrink:0}
+.vc-header h2{font-size:1.05rem;margin:0 0 4px}
+.vc-header p{font-size:.78rem;opacity:.8;margin:0}
+.vc-body{flex:1;overflow-y:auto;padding:20px 24px}
+.vc-footer{padding:14px 24px;border-top:1px solid var(--borda);background:#f8f9fa;flex-shrink:0;display:flex;justify-content:flex-end;gap:8px}
+
+/* Linha do tempo */
+.vc-timeline{position:relative;padding-left:36px}
+.vc-timeline::before{content:'';position:absolute;left:14px;top:0;bottom:0;width:2px;background:#e0e0e0}
+.vc-item{position:relative;margin-bottom:8px;animation:slideIn .2s ease both}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}}
+.vc-item::before{
+  content:'';position:absolute;left:-28px;top:14px;
+  width:14px;height:14px;border-radius:50%;border:2px solid #fff;
+  box-shadow:0 0 0 2px #ccc;background:#fff;z-index:1
+}
+.vc-item.abertura::before{background:#004aad;box-shadow:0 0 0 2px #004aad}
+.vc-item.venda::before{background:#4CAF50;box-shadow:0 0 0 2px #4CAF50}
+.vc-item.despesa::before{background:#E76F51;box-shadow:0 0 0 2px #E76F51}
+.vc-item.fechamento::before{background:#ffc107;box-shadow:0 0 0 2px #ffc107}
+.vc-item.atual::before{background:#5271ff;box-shadow:0 0 0 3px #5271ff;width:16px;height:16px;left:-29px;top:13px}
+
+.vc-card{background:#fff;border:1px solid #eee;border-radius:10px;padding:11px 14px;
+  display:flex;align-items:center;gap:12px;cursor:default;
+  transition:box-shadow .15s}
+.vc-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.1)}
+.vc-card.venda{border-left:3px solid #4CAF50}
+.vc-card.despesa{border-left:3px solid #E76F51}
+.vc-card.abertura{border-left:3px solid #004aad}
+.vc-card.fechamento{border-left:3px solid #ffc107}
+.vc-card.atual{border-left:3px solid #5271ff;background:#f5f7ff}
+
+.vc-card .vc-ico{font-size:1.3rem;flex-shrink:0;width:28px;text-align:center}
+.vc-card .vc-desc{flex:1;min-width:0}
+.vc-card .vc-desc .vc-titulo{font-size:.86rem;font-weight:700;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vc-card .vc-desc .vc-sub{font-size:.73rem;color:#888;margin-top:1px}
+.vc-card .vc-val{text-align:right;flex-shrink:0}
+.vc-card .vc-val .vc-delta{font-size:.88rem;font-weight:800}
+.vc-card .vc-val .vc-saldo{font-size:.73rem;color:#888;margin-top:1px}
+
+/* Separador de dia */
+.vc-day-sep{font-size:.74rem;font-weight:700;color:#aaa;letter-spacing:1px;
+  text-transform:uppercase;margin:12px 0 8px;padding-left:2px}
+
+/* Sumário topo */
+.vc-sumario{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.vc-sum-box{background:#fff;border:1px solid #eee;border-radius:8px;padding:10px;text-align:center}
+.vc-sum-box .sv{font-size:1.05rem;font-weight:900}
+.vc-sum-box .sl{font-size:.7rem;color:#888;margin-top:2px}
+
+@media(max-width:768px){
+  .vc-sumario{grid-template-columns:1fr 1fr}
+  .vc-timeline{padding-left:28px}
+}
+
+
 .radio-group label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.88rem}
 
 /* ══════════════════════════════════════════
@@ -300,7 +356,7 @@ tbody td{padding:9px 12px}
 		/* CALENDÁRIO */
 		.calendar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 		.calendar-header h3{font-size:.9rem;color:var(--azul)}
-		.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;width:100%}
+		.calendar-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%}
 		.cal-day-name{font-size:.65rem;font-weight:700;color:#aaa;text-align:center;padding-bottom:4px}
 		.cal-day{
 			aspect-ratio:1/1;
@@ -345,13 +401,14 @@ tbody td{padding:9px 12px}
         <button class="btn ba"  onclick="abrirModalHistDia()">📊 Histórico do Dia</button>
         <button class="btn bam" onclick="abrirFecharCaixa()">🔒 Fechar Caixa</button>
         <button class="btn bc"  onclick="carregarTudo()">🔄 Atualizar</button>
+        <button class="btn" style="background:#5271ff;color:#fff" onclick="abrirVisaoCaixa()">🔍 Visão do Caixa</button>
       </div>
 
   <!-- CARD UNIFICADO: SALDO + FATURAMENTO ANUAL -->
   <div class="caixa-card" style="display:flex;align-items:center;padding:20px;gap:30px;margin-bottom:20px">
     <!-- Lado Esquerdo: Saldo -->
     <div style="flex:1;text-align:center">
-      <div class="caixa-label">💵 SALDO ATUAL DO CAIXA</div>
+      <div class="caixa-label">💵 SALDO DO CAIXA — <span id="lbl-caixa-mes-nome">MÊS ATUAL</span></div>
       <div class="caixa-valor" id="lbl-caixa" style="color:var(--azul);font-size:2.4rem">Carregando...</div>
       <div style="font-size:.8rem;color:#aaa;margin-top:6px" id="caixa-sub"></div>
     </div>
@@ -679,6 +736,26 @@ tbody td{padding:9px 12px}
   </div>
 </div>
 
+<!-- MODAL: VISÃO DO CAIXA -->
+<div class="bd" id="modal-visao-caixa">
+  <div class="modal">
+    <button class="mf" style="color:rgba(255,255,255,.7);top:16px;right:18px;z-index:10" onclick="fechar('modal-visao-caixa')">✕</button>
+    <div class="vc-header">
+      <h2>🔍 Visão do Caixa — Como chegamos aqui?</h2>
+      <p id="vc-periodo-label">Carregando...</p>
+    </div>
+    <div class="vc-body">
+      <div class="vc-sumario" id="vc-sumario"></div>
+      <div class="vc-timeline" id="vc-timeline">
+        <div style="text-align:center;padding:40px;color:#bbb">Carregando movimentações...</div>
+      </div>
+    </div>
+    <div class="vc-footer">
+      <button class="btn bc" onclick="fechar('modal-visao-caixa')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ══ MOBILE: BARRA INFERIOR ══ -->
@@ -733,8 +810,19 @@ var db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 function eh(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function brl(n){ return 'R$\u00a0'+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function dataFmt(s){ if(!s) return '—'; var d=new Date(s+'T12:00:00'); return d.toLocaleDateString('pt-BR'); }
-function hoje(){ return new Date().toISOString().split('T')[0]; }
+function hoje(){
+  var d=new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
 function mesAtual(){ var d=new Date(); return ('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear(); }
+function inicioMesLocal(){
+  var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-01';
+}
+function fimMesLocal(){
+  var d=new Date();
+  var ultimo=new Date(d.getFullYear(),d.getMonth()+1,0);
+  return ultimo.getFullYear()+'-'+('0'+(ultimo.getMonth()+1)).slice(-2)+'-'+('0'+ultimo.getDate()).slice(-2);
+}
 
 var _tt;
 function toast(msg,tipo){
@@ -762,50 +850,67 @@ async function carregarTudo(){
    CAIXA — equivale a atualizar_caixa
 ══════════════════════════════════════════ */
 async function atualizarCaixa(){
-  var hj = hoje();
+  var hj     = hoje();
+  var inicio = inicioMesLocal();
+  var fim    = fimMesLocal();
 
-  /* busca caixa de HOJE — se não tiver, pega o mais recente */
-  var rc = await db.from('caixa').select('*').eq('data', hj).limit(1).maybeSingle();
+  /* Primeiro caixa aberto no mês (saldo inicial do mês) */
+  var rc = await db.from('caixa').select('*')
+    .gte('data', inicio).lte('data', fim)
+    .order('data',{ascending:true}).limit(1).maybeSingle();
   if(!rc.data){
+    /* fallback: caixa mais recente de qualquer mês */
     rc = await db.from('caixa').select('*').order('data',{ascending:false}).limit(1).maybeSingle();
   }
   var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
 
-  /* vendas de HOJE */
+  /* vendas DO MÊS INTEIRO */
   var rv = await db.from('vendas').select('total')
-    .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
-  var totalVendas = (rv.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
+    .gte('data', inicio+'T00:00:00').lte('data', fim+'T23:59:59');
+  var totalVendasMes = (rv.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
 
-  /* contas pagas HOJE */
-  var rcp = await db.from('contas_pagar').select('valor').eq('pago',true).eq('data_pagamento', hj);
-  var totalRetiradas = (rcp.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); },0);
+  /* contas pagas NO MÊS */
+  var rcp = await db.from('contas_pagar').select('valor')
+    .eq('pago',true).gte('data_pagamento', inicio).lte('data_pagamento', fim);
+  var totalRetiradasMes = (rcp.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); },0);
 
-  var saldoAtual = saldoInicial + totalVendas - totalRetiradas;
+  var saldoMes = saldoInicial + totalVendasMes - totalRetiradasMes;
 
-  /* atualiza no banco */
-  if(rc.data && rc.data.data === hj){
+  /* atualiza caixa de hoje no banco se existir */
+  var rcHj = await db.from('caixa').select('id,data').eq('data', hj).limit(1).maybeSingle();
+  if(rcHj.data){
+    /* vendas só de hoje para salvar no registro diário */
+    var rvHj = await db.from('vendas').select('total')
+      .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
+    var vendHj = (rvHj.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
+    var rcpHj = await db.from('contas_pagar').select('valor').eq('pago',true).eq('data_pagamento', hj);
+    var retHj = (rcpHj.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); },0);
     await db.from('caixa').update({
-      total_vendas: parseFloat(totalVendas.toFixed(2)),
-      retiradas:    parseFloat(totalRetiradas.toFixed(2)),
-      saldo_atual:  parseFloat(saldoAtual.toFixed(2))
-    }).eq('id', rc.data.id);
+      total_vendas: parseFloat(vendHj.toFixed(2)),
+      retiradas:    parseFloat(retHj.toFixed(2)),
+      saldo_atual:  parseFloat((saldoInicial + vendHj - retHj).toFixed(2))
+    }).eq('id', rcHj.data.id);
   }
 
-  /* atualiza UI */
+  /* ── UI: mostra saldo do MÊS ── */
   var el = document.getElementById('lbl-caixa');
-  el.textContent = brl(saldoAtual);
-  el.style.color = saldoAtual >= 0 ? 'var(--verde)' : 'var(--vermelho)';
+  el.textContent = brl(saldoMes);
+  el.style.color = saldoMes >= 0 ? 'var(--verde)' : 'var(--vermelho)';
+
+  var nomeMes = new Date().toLocaleString('pt-BR',{month:'long'});
+  var elMesNome = document.getElementById('lbl-caixa-mes-nome');
+  if(elMesNome) elMesNome.textContent = nomeMes.toUpperCase();
   document.getElementById('caixa-sub').textContent =
-    'Saldo inicial: '+brl(saldoInicial)+' · Vendas: +'+brl(totalVendas)+' · Despesas: -'+brl(totalRetiradas);
+    'Abertura: '+brl(saldoInicial)+' · Vendas '+nomeMes+': +'+brl(totalVendasMes)+' · Despesas: -'+brl(totalRetiradasMes);
 
   /* mini cards */
-  var hoje2 = hoje();
-  var rv2 = await db.from('vendas').select('total').gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59');
+  var rv2 = await db.from('vendas').select('total')
+    .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
   var vendasHoje = (rv2.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
 
   document.getElementById('mc-vendas-dia').textContent  = brl(vendasHoje);
-  document.getElementById('mc-vendas-mes').textContent  = brl(totalVendas);
-  document.getElementById('mc-despesas-mes').textContent= brl(totalRetiradas);
+  document.getElementById('mc-vendas-mes').textContent  = brl(totalVendasMes);
+  document.getElementById('mc-despesas-mes').textContent= brl(totalRetiradasMes);
 
   /* contas pendentes */
   var rpp = await db.from('contas_pagar').select('id',{count:'exact'}).eq('pago',false);
@@ -816,9 +921,8 @@ async function atualizarCaixa(){
    VENDAS DO MÊS — tabela por dia e método
 ══════════════════════════════════════════ */
 async function carregarVendasMes(){
-  var mes = new Date();
-  var inicio = new Date(mes.getFullYear(), mes.getMonth(), 1).toISOString().split('T')[0];
-  var fim    = new Date(mes.getFullYear(), mes.getMonth()+1, 0).toISOString().split('T')[0];
+  var inicio = inicioMesLocal();
+  var fim    = fimMesLocal();
 
   /* 1. Vendas do mês com seus IDs */
   var rv = await db.from('vendas')
@@ -1389,35 +1493,40 @@ async function renderizarCalendario(){
   
   var grid = document.getElementById('calendar-grid');
   var html = '';
-  
-  // Nomes dos dias
-  ["D", "S", "T", "Q", "Q", "S", "S"].forEach(d => {
+
+  // Cabeçalho: só dias úteis seg-sex
+  ["Seg","Ter","Qua","Qui","Sex"].forEach(d => {
     html += `<div class="cal-day-name">${d}</div>`;
   });
-  
-  // Espaços vazios (mês anterior)
-  for(let i=0; i<primeiroDia; i++) html += '<div class="cal-day other-month"></div>';
-  
-  // Dias do mês
+
+  // Espaços antes do dia 1 (seg=0, ter=1, qua=2, qui=3, sex=4; sab/dom = 0)
+  var ds1 = new Date(ano, mes, 1).getDay(); // 0=dom,1=seg..6=sab
+  var espacos = (ds1 >= 1 && ds1 <= 5) ? ds1 - 1 : 0;
+  for(let i=0; i<espacos; i++) html += '<div class="cal-day other-month"></div>';
+
+  // Dias do mês — pula sábado e domingo
   var hojeStr = hoje();
   for(let dia=1; dia<=ultimoDia; dia++){
+    var diaSem = new Date(ano, mes, dia).getDay();
+    if(diaSem === 0 || diaSem === 6) continue;
+
     var dataStr = `${ano}-${String(mes+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
     var contasDia = _contasCache.filter(c => c.data_vencimento === dataStr);
     var eHoje = dataStr === hojeStr;
-    
-    var tagsHtml = contasDia.slice(0, 3).map(c => 
+
+    var tagsHtml = contasDia.slice(0, 4).map(c =>
       `<div class="cal-bill-tag ${c.pago?'pago':''}" onclick="event.stopPropagation(); verDetalheConta(${c.id})">${eh(c.descricao)}</div>`
     ).join('');
-    
-    if(contasDia.length > 3) tagsHtml += `<div style="font-size:9px;color:#999;padding-left:4px">+${contasDia.length-3} mais</div>`;
-    
+
+    if(contasDia.length > 4) tagsHtml += `<div style="font-size:9px;color:#999;padding-left:4px">+${contasDia.length-4} mais</div>`;
+
     html += `
       <div class="cal-day ${eHoje?'today':''}" onclick="verContasDia('${dataStr}')">
         <span class="day-num">${dia}</span>
         ${tagsHtml}
       </div>`;
   }
-  
+
   grid.innerHTML = html;
   
   // Se for o mês atual, mostra as contas de hoje por padrão
@@ -1605,7 +1714,8 @@ async function verDetalhesVendasDia(diaStr){
   
   var html = '';
   vendas.forEach((v, idx) => {
-    var hora = v.data ? new Date(v.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '--:--';
+    /* Converte para horário local BR antes de formatar */
+    var hora = v.data ? (function(s){ var d=new Date(s); return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}); })(v.data) : '--:--';
     html += `
       <div style="background:#fff;border:1px solid #eee;border-radius:10px;padding:15px;margin-bottom:15px;box-shadow:0 2px 5px rgba(0,0,0,0.05)">
         <div style="display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;padding-bottom:8px;margin-bottom:10px">
@@ -1658,6 +1768,197 @@ document.addEventListener('click',function(e){
     }
   }
 });
+
+/* ══════════════════════════════════════════
+   VISÃO DO CAIXA — linha do tempo do mês
+══════════════════════════════════════════ */
+async function abrirVisaoCaixa(){
+  document.getElementById('modal-visao-caixa').classList.add('ab');
+  document.getElementById('vc-timeline').innerHTML =
+    '<div style="text-align:center;padding:40px;color:#bbb">Carregando movimentações...</div>';
+  document.getElementById('vc-sumario').innerHTML = '';
+  document.getElementById('vc-periodo-label').textContent = 'Carregando...';
+
+  var agora = new Date();
+  var inicio = inicioMesLocal();
+  var fim    = fimMesLocal();
+  var nomeMes = agora.toLocaleString('pt-BR',{month:'long',year:'numeric'});
+
+  /* Busca tudo em paralelo */
+  var [rvAll, rdAll, rcAll] = await Promise.all([
+    db.from('vendas').select('id,data,total,metodo_pagamento,cliente_nome')
+      .gte('data', inicio+'T00:00:00').lte('data', fim+'T23:59:59')
+      .order('data',{ascending:true}),
+    db.from('contas_pagar').select('id,descricao,valor,data_pagamento,data_vencimento,pago')
+      .gte('data_vencimento', inicio).lte('data_vencimento', fim)
+      .order('data_vencimento',{ascending:true}),
+    db.from('caixa').select('*')
+      .gte('data', inicio).lte('data', fim)
+      .order('data',{ascending:true})
+  ]);
+
+  var vendas   = rvAll.data  || [];
+  var contas   = rdAll.data  || [];
+  var caixas   = rcAll.data  || [];
+
+  /* Monta lista de eventos ordenados por data+hora */
+  var eventos = [];
+
+  /* Abertura(s) de caixa */
+  caixas.forEach(function(c){
+    eventos.push({
+      tipo: 'abertura',
+      data: c.data + 'T00:00:00',
+      dia:  c.data,
+      titulo: 'Abertura do Caixa',
+      sub: 'Saldo inicial: ' + brl(c.saldo_inicial),
+      delta: Number(c.saldo_inicial),
+      caixaId: c.id
+    });
+    if(c.fechado_em){
+      eventos.push({
+        tipo: 'fechamento',
+        data: c.fechado_em || c.data + 'T23:59:59',
+        dia:  c.data,
+        titulo: 'Fechamento do Caixa',
+        sub: 'Saldo final registrado',
+        delta: 0
+      });
+    }
+  });
+
+  /* Vendas */
+  vendas.forEach(function(v){
+    var hora = v.data ? (function(s){ var d=new Date(s); return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}); })(v.data) : '';
+    eventos.push({
+      tipo: 'venda',
+      data: v.data,
+      dia:  v.data ? v.data.substring(0,10) : '?',
+      titulo: 'Venda' + (v.cliente_nome && v.cliente_nome !== 'Consumidor Final' ? ' — ' + v.cliente_nome : ''),
+      sub:  hora + (v.metodo_pagamento ? ' · ' + v.metodo_pagamento : ''),
+      delta: Number(v.total||0)
+    });
+  });
+
+  /* Despesas pagas no mês */
+  contas.forEach(function(c){
+    if(!c.pago || !c.data_pagamento) return;
+    /* só do mês atual */
+    if(c.data_pagamento < inicio || c.data_pagamento > fim) return;
+    eventos.push({
+      tipo: 'despesa',
+      data: c.data_pagamento + 'T12:00:00',
+      dia:  c.data_pagamento,
+      titulo: c.descricao,
+      sub: 'Despesa paga',
+      delta: -Number(c.valor||0)
+    });
+  });
+
+  /* Despesas pendentes do mês (não pagas) — aparece como "previsto" */
+  contas.forEach(function(c){
+    if(c.pago) return;
+    eventos.push({
+      tipo: 'despesa',
+      data: (c.data_vencimento||fim) + 'T23:59:00',
+      dia:  c.data_vencimento || fim,
+      titulo: c.descricao,
+      sub: '⚠️ Pendente — venc. ' + dataFmt(c.data_vencimento),
+      delta: -Number(c.valor||0),
+      pendente: true
+    });
+  });
+
+  /* Ordena por data/hora */
+  eventos.sort(function(a,b){ return a.data.localeCompare(b.data); });
+
+  /* Calcula saldo acumulado */
+  /* Pega saldo inicial do primeiro caixa do mês (ou zero) */
+  var saldoBase = caixas.length > 0 ? Number(caixas[0].saldo_inicial) : 0;
+  var saldoCorrido = 0;
+  var totalVendas  = 0;
+  var totalDespPagas = 0;
+  var totalDespPend  = 0;
+
+  eventos.forEach(function(ev){
+    if(ev.tipo === 'abertura'){
+      saldoCorrido = ev.delta;
+    } else if(!ev.pendente){
+      saldoCorrido += ev.delta;
+    }
+    ev.saldoApos = saldoCorrido;
+
+    if(ev.tipo === 'venda') totalVendas += ev.delta;
+    if(ev.tipo === 'despesa' && !ev.pendente) totalDespPagas += Math.abs(ev.delta);
+    if(ev.tipo === 'despesa' && ev.pendente) totalDespPend += Math.abs(ev.delta);
+  });
+
+  /* Atualiza label período */
+  document.getElementById('vc-periodo-label').textContent =
+    'Mês de ' + nomeMes + ' · ' + eventos.filter(e=>e.tipo==='venda').length + ' vendas · ' +
+    eventos.filter(e=>e.tipo==='despesa'&&!e.pendente).length + ' despesas pagas';
+
+  /* Sumário */
+  document.getElementById('vc-sumario').innerHTML =
+    '<div class="vc-sum-box"><div class="sv" style="color:var(--azul)">'+brl(saldoBase)+'</div><div class="sl">💵 Saldo Inicial</div></div>'+
+    '<div class="vc-sum-box"><div class="sv" style="color:var(--verde)">+'+brl(totalVendas)+'</div><div class="sl">🛒 Vendas no Mês</div></div>'+
+    '<div class="vc-sum-box"><div class="sv" style="color:var(--vermelho)">-'+brl(totalDespPagas)+'</div><div class="sl">💸 Despesas Pagas</div></div>'+
+    '<div class="vc-sum-box" style="background:#f5f7ff;border-color:#5271ff"><div class="sv" style="color:#5271ff">'+brl(saldoCorrido)+'</div><div class="sl">📊 Saldo Atual</div></div>';
+
+  /* Renderiza timeline agrupada por dia */
+  if(!eventos.length){
+    document.getElementById('vc-timeline').innerHTML =
+      '<div style="text-align:center;padding:40px;color:#bbb">Nenhuma movimentação este mês.</div>';
+    return;
+  }
+
+  var html = '';
+  var diaAtual = '';
+  var icones = {abertura:'🔓', venda:'💰', despesa:'💸', fechamento:'🔒'};
+
+  eventos.forEach(function(ev, idx){
+    if(ev.dia !== diaAtual){
+      diaAtual = ev.dia;
+      var d = new Date(ev.dia + 'T12:00:00');
+      var isHoje = ev.dia === hoje();
+      html += '<div class="vc-day-sep">' +
+        (isHoje ? '📍 ' : '') +
+        d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'}) +
+        (isHoje ? ' — Hoje' : '') +
+        '</div>';
+    }
+
+    var isUltimo = idx === eventos.length - 1 && !ev.pendente;
+    var clsItem = 'vc-item ' + ev.tipo + (isUltimo ? ' atual' : '');
+    var clsCard = 'vc-card ' + ev.tipo + (ev.pendente ? ' pendente' : '') + (isUltimo ? ' atual' : '');
+    var deltaStr = ev.tipo==='abertura'
+      ? '<span style="color:var(--azul)">' + brl(ev.delta) + '</span>'
+      : ev.tipo==='venda'
+        ? '<span style="color:var(--verde)">+' + brl(ev.delta) + '</span>'
+        : ev.tipo==='despesa'
+          ? '<span style="color:'+(ev.pendente?'#aaa':'var(--vermelho)')+'">-' + brl(Math.abs(ev.delta)) + '</span>'
+          : '';
+
+    html +=
+      '<div class="'+clsItem+'" style="animation-delay:'+Math.min(idx*0.03,0.5)+'s">'+
+        '<div class="'+clsCard+'">'+
+          '<div class="vc-ico">'+(isUltimo?'📍':icones[ev.tipo]||'•')+'</div>'+
+          '<div class="vc-desc">'+
+            '<div class="vc-titulo">'+eh(ev.titulo)+(ev.pendente?' <span style="font-size:.7rem;color:#e67e22;font-weight:700">[PENDENTE]</span>':isUltimo?' <span style="font-size:.7rem;color:#5271ff;font-weight:700">[AGORA]</span>':'')+'</div>'+
+            '<div class="vc-sub">'+eh(ev.sub)+'</div>'+
+          '</div>'+
+          '<div class="vc-val">'+
+            '<div class="vc-delta">'+deltaStr+'</div>'+
+            (!ev.pendente
+              ? '<div class="vc-saldo">Saldo: <b>'+brl(ev.saldoApos)+'</b></div>'
+              : '<div class="vc-saldo" style="color:#e67e22">Não descontado</div>')+
+          '</div>'+
+        '</div>'+
+      '</div>';
+  });
+
+  document.getElementById('vc-timeline').innerHTML = html;
+}
 
 /* ══════════════════════════════════════════
    BOOT
