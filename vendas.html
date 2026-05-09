@@ -249,16 +249,7 @@ tbody td{padding:8px 12px}
   box-shadow:0 10px 40px rgba(0,0,0,.3);animation:pop .2s ease;
   font-family:'Segoe UI',Arial,sans-serif
 }
-@media print{
-  body>*{display:none!important}
-  #cupom-oleo-popup{display:block!important;position:fixed;inset:0;background:none;padding:0}
-  .cupom-oleo-box{
-    display:block!important;box-shadow:none;border-radius:0;
-    width:210mm;min-height:297mm;max-height:none;overflow:visible;
-    margin:0;padding:0
-  }
-  .cupom-oleo-acoes{display:none!important}
-}
+/* print handled via popup window in JS */
 
 /* ── NF-e Modal ── */
 #modal-nfe{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
@@ -1876,22 +1867,59 @@ async function registrarTrocaOleo(clienteId, clienteNome, vendaId){
   return 1;
 }
 
+function imprimirCupomOleo(){
+  var html = document.getElementById('cupom-oleo-inner').innerHTML;
+  var w = window.open('','_blank','width=900,height=700');
+  w.document.write(
+    '<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<title>Cupom Fidelidade — Troca de Óleo</title>'+
+    '<style>'+
+      '*{box-sizing:border-box;margin:0;padding:0}'+
+      'body{font-family:"Segoe UI",Arial,sans-serif;background:#fff;margin:0;padding:0}'+
+      '@page{size:A4;margin:0}'+
+      '@media print{body{margin:0}}'+
+    '</style>'+
+    '</head><body>'+html+'</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  setTimeout(function(){ w.print(); }, 400);
+}
+
 function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, metodo){
   var agora = new Date().toLocaleString('pt-BR');
 
-  /* ── Monta grade de selos (10 círculos) ── */
+  /* ── Monta grade de selos (latas de óleo SVG) ── */
+  function svgLataOleo(feito, num){
+    var cor    = feito ? '#e0a800' : '#d0d0d0';
+    var corEsc = feito ? '#a07800' : '#aaa';
+    var corTxt = feito ? '#fff'    : '#bbb';
+    var sombra = feito ? 'drop-shadow(0 3px 6px rgba(0,0,0,.25))' : 'none';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">'+
+      '<svg width="44" height="54" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" style="filter:'+sombra+'">'+
+        /* Corpo da lata */
+        '<rect x="6" y="14" width="32" height="34" rx="4" fill="'+cor+'"/>'+
+        /* Sombra lateral */
+        '<rect x="32" y="14" width="6" height="34" rx="0 4 4 0" fill="'+corEsc+'" opacity=".4"/>'+
+        /* Tampa */
+        '<rect x="4" y="10" width="36" height="6" rx="3" fill="'+corEsc+'"/>'+
+        /* Bico/tampa superior */
+        '<rect x="14" y="5" width="16" height="7" rx="2" fill="'+corEsc+'"/>'+
+        '<rect x="18" y="2" width="8" height="5" rx="2" fill="'+corEsc+'"/>'+
+        /* Faixa central decorativa */
+        (feito
+          ? '<rect x="6" y="26" width="32" height="10" fill="#fff" opacity=".15"/>'+
+            '<text x="22" y="34" text-anchor="middle" font-size="8" fill="#fff" font-weight="bold" font-family="Arial">ÓLEO</text>'
+          : '<rect x="6" y="26" width="32" height="10" fill="#fff" opacity=".08"/>') +
+        /* Número embaixo da lata */
+      '</svg>'+
+      '<span style="font-size:.68rem;font-weight:700;color:'+corTxt+'">'+num+'ª</span>'+
+    '</div>';
+  }
+
   var selos = '';
   for(var s=0;s<10;s++){
-    var feito = s < quantidade;
-    selos +=
-      '<div style="width:52px;height:52px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;'+
-      (feito
-        ? 'background:linear-gradient(135deg,#ffc107,#e0a800);box-shadow:0 3px 8px rgba(0,0,0,.18);'
-        : 'background:#f0f0f0;border:2px dashed #ccc;')+
-      'font-size:.75rem;font-weight:900;color:'+(feito?'#fff':'#ccc')+'">'+
-        '<span style="font-size:1rem">'+(feito?'🛢️':'')+'</span>'+
-        '<span>'+(s+1)+'</span>'+
-      '</div>';
+    selos += svgLataOleo(s < quantidade, s+1);
   }
 
   /* ── Tabela de itens ── */
@@ -1919,16 +1947,7 @@ function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, met
     '</tbody></table>';
 
   /* ── Rodapé de progresso ── */
-  var faltam = Math.ceil(quantidade/5)*5 - quantidade;
-  var msgProgresso = quantidade % 5 === 0
-    ? '<div style="background:linear-gradient(135deg,#ffc107,#e0a800);border-radius:10px;padding:16px 20px;text-align:center;color:#fff;margin-top:16px">'+
-        '<div style="font-size:1.6rem">🎁</div>'+
-        '<div style="font-size:1.1rem;font-weight:900;margin:4px 0">PARABÉNS! BRINDE DISPONÍVEL!</div>'+
-        '<div style="font-size:.85rem;opacity:.9">Você completou '+quantidade+' trocas de óleo! Fale com a gente.</div>'+
-      '</div>'
-    : '<div style="background:#eef2ff;border-radius:10px;padding:14px 20px;text-align:center;color:#004aad;margin-top:16px">'+
-        '<div style="font-size:.85rem;font-weight:700">Faltam apenas <b style="font-size:1.1rem">'+faltam+'</b> troca'+(faltam===1?'':'s')+' para seu próximo brinde! 🎁</div>'+
-      '</div>';
+
 
   document.getElementById('cupom-oleo-inner').innerHTML =
   /* ══ CABEÇALHO ══ */
@@ -1960,8 +1979,7 @@ function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, met
   /* ══ GRADE DE SELOS ══ */
   '<div style="padding:28px 40px;border-bottom:2px dashed #e0e0e0">'+
     '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:16px">Seu histórico de trocas</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:12px">'+selos+'</div>'+
-    msgProgresso+
+    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px 6px;justify-items:center">'+selos+'</div>'+
   '</div>'+
 
   /* ══ ITENS DA VISITA ══ */
@@ -1973,7 +1991,7 @@ function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, met
   /* ══ RODAPÉ ══ */
   '<div style="padding:28px 40px;text-align:center;color:#aaa">'+
     '<div style="font-size:.82rem;line-height:1.8;color:#666">'+
-      'Guarde este comprovante · A cada <b>5 trocas</b> você ganha um brinde especial!<br>'+
+      'Guarde este comprovante.<br>'+
       '<b style="color:#004aad;font-size:.9rem">Obrigado pela confiança! 🤝</b>'+
     '</div>'+
     '<div style="margin-top:12px;font-size:.65rem;color:#ccc">OMG Softwares · Sistema Mendezza</div>'+
@@ -1981,7 +1999,7 @@ function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, met
 
   /* ══ BOTÕES (ocultos na impressão) ══ */
   '<div class="cupom-oleo-acoes" style="display:flex;gap:10px;padding:16px 40px 24px;justify-content:center;background:#f8f9fa;border-radius:0 0 16px 16px">'+
-    '<button onclick="window.print()" style="background:#004aad;color:#fff;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:8px">🖨️ Imprimir A4</button>'+
+    '<button onclick="imprimirCupomOleo()" style="background:#004aad;color:#fff;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:8px">🖨️ Imprimir A4</button>'+
     '<button onclick="document.getElementById(\'cupom-oleo-popup\').classList.remove(\'ab\')" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:12px 22px;cursor:pointer;font-size:.9rem;font-weight:700">✕ Fechar</button>'+
   '</div>';
 
@@ -2072,9 +2090,18 @@ async function confirmarVenda(){
     /* 3b. Troca de óleo — registra fidelidade */
     var qtdTrocas = null;
     if(_trocaOleoMarcada){
-      try{
-        qtdTrocas = await registrarTrocaOleo(cliId, cliNome, vendaId);
-      }catch(e){ console.warn('Troca de óleo:', e); }
+      /* Só registra se tiver cliente identificado */
+      if(!cliId && (!cliNome || cliNome === 'Consumidor Final')){
+        toast('⚠️ Selecione um cliente para registrar a troca de óleo!','av');
+      } else {
+        try{
+          qtdTrocas = await registrarTrocaOleo(cliId, cliNome, vendaId);
+          if(qtdTrocas === null) toast('⚠️ Erro ao salvar troca de óleo no banco.','av');
+        }catch(e){
+          console.error('Troca de óleo erro:', e);
+          toast('❌ Erro ao registrar troca de óleo: '+e.message,'er');
+        }
+      }
     }
 
     mostrarCupom(vendaId, cliNome, metodo, bruto, total, desc, obs);
