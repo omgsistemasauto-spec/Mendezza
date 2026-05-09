@@ -225,6 +225,41 @@ tbody td{padding:8px 12px}
   .main{flex-direction:column}
 }
 
+/* ── CARD TROCA DE ÓLEO ── */
+#card-troca-oleo{
+  margin:8px 12px 0;
+  background:linear-gradient(135deg,#fff8e1,#fff3cd);
+  border:2px solid #ffc107;border-radius:10px;
+  padding:10px 14px;display:none;align-items:center;gap:10px;
+  cursor:pointer;transition:.15s;flex-shrink:0
+}
+#card-troca-oleo:hover{border-color:#e0a800;background:linear-gradient(135deg,#fff3cd,#ffe69c)}
+#card-troca-oleo input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:#e0a800}
+#card-troca-oleo .tco-label{flex:1;font-size:.86rem;font-weight:700;color:#856404}
+#card-troca-oleo .tco-sub{font-size:.73rem;color:#a07000;display:block;margin-top:1px}
+#card-troca-oleo .tco-icon{font-size:1.5rem}
+
+/* ── CUPOM FIDELIDADE TROCA ÓLEO ── */
+#cupom-oleo-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);
+  z-index:3000;align-items:center;justify-content:center;padding:20px}
+#cupom-oleo-popup.ab{display:flex}
+.cupom-oleo-box{
+  background:#fff;border-radius:16px;
+  width:480px;max-width:100%;max-height:94vh;overflow-y:auto;
+  box-shadow:0 10px 40px rgba(0,0,0,.3);animation:pop .2s ease;
+  font-family:'Segoe UI',Arial,sans-serif
+}
+@media print{
+  body>*{display:none!important}
+  #cupom-oleo-popup{display:block!important;position:fixed;inset:0;background:none;padding:0}
+  .cupom-oleo-box{
+    display:block!important;box-shadow:none;border-radius:0;
+    width:210mm;min-height:297mm;max-height:none;overflow:visible;
+    margin:0;padding:0
+  }
+  .cupom-oleo-acoes{display:none!important}
+}
+
 /* ── NF-e Modal ── */
 #modal-nfe{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
   z-index:2100;align-items:center;justify-content:center;padding:20px}
@@ -322,6 +357,16 @@ tbody td{padding:8px 12px}
         <button class="btn-servico" style="margin:0;flex:1" onclick="abrirModalServico()">🔧 Serviço</button>
         <button class="btn-servico" style="margin:0;flex:1;background:var(--azul2)" onclick="abrirPainelOS()">📋 OS</button>
       </div>
+      <!-- CARD TROCA DE ÓLEO -->
+      <div id="card-troca-oleo" onclick="toggleTrocaOleo(event)">
+        <span class="tco-icon">🛢️</span>
+        <div style="flex:1">
+          <div class="tco-label">Marcar como Troca de Óleo</div>
+          <span class="tco-sub" id="tco-sub-info">Registra fidelidade do cliente</span>
+        </div>
+        <input type="checkbox" id="chk-troca-oleo" onclick="event.stopPropagation();toggleTrocaOleo(event)">
+      </div>
+
       <div class="carr-lista" id="carr-lista">
         <div class="carr-vazio" id="carr-vazio">Carrinho vazio — adicione produtos ao lado</div>
       </div>
@@ -625,6 +670,15 @@ tbody td{padding:8px 12px}
     <div style="text-align:center;font-size:.72rem;color:#bbb;padding:0 28px 20px">
       Emitido por OMG Softwares • Peças com garantia de 90 dias
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     CUPOM FIDELIDADE TROCA DE ÓLEO
+══════════════════════════════════ -->
+<div id="cupom-oleo-popup">
+  <div class="cupom-oleo-box" id="cupom-oleo-inner">
+    <!-- gerado dinamicamente por gerarCupomOleo() -->
   </div>
 </div>
 
@@ -1418,6 +1472,15 @@ function renderCarrinho(){
   });
 
   atualizarTotal();
+
+  /* Mostra card troca de óleo se carrinho tem item */
+  if(_carrinho.length > 0){
+    mostrarCardTrocaOleo();
+  } else {
+    document.getElementById('card-troca-oleo').style.display='none';
+    _trocaOleoMarcada = false;
+    document.getElementById('chk-troca-oleo').checked = false;
+  }
 }
 
 /* ajustar_estoque_visual ao mudar qtd */
@@ -1720,6 +1783,211 @@ document.addEventListener('click',function(e){
   if(!e.target.closest('.cli-drop-wrap')) document.getElementById('fin-cli-drop').style.display='none';
 });
 
+/* ══════════════════════════════════════════
+   TROCA DE ÓLEO — fidelidade
+══════════════════════════════════════════ */
+var _trocaOleoMarcada = false;
+
+function toggleTrocaOleo(e){
+  if(e.target.tagName==='INPUT'){
+    _trocaOleoMarcada = e.target.checked;
+  } else {
+    _trocaOleoMarcada = !document.getElementById('chk-troca-oleo').checked;
+    document.getElementById('chk-troca-oleo').checked = _trocaOleoMarcada;
+  }
+  atualizarCardTrocaOleo();
+}
+
+function atualizarCardTrocaOleo(){
+  var card = document.getElementById('card-troca-oleo');
+  var sub  = document.getElementById('tco-sub-info');
+  card.style.display = 'flex';
+  if(_trocaOleoMarcada){
+    card.style.borderColor='#28a745';
+    card.style.background='linear-gradient(135deg,#d4edda,#c3e6cb)';
+    sub.textContent = '✅ Troca de óleo registrada!';
+  }else{
+    card.style.borderColor='#ffc107';
+    card.style.background='linear-gradient(135deg,#fff8e1,#fff3cd)';
+    var cliNome = _clienteFinSel ? _clienteFinSel.nome : null;
+    sub.textContent = cliNome ? 'Cliente: '+cliNome : 'Registra fidelidade do cliente';
+  }
+}
+
+function mostrarCardTrocaOleo(){
+  document.getElementById('card-troca-oleo').style.display='flex';
+  /* Detecta se há item de troca de óleo no carrinho */
+  var temOleo = _carrinho.some(function(it){
+    return /(troca\s*de\s*)?[oó]leo/i.test(it.nome);
+  });
+  if(temOleo && !_trocaOleoMarcada){
+    _trocaOleoMarcada = true;
+    document.getElementById('chk-troca-oleo').checked = true;
+    atualizarCardTrocaOleo();
+  }
+}
+
+async function registrarTrocaOleo(clienteId, clienteNome, vendaId){
+  /* Busca registro existente pelo nome (case insensitive) */
+  var rBusca = await db.from('trocas_oleo')
+    .select('id,quantidade')
+    .ilike('cliente_nome', clienteNome.trim())
+    .limit(1);
+
+  /* Tenta por cliente_id se disponível */
+  if(clienteId){
+    var rId = await db.from('trocas_oleo')
+      .select('id,quantidade')
+      .eq('cliente_id', clienteId)
+      .limit(1);
+    if(!rId.error && rId.data && rId.data.length>0){
+      /* Atualiza por id */
+      var novaQtd = (rId.data[0].quantidade||0)+1;
+      await db.from('trocas_oleo').update({
+        quantidade:novaQtd,
+        cliente_nome:clienteNome,
+        ultima_venda_id:vendaId,
+        atualizado_em:new Date().toISOString()
+      }).eq('id', rId.data[0].id);
+      return novaQtd;
+    }
+  }
+
+  if(!rBusca.error && rBusca.data && rBusca.data.length>0){
+    var novaQtd = (rBusca.data[0].quantidade||0)+1;
+    await db.from('trocas_oleo').update({
+      quantidade:novaQtd,
+      cliente_id:clienteId||null,
+      ultima_venda_id:vendaId,
+      atualizado_em:new Date().toISOString()
+    }).eq('id', rBusca.data[0].id);
+    return novaQtd;
+  }
+
+  /* Inserção nova */
+  await db.from('trocas_oleo').insert({
+    cliente_nome:clienteNome,
+    cliente_id:clienteId||null,
+    quantidade:1,
+    ultima_venda_id:vendaId,
+    criado_em:new Date().toISOString(),
+    atualizado_em:new Date().toISOString()
+  });
+  return 1;
+}
+
+function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, metodo){
+  var agora = new Date().toLocaleString('pt-BR');
+
+  /* ── Monta grade de selos (10 círculos) ── */
+  var selos = '';
+  for(var s=0;s<10;s++){
+    var feito = s < quantidade;
+    selos +=
+      '<div style="width:52px;height:52px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;'+
+      (feito
+        ? 'background:linear-gradient(135deg,#ffc107,#e0a800);box-shadow:0 3px 8px rgba(0,0,0,.18);'
+        : 'background:#f0f0f0;border:2px dashed #ccc;')+
+      'font-size:.75rem;font-weight:900;color:'+(feito?'#fff':'#ccc')+'">'+
+        '<span style="font-size:1rem">'+(feito?'🛢️':'')+'</span>'+
+        '<span>'+(s+1)+'</span>'+
+      '</div>';
+  }
+
+  /* ── Tabela de itens ── */
+  var tabelaItens =
+    '<table style="width:100%;border-collapse:collapse;font-size:.88rem">'+
+    '<thead><tr style="background:#004aad;color:#fff">'+
+      '<th style="padding:8px 12px;text-align:left;border-radius:6px 0 0 0">Produto / Serviço</th>'+
+      '<th style="padding:8px 12px;text-align:center">Qtd</th>'+
+      '<th style="padding:8px 12px;text-align:right;border-radius:0 6px 0 0">Total</th>'+
+    '</tr></thead><tbody>'+
+    itensVenda.map(function(it,i){
+      var n = it.nome_produto || it.nome || '';
+      var q = it.quantidade || 1;
+      var t = (it.preco_unitario * q).toFixed(2).replace('.',',');
+      return '<tr style="background:'+(i%2===0?'#fff':'#f8f9fa')+'">'+
+        '<td style="padding:8px 12px;color:#2c3e50">'+eh(n)+'</td>'+
+        '<td style="padding:8px 12px;text-align:center;color:#666">'+q+'</td>'+
+        '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#004aad">R$ '+t+'</td>'+
+      '</tr>';
+    }).join('')+
+    '<tr style="background:#e8f0fe;font-weight:900;font-size:.95rem">'+
+      '<td colspan="2" style="padding:10px 12px;color:#004aad">TOTAL PAGO</td>'+
+      '<td style="padding:10px 12px;text-align:right;color:#004aad">R$ '+Number(total).toFixed(2).replace('.',',')+'</td>'+
+    '</tr>'+
+    '</tbody></table>';
+
+  /* ── Rodapé de progresso ── */
+  var faltam = Math.ceil(quantidade/5)*5 - quantidade;
+  var msgProgresso = quantidade % 5 === 0
+    ? '<div style="background:linear-gradient(135deg,#ffc107,#e0a800);border-radius:10px;padding:16px 20px;text-align:center;color:#fff;margin-top:16px">'+
+        '<div style="font-size:1.6rem">🎁</div>'+
+        '<div style="font-size:1.1rem;font-weight:900;margin:4px 0">PARABÉNS! BRINDE DISPONÍVEL!</div>'+
+        '<div style="font-size:.85rem;opacity:.9">Você completou '+quantidade+' trocas de óleo! Fale com a gente.</div>'+
+      '</div>'
+    : '<div style="background:#eef2ff;border-radius:10px;padding:14px 20px;text-align:center;color:#004aad;margin-top:16px">'+
+        '<div style="font-size:.85rem;font-weight:700">Faltam apenas <b style="font-size:1.1rem">'+faltam+'</b> troca'+(faltam===1?'':'s')+' para seu próximo brinde! 🎁</div>'+
+      '</div>';
+
+  document.getElementById('cupom-oleo-inner').innerHTML =
+  /* ══ CABEÇALHO ══ */
+  '<div style="background:linear-gradient(135deg,#004aad,#5271ff);color:#fff;padding:36px 40px 28px;text-align:center">'+
+    '<div style="font-size:3.5rem;margin-bottom:8px">🛢️</div>'+
+    '<div style="font-size:1.7rem;font-weight:900;letter-spacing:2px;text-transform:uppercase">Mendezza Auto Peças</div>'+
+    '<div style="font-size:.85rem;opacity:.8;margin-top:6px">Rua Roque Ferreira Pimenta, 418A · (38) 2100-4246</div>'+
+    '<div style="margin-top:20px;background:rgba(255,255,255,.15);border-radius:10px;padding:10px 20px;display:inline-block">'+
+      '<div style="font-size:.75rem;letter-spacing:3px;text-transform:uppercase;opacity:.8">Cartão Fidelidade</div>'+
+      '<div style="font-size:1.3rem;font-weight:900;letter-spacing:1px">TROCA DE ÓLEO</div>'+
+    '</div>'+
+  '</div>'+
+
+  /* ══ CLIENTE + CONTADOR ══ */
+  '<div style="padding:32px 40px;border-bottom:2px dashed #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:20px">'+
+    '<div>'+
+      '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:4px">Cliente</div>'+
+      '<div style="font-size:1.5rem;font-weight:900;color:#2c3e50">'+eh(clienteNome)+'</div>'+
+      '<div style="font-size:.8rem;color:#888;margin-top:6px">📅 '+agora+'</div>'+
+      '<div style="font-size:.8rem;color:#888">🔖 Venda #'+vendaId+' · 💳 '+metodo+'</div>'+
+    '</div>'+
+    '<div style="text-align:center;flex-shrink:0">'+
+      '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:4px">Nº de trocas</div>'+
+      '<div style="font-size:5rem;font-weight:900;color:#004aad;line-height:1">'+quantidade+'</div>'+
+      '<div style="font-size:.78rem;color:#888;margin-top:2px">vezes aqui</div>'+
+    '</div>'+
+  '</div>'+
+
+  /* ══ GRADE DE SELOS ══ */
+  '<div style="padding:28px 40px;border-bottom:2px dashed #e0e0e0">'+
+    '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:16px">Seu histórico de trocas</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:12px">'+selos+'</div>'+
+    msgProgresso+
+  '</div>'+
+
+  /* ══ ITENS DA VISITA ══ */
+  '<div style="padding:28px 40px;border-bottom:2px dashed #e0e0e0">'+
+    '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:14px">Itens desta visita</div>'+
+    tabelaItens+
+  '</div>'+
+
+  /* ══ RODAPÉ ══ */
+  '<div style="padding:28px 40px;text-align:center;color:#aaa">'+
+    '<div style="font-size:.82rem;line-height:1.8;color:#666">'+
+      'Guarde este comprovante · A cada <b>5 trocas</b> você ganha um brinde especial!<br>'+
+      '<b style="color:#004aad;font-size:.9rem">Obrigado pela confiança! 🤝</b>'+
+    '</div>'+
+    '<div style="margin-top:12px;font-size:.65rem;color:#ccc">OMG Softwares · Sistema Mendezza</div>'+
+  '</div>'+
+
+  /* ══ BOTÕES (ocultos na impressão) ══ */
+  '<div class="cupom-oleo-acoes" style="display:flex;gap:10px;padding:16px 40px 24px;justify-content:center;background:#f8f9fa;border-radius:0 0 16px 16px">'+
+    '<button onclick="window.print()" style="background:#004aad;color:#fff;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:8px">🖨️ Imprimir A4</button>'+
+    '<button onclick="document.getElementById(\'cupom-oleo-popup\').classList.remove(\'ab\')" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:12px 22px;cursor:pointer;font-size:.9rem;font-weight:700">✕ Fechar</button>'+
+  '</div>';
+
+  document.getElementById('cupom-oleo-popup').classList.add('ab');
+}
+
 /* ── CONFIRMAR VENDA — confirmar_pagamento ── */
 async function confirmarVenda(){
   var metodo = document.getElementById('fin-metodo').value;
@@ -1797,9 +2065,36 @@ async function confirmarVenda(){
 
     /* 3. Fecha modal e mostra cupom */
     document.getElementById('modal-fin').classList.remove('ab');
+
+    /* ── Captura itens antes de limpar carrinho ── */
+    var carrinhoSnap = _carrinho.slice();
+
+    /* 3b. Troca de óleo — registra fidelidade */
+    var qtdTrocas = null;
+    if(_trocaOleoMarcada){
+      try{
+        qtdTrocas = await registrarTrocaOleo(cliId, cliNome, vendaId);
+      }catch(e){ console.warn('Troca de óleo:', e); }
+    }
+
     mostrarCupom(vendaId, cliNome, metodo, bruto, total, desc, obs);
 
+    /* Se houve troca de óleo, mostra cupom fidelidade logo após */
+    if(qtdTrocas !== null){
+      /* Busca itens do banco para o cupom */
+      var rOleo = await db.from('itens_venda').select('*').eq('venda_id', vendaId);
+      var itensOleo = rOleo.data || carrinhoSnap.map(function(it){
+        return {nome_produto:it.nome, preco_unitario:it.preco, quantidade:it.qtd||1};
+      });
+      setTimeout(function(){
+        gerarCupomOleo(cliNome, qtdTrocas, vendaId, itensOleo, total, metodo);
+      }, 800);
+    }
+
     /* 4. Limpa carrinho e recarrega produtos */
+    _trocaOleoMarcada = false;
+    document.getElementById('chk-troca-oleo').checked = false;
+    document.getElementById('card-troca-oleo').style.display = 'none';
     _carrinho=[];
     await carregarProdutos();
     renderCarrinho();
