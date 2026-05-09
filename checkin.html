@@ -605,10 +605,80 @@ async function salvarCheckin(){
 
 async function salvarEEnviarZap(){
   if(!_clienteSel||!_clienteSel.telefone){toast('Cliente sem telefone!','er');return;}
-  document.getElementById('btn-zap').disabled=true;
-  await salvarCheckin();
-  /* WhatsApp será disparado após redirect — simplificado para mobile */
-  document.getElementById('btn-zap').disabled=false;
+  var btnZap=document.getElementById('btn-zap');
+  var btnSalvar=document.getElementById('btn-salvar');
+  btnZap.disabled=true;
+  btnZap.textContent='⏳ Salvando...';
+
+  /* Salva o check-in manualmente (sem redirecionar pra OS) */
+  var clienteId=document.getElementById('ci-cliente-id').value;
+  var servicos=document.getElementById('ci-servicos').value.trim();
+  var obs=document.getElementById('ci-obs').value.trim();
+  var marca=document.getElementById('vei-marca').value.trim();
+  var modelo=document.getElementById('vei-modelo').value.trim();
+  var placa=document.getElementById('vei-placa').value.trim();
+  var motor=document.getElementById('vei-motor').value.trim();
+  var ano=document.getElementById('vei-ano').value.trim();
+  var km=parseInt(document.getElementById('vei-km').value)||null;
+  var veiculoId=document.getElementById('ci-veiculo-id').value||null;
+
+  if(!clienteId){toast('Selecione um cliente!','er');btnZap.disabled=false;btnZap.textContent='📲 Salvar e Enviar WhatsApp';return;}
+  if(!marca||!modelo){toast('Informe marca e modelo!','er');btnZap.disabled=false;btnZap.textContent='📲 Salvar e Enviar WhatsApp';return;}
+  if(!servicos){toast('Informe os serviços!','er');btnZap.disabled=false;btnZap.textContent='📲 Salvar e Enviar WhatsApp';return;}
+
+  try{
+    if(!veiculoId){
+      var rv=await db.from('veiculos').insert({cliente_id:parseInt(clienteId),marca,modelo,placa:placa||null,motor:motor||null,ano:ano||null}).select('id').single();
+      if(rv.error) throw new Error(rv.error.message);
+      veiculoId=rv.data.id;
+    }
+    var rci=await db.from('checkins').insert({cliente_id:parseInt(clienteId),veiculo_id:veiculoId,servicos,observacoes:obs||null,km_entrada:km,responsavel:USERNAME,status:'aguardando'}).select('id').single();
+    if(rci.error) throw new Error(rci.error.message);
+    var checkinId=rci.data.id;
+
+    /* Upload de TODAS as fotos */
+    var urlsFotos=[];
+    for(var i=0;i<_fotos.length;i++){
+      var f=_fotos[i];
+      var path='ci-'+checkinId+'/foto-'+(i+1)+'-'+Date.now()+'.jpg';
+      var upl=await db.storage.from(BUCKET).upload(path,f.blob,{contentType:'image/jpeg',upsert:true});
+      if(!upl.error){
+        var pub=db.storage.from(BUCKET).getPublicUrl(path);
+        urlsFotos.push(pub.data.publicUrl);
+        await db.from('checkin_fotos').insert({checkin_id:checkinId,url:pub.data.publicUrl,path,legenda:f.legenda||null});
+      }
+    }
+
+    /* Cria OS */
+    var cliNome=_clienteSel?_clienteSel.nome:'Cliente';
+    var cliTel=_clienteSel?(_clienteSel.telefone||''):'';
+    var rn=await db.rpc('gerar_numero_os');
+    var numero=(rn.data&&!rn.error)?rn.data:('OS-'+Date.now());
+    await db.from('ordens_servico').insert({numero,cliente_id:parseInt(clienteId),cliente_nome:cliNome,cliente_tel:cliTel||null,veiculo_marca:marca,veiculo_modelo:modelo,veiculo_placa:placa||null,km_entrada:km,diagnostico:servicos,observacoes:obs||null,status:'aberta',responsavel:USERNAME}).select('id,numero').single();
+
+    /* Monta mensagem WhatsApp com TODAS as fotos */
+    var veiTxt=[marca,modelo,placa].filter(Boolean).join(' ');
+    var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+veiTxt+'\n🔧 '+servicos;
+    if(km) msg+='\n🔢 KM: '+km;
+    if(urlsFotos.length){
+      msg+='\n\n📸 '+urlsFotos.length+' foto(s) do veículo:\n';
+      msg+=urlsFotos.map(function(u,i){return 'Foto '+(i+1)+': '+u;}).join('\n');
+    }
+    msg+='\n\n✅ Veículo recebido! Check-in #'+checkinId;
+
+    var tel=cliTel.replace(/\D/g,'');
+    if(tel.length===11) tel='55'+tel;
+
+    toast('✅ Check-in #'+checkinId+' salvo!','ok');
+    limparForm();
+    setTimeout(function(){ window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank'); },600);
+  }catch(e){
+    toast('❌ Erro: '+e.message,'er');
+    console.error(e);
+  }finally{
+    btnZap.textContent='📲 Salvar e Enviar WhatsApp';
+    btnZap.disabled=false;
+  }
 }
 
 /* ── CARREGAR CHECK-INS ── */
@@ -659,7 +729,7 @@ async function reenvirarZap(id){
   var ci=r.data,cli=ci.clientes||{},vei=ci.veiculos||{},fotos=ci.checkin_fotos||[];
   var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n🔧 '+ci.servicos;
   if(ci.km_entrada) msg+='\n🔢 KM: '+ci.km_entrada;
-  if(fotos.length) msg+='\n📸 '+fotos.length+' foto(s): '+fotos.slice(0,3).map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');
+  if(fotos.length){msg+='\n\n📸 '+fotos.length+' foto(s) do veículo:\n'+fotos.map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');}
   msg+='\n\n✅ Veículo recebido!';
   var tel=(cli.telefone||'').replace(/\D/g,'');
   if(tel.length===11) tel='55'+tel;
