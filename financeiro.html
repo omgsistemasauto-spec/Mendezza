@@ -356,7 +356,7 @@ tbody td{padding:9px 12px}
 		/* CALENDÁRIO */
 		.calendar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 		.calendar-header h3{font-size:.9rem;color:var(--azul)}
-		.calendar-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%}
+		.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%}
 		.cal-day-name{font-size:.65rem;font-weight:700;color:#aaa;text-align:center;padding-bottom:4px}
 		.cal-day{
 			aspect-ratio:1/1;
@@ -758,6 +758,19 @@ tbody td{padding:9px 12px}
 
 <div id="toast"></div>
 
+<!-- MODAL: CONFIRMAÇÃO CUSTOMIZADA -->
+<div class="bd" id="modal-confirm">
+  <div class="modal" style="width:340px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:10px" id="confirm-icon">⚠️</div>
+    <h2 id="confirm-titulo" style="text-align:center;margin-bottom:8px">Confirmar</h2>
+    <p id="confirm-msg" style="font-size:.9rem;color:#555;margin-bottom:20px;line-height:1.5"></p>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn bc" onclick="confirmarNao()">Cancelar</button>
+      <button class="btn" id="confirm-btn-ok" onclick="confirmarSim()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MOBILE: BARRA INFERIOR ══ -->
 <div id="mobile-bottom-bar">
   <a href="vendas.html">
@@ -832,6 +845,22 @@ function toast(msg,tipo){
 }
 function fechar(id){ document.getElementById(id).classList.remove('ab'); }
 
+/* ── CONFIRM CUSTOMIZADO ── */
+var _confirmCallback = null;
+function abrirConfirm(msg, callback, icone, corBtn, txtBtn){
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-icon').textContent = icone || '⚠️';
+  document.getElementById('confirm-titulo').textContent = txtBtn || 'Confirmar';
+  var btnOk = document.getElementById('confirm-btn-ok');
+  btnOk.textContent = txtBtn || 'Confirmar';
+  btnOk.style.background = corBtn || '#E76F51';
+  btnOk.style.color = '#fff';
+  _confirmCallback = callback;
+  document.getElementById('modal-confirm').classList.add('ab');
+}
+function confirmarSim(){ fechar('modal-confirm'); if(_confirmCallback) _confirmCallback(); _confirmCallback=null; }
+function confirmarNao(){ fechar('modal-confirm'); _confirmCallback=null; }
+
 /* ══════════════════════════════════════════
    CARREGAR TUDO
 ══════════════════════════════════════════ */
@@ -854,15 +883,25 @@ async function atualizarCaixa(){
   var inicio = inicioMesLocal();
   var fim    = fimMesLocal();
 
-  /* Primeiro caixa aberto no mês (saldo inicial do mês) */
+  /* Saldo base: prioridade = caixa de HOJE > caixa mais recente do mês > fechamento mês anterior */
+  var rcHoje = await db.from('caixa').select('*').eq('data', hj).limit(1).maybeSingle();
+
   var rc = await db.from('caixa').select('*')
     .gte('data', inicio).lte('data', fim)
-    .order('data',{ascending:true}).limit(1).maybeSingle();
+    .order('data',{ascending:false}).limit(1).maybeSingle();
   if(!rc.data){
-    /* fallback: caixa mais recente de qualquer mês */
     rc = await db.from('caixa').select('*').order('data',{ascending:false}).limit(1).maybeSingle();
   }
-  var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
+
+  var rfech = await db.from('fechamento_diario').select('saldo_final,data')
+    .lt('data', inicio).order('data',{ascending:false}).limit(1).maybeSingle();
+
+  /* Usa saldo_inicial do caixa de hoje se existir, senão mais recente do mês, senão fechamento anterior */
+  var saldoInicial = rcHoje.data
+    ? Number(rcHoje.data.saldo_inicial)
+    : rc.data
+      ? Number(rc.data.saldo_inicial)
+      : (rfech.data ? Number(rfech.data.saldo_final) : 0);
 
   /* vendas DO MÊS INTEIRO */
   var rv = await db.from('vendas').select('total')
@@ -877,9 +916,7 @@ async function atualizarCaixa(){
   var saldoMes = saldoInicial + totalVendasMes - totalRetiradasMes;
 
   /* atualiza caixa de hoje no banco se existir */
-  var rcHj = await db.from('caixa').select('id,data').eq('data', hj).limit(1).maybeSingle();
-  if(rcHj.data){
-    /* vendas só de hoje para salvar no registro diário */
+  if(rcHoje.data){
     var rvHj = await db.from('vendas').select('total')
       .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
     var vendHj = (rvHj.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
@@ -889,7 +926,7 @@ async function atualizarCaixa(){
       total_vendas: parseFloat(vendHj.toFixed(2)),
       retiradas:    parseFloat(retHj.toFixed(2)),
       saldo_atual:  parseFloat((saldoInicial + vendHj - retHj).toFixed(2))
-    }).eq('id', rcHj.data.id);
+    }).eq('id', rcHoje.data.id);
   }
 
   /* ── UI: mostra saldo do MÊS ── */
@@ -1073,11 +1110,12 @@ async function togglePago(id, pago){
 }
 
 async function excluirConta(id){
-  if(!confirm('Excluir esta conta permanentemente?')) return;
-  await db.from('contas_pagar').delete().eq('id',id);
-  toast('🗑️ Conta excluída!','ok');
-  carregarContas();
-  atualizarCaixa();
+  abrirConfirm('Excluir esta conta permanentemente? Esta ação não pode ser desfeita.', async function(){
+    await db.from('contas_pagar').delete().eq('id',id);
+    toast('🗑️ Conta excluída!','ok');
+    carregarContas();
+    atualizarCaixa();
+  }, '🗑️', '#dc3545', 'Excluir');
 }
 
 /* ══════════════════════════════════════════
@@ -1494,25 +1532,26 @@ async function renderizarCalendario(){
   var grid = document.getElementById('calendar-grid');
   var html = '';
 
-  // Cabeçalho: só dias úteis seg-sex
-  ["Seg","Ter","Qua","Qui","Sex"].forEach(d => {
+  // Cabeçalho: todos os dias da semana seg-dom
+  ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].forEach(d => {
     html += `<div class="cal-day-name">${d}</div>`;
   });
 
-  // Espaços antes do dia 1 (seg=0, ter=1, qua=2, qui=3, sex=4; sab/dom = 0)
-  var ds1 = new Date(ano, mes, 1).getDay(); // 0=dom,1=seg..6=sab
-  var espacos = (ds1 >= 1 && ds1 <= 5) ? ds1 - 1 : 0;
+  // Espaços antes do dia 1 (0=dom,1=seg..6=sab)
+  // Calendário começa na segunda (índice 0), então dom=6, seg=0, ter=1...
+  var ds1 = new Date(ano, mes, 1).getDay(); // 0=dom
+  var espacos = ds1 === 0 ? 6 : ds1 - 1;   // converte: dom→6, seg→0, ter→1...
   for(let i=0; i<espacos; i++) html += '<div class="cal-day other-month"></div>';
 
-  // Dias do mês — pula sábado e domingo
+  // Dias do mês — mostra TODOS incluindo sáb e dom
   var hojeStr = hoje();
   for(let dia=1; dia<=ultimoDia; dia++){
     var diaSem = new Date(ano, mes, dia).getDay();
-    if(diaSem === 0 || diaSem === 6) continue;
 
     var dataStr = `${ano}-${String(mes+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
     var contasDia = _contasCache.filter(c => c.data_vencimento === dataStr);
     var eHoje = dataStr === hojeStr;
+    var fimDeSemana = diaSem === 0 || diaSem === 6;
 
     var tagsHtml = contasDia.slice(0, 4).map(c =>
       `<div class="cal-bill-tag ${c.pago?'pago':''}" onclick="event.stopPropagation(); verDetalheConta(${c.id})">${eh(c.descricao)}</div>`
@@ -1521,8 +1560,8 @@ async function renderizarCalendario(){
     if(contasDia.length > 4) tagsHtml += `<div style="font-size:9px;color:#999;padding-left:4px">+${contasDia.length-4} mais</div>`;
 
     html += `
-      <div class="cal-day ${eHoje?'today':''}" onclick="verContasDia('${dataStr}')">
-        <span class="day-num">${dia}</span>
+      <div class="cal-day ${eHoje?'today':''}" onclick="verContasDia('${dataStr}')" style="${fimDeSemana?'background:#fafafa;opacity:.7':''}">
+        <span class="day-num" style="${fimDeSemana?'color:#bbb':''}">${dia}</span>
         ${tagsHtml}
       </div>`;
   }
@@ -1585,18 +1624,16 @@ function verDetalheConta(id){
 }
 
 async function pagarContaCalendario(id){
-  if(!confirm('Deseja marcar esta conta como paga hoje?')) return;
-  
-  var r = await db.from('contas_pagar').update({
-    pago: true,
-    data_pagamento: hoje()
-  }).eq('id', id);
-  
-  if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
-  
-  fechar('modal-detalhe-conta');
-  toast('✅ Conta marcada como paga!','ok');
-  carregarTudo(); // Atualiza dashboard e calendário
+  abrirConfirm('Deseja marcar esta conta como paga hoje?', async function(){
+    var r = await db.from('contas_pagar').update({
+      pago: true,
+      data_pagamento: hoje()
+    }).eq('id', id);
+    if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+    fechar('modal-detalhe-conta');
+    toast('✅ Conta marcada como paga!','ok');
+    carregarTudo();
+  }, '✅', '#4CAF50', 'Marcar como Paga');
 }
 
 /* ══════════════════════════════════════════
