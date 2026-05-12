@@ -642,6 +642,20 @@ tbody td{padding:9px 12px}
       <input id="ret-obs" placeholder="Opcional...">
     </div>
 
+    <!-- OPÇÃO: Retirada em dinheiro do caixa físico -->
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
+      padding:12px 14px;margin-bottom:4px;display:flex;align-items:center;gap:12px">
+      <input type="checkbox" id="ret-retirada-caixa" style="width:20px;height:20px;cursor:pointer;accent-color:var(--vermelho);flex-shrink:0">
+      <div>
+        <label for="ret-retirada-caixa" style="font-weight:700;cursor:pointer;font-size:.88rem">
+          💵 Retirada em dinheiro do caixa físico
+        </label>
+        <div style="font-size:.75rem;color:#856404;margin-top:2px">
+          Marque apenas se o dinheiro saiu fisicamente do caixa. Se foi PIX, transferência ou débito — NÃO marque.
+        </div>
+      </div>
+    </div>
+
     <div class="mac">
       <button class="btn bc" onclick="fechar('modal-retirada')">Cancelar</button>
       <button class="btn br" onclick="salvarDespesa()">💾 Lançar Despesa</button>
@@ -920,8 +934,11 @@ async function atualizarCaixa(){
     var rvHj = await db.from('vendas').select('total')
       .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
     var vendHj = (rvHj.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
-    var rcpHj = await db.from('contas_pagar').select('valor').eq('pago',true).eq('data_pagamento', hj);
-    var retHj = (rcpHj.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); },0);
+    var rcpHj = await db.from('contas_pagar').select('valor,retirada_caixa').eq('pago',true).eq('data_pagamento', hj);
+    /* retiradas do caixa: só as marcadas como saída física de dinheiro */
+    var retHj = (rcpHj.data||[]).reduce(function(s,c){
+      return s + (c.retirada_caixa ? Number(c.valor||0) : 0);
+    }, 0);
     await db.from('caixa').update({
       total_vendas: parseFloat(vendHj.toFixed(2)),
       retiradas:    parseFloat(retHj.toFixed(2)),
@@ -1159,6 +1176,7 @@ function abrirFormRetirada(){
   document.getElementById('ret-valor').value = '';
   document.getElementById('ret-venc').value = hoje();
   document.getElementById('ret-obs').value = '';
+  document.getElementById('ret-retirada-caixa').checked = false;
   document.getElementById('ret-qtd-parcelas').value = '2';
   document.getElementById('ret-valor-total-est').value = '';
   document.getElementById('lista-parcelas').innerHTML = '<div style="text-align:center;color:#aaa;font-size:.8rem;padding:20px">Clique em "Gerar Parcelas" para editar individualmente</div>';
@@ -1217,10 +1235,12 @@ async function salvarDespesa(){
       if(valor <= 0){ toast('Informe o valor!','er'); return; }
       if(!venc){ toast('Informe o vencimento!','er'); return; }
       
+      var retiradaCaixa = document.getElementById('ret-retirada-caixa').checked;
+
       batch.push({
         descricao: desc, valor, data_vencimento: venc,
         tipo: 'Único', num_parcelas: 1, parcela_atual: 1,
-        pago: false, status: 'PENDENTE', observacoes: obs
+        pago: false, status: 'PENDENTE', retirada_caixa: retiradaCaixa
       });
     } else {
       var inputsValor = document.querySelectorAll('.parc-valor');
@@ -1242,7 +1262,7 @@ async function salvarDespesa(){
           parcela_atual: i+1,
           pago: false,
           status: 'PENDENTE',
-          observacoes: obs
+          retirada_caixa: retiradaCaixa
         });
       }
     }
@@ -1283,8 +1303,18 @@ async function abrirFecharCaixa(){
     else din+=tot;
   });
 
-  var rcp = await db.from('contas_pagar').select('valor').eq('pago',true).eq('data_pagamento',hoje2);
-  var totalRet = (rcp.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); },0);
+  /* busca contas pagas HOJE — separando retiradas de caixa físico das demais */
+  var rcp = await db.from('contas_pagar')
+    .select('valor,retirada_caixa')
+    .eq('pago',true).eq('data_pagamento',hoje2);
+
+  var totalRet = 0;           /* total de todas as despesas pagas hoje */
+  var totalRetCaixa = 0;      /* só as que saíram do caixa físico em dinheiro */
+  (rcp.data||[]).forEach(function(c){
+    var val = Number(c.valor||0);
+    totalRet += val;
+    if(c.retirada_caixa) totalRetCaixa += val;
+  });
 
   /* busca saldo inicial do caixa de HOJE */
   var rc = await db.from('caixa').select('saldo_inicial').eq('data', hoje2).limit(1).maybeSingle();
@@ -1293,10 +1323,10 @@ async function abrirFecharCaixa(){
   }
   var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
 
-  /* saldo esperado em dinheiro = saldo inicial + vendas em dinheiro - retiradas em dinheiro */
-  var saldoEsperadoDinheiro = saldoInicial + din - totalRet;
+  /* saldo esperado em dinheiro: só desconta retiradas que saíram do caixa físico */
+  var saldoEsperadoDinheiro = saldoInicial + din - totalRetCaixa;
 
-  _fcDados = {hoje2, saldoInicial, totalVendas, totalRet, din, cred, deb, pix, saldoEsperadoDinheiro};
+  _fcDados = {hoje2, saldoInicial, totalVendas, totalRet, totalRetCaixa, din, cred, deb, pix, saldoEsperadoDinheiro};
 
   /* abre etapa 1: contagem fisica */
   document.getElementById('fc-dinheiro-fisico').value = '0.00';
@@ -1315,22 +1345,29 @@ function recalcContagem(){
   var dif = fisico - esperado;
   var el = document.getElementById('fc-contagem-resultado');
   el.style.display = 'block';
-  var nota = '<span style="font-size:.78rem;color:#888">(saldo inicial + vendas em dinheiro − retiradas)</span>';
+  var nota =
+    '<div style="font-size:.78rem;color:inherit;opacity:.8;margin-top:4px;line-height:1.7">'+
+      '💰 Caixa inicial: <b>'+brl(_fcDados.saldoInicial)+'</b> &nbsp;'+
+      '+ 📈 Vendas dinheiro: <b>'+brl(_fcDados.din)+'</b> &nbsp;'+
+      '− 💸 Retiradas dinheiro: <b>'+brl(_fcDados.totalRetCaixa)+'</b>'+
+    '</div>';
   if(Math.abs(dif) < 0.01){
     el.style.background='#d4edda';el.style.border='1px solid #c3e6cb';el.style.color='#155724';
-    el.innerHTML='<b>Dinheiro físico informado:</b> '+brl(fisico)+'<br>'
-      +'<b>Esperado no caixa:</b> '+brl(esperado)+' '+nota+'<br>'
-      +'<b>✅ Diferença:</b> <span style="font-weight:800">R$ 0,00</span> — Caixa confere!';
+    el.innerHTML=
+      '<b>Esperado: '+brl(esperado)+'</b>'+nota+
+      '<b>✅ Contado: '+brl(fisico)+'</b> — Caixa confere!';
   } else if(dif > 0){
     el.style.background='#fff3cd';el.style.border='1px solid #ffe082';el.style.color='#856404';
-    el.innerHTML='<b>Dinheiro físico informado:</b> '+brl(fisico)+'<br>'
-      +'<b>Esperado no caixa:</b> '+brl(esperado)+' '+nota+'<br>'
-      +'<b>⚠️ Diferença:</b> <span style="font-weight:800">+'+brl(dif)+'</span> — Sobra no caixa.';
+    el.innerHTML=
+      '<b>Esperado: '+brl(esperado)+'</b>'+nota+
+      '<b>⚠️ Contado: '+brl(fisico)+'</b><br>'+
+      '<b>Sobra: +'+brl(dif)+'</b>';
   } else {
     el.style.background='#f8d7da';el.style.border='1px solid #f5c6cb';el.style.color='#721c24';
-    el.innerHTML='<b>Dinheiro físico informado:</b> '+brl(fisico)+'<br>'
-      +'<b>Esperado no caixa:</b> '+brl(esperado)+' '+nota+'<br>'
-      +'<b>❌ Diferença:</b> <span style="font-weight:800">'+brl(dif)+'</span> — Falta no caixa.';
+    el.innerHTML=
+      '<b>Esperado: '+brl(esperado)+'</b>'+nota+
+      '<b>❌ Contado: '+brl(fisico)+'</b><br>'+
+      '<b>Falta: '+brl(Math.abs(dif))+'</b>';
   }
 }
 
@@ -1343,12 +1380,32 @@ function avancarParaFechamento(){
 
   /* monta resumo da etapa 2 */
   document.getElementById('fechar-resumo').innerHTML =
-    '<b>Data:</b> '+new Date().toLocaleDateString('pt-BR')+'<br>'
-    +'<b>Saldo inicial:</b> '+brl(_fcDados.saldoInicial)+'<br>'
-    +'<b>Total vendas:</b> '+brl(_fcDados.totalVendas)+'<br>'
-    +'<b>Vendas em dinheiro:</b> '+brl(_fcDados.din)+'<br>'
-    +'<b>Total despesas pagas:</b> '+brl(_fcDados.totalRet)+'<br>'
-    +'<b>Dinheiro físico contado:</b> '+brl(fisico);
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 20px">'+
+
+      '<div style="color:#555">📅 Data:</div>'+
+      '<div style="font-weight:700">'+new Date().toLocaleDateString('pt-BR')+'</div>'+
+
+      '<div style="color:#555">💰 Caixa inicial:</div>'+
+      '<div style="font-weight:800;font-size:1rem;color:var(--azul)">'+brl(_fcDados.saldoInicial)+'</div>'+
+
+      '<div style="color:#555">📈 Vendas em dinheiro:</div>'+
+      '<div style="font-weight:800;font-size:1rem;color:var(--verde)">+ '+brl(_fcDados.din)+'</div>'+
+
+      '<div style="color:#555">💸 Retiradas em dinheiro:</div>'+
+      '<div style="font-weight:800;font-size:1rem;color:var(--vermelho)">− '+brl(_fcDados.totalRetCaixa)+'</div>'+
+
+      '<div style="color:#555;border-top:1px solid var(--borda);padding-top:6px;margin-top:4px">✅ Esperado no caixa:</div>'+
+      '<div style="font-weight:800;font-size:1.1rem;color:var(--azul);border-top:1px solid var(--borda);padding-top:6px;margin-top:4px">'+brl(_fcDados.saldoEsperadoDinheiro)+'</div>'+
+
+      '<div style="color:#555">🔢 Dinheiro contado:</div>'+
+      '<div style="font-weight:800;font-size:1rem">'+brl(fisico)+'</div>'+
+
+    '</div>'+
+    '<hr style="margin:10px 0;border:1px solid var(--borda)">'+
+    '<div style="font-size:.8rem;color:#888">'+
+      'Total vendas (todos métodos): '+brl(_fcDados.totalVendas)+' &nbsp;·&nbsp; '+
+      'Total despesas pagas: '+brl(_fcDados.totalRet)+
+    '</div>';
 
   /* alerta de diferenca */
   var alertEl = document.getElementById('fc-alerta-diferenca');
