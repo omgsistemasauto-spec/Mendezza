@@ -245,11 +245,20 @@ tbody td{padding:8px 12px}
 #cupom-oleo-popup.ab{display:flex}
 .cupom-oleo-box{
   background:#fff;border-radius:16px;
-  width:420px;max-width:100%;max-height:94vh;overflow-y:auto;
+  width:480px;max-width:100%;max-height:94vh;overflow-y:auto;
   box-shadow:0 10px 40px rgba(0,0,0,.3);animation:pop .2s ease;
   font-family:'Segoe UI',Arial,sans-serif
 }
-/* print handled via popup window in JS */
+@media print{
+  body>*{display:none!important}
+  #cupom-oleo-popup{display:block!important;position:fixed;inset:0;background:none;padding:0}
+  .cupom-oleo-box{
+    display:block!important;box-shadow:none;border-radius:0;
+    width:210mm;min-height:297mm;max-height:none;overflow:visible;
+    margin:0;padding:0
+  }
+  .cupom-oleo-acoes{display:none!important}
+}
 
 /* ── NF-e Modal ── */
 #modal-nfe{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
@@ -396,8 +405,38 @@ tbody td{padding:8px 12px}
     <button class="btn ba" onclick="carregarHistorico()">🔄 Filtrar</button>
     <span id="hist-resumo" style="font-size:.82rem;color:#888;margin-left:auto"></span>
   </div>
-  <div id="hist-lista">
-    <div style="text-align:center;color:#bbb;padding:40px">Carregando...</div>
+  <!-- Tabela com colunas por método de pagamento -->
+  <div style="overflow-x:auto;background:#fff;border-radius:10px;box-shadow:var(--sombra)">
+    <table id="hist-tabela" style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:860px">
+      <thead>
+        <tr style="background:var(--azul);color:#fff;position:sticky;top:0;z-index:5">
+          <th style="padding:10px 12px;text-align:left;white-space:nowrap">#</th>
+          <th style="padding:10px 12px;text-align:left;white-space:nowrap">Data / Hora</th>
+          <th style="padding:10px 12px;text-align:left">Cliente</th>
+          <th style="padding:10px 12px;text-align:center">Itens</th>
+          <th style="padding:10px 12px;text-align:right;background:#155724">&#128181; Dinheiro</th>
+          <th style="padding:10px 12px;text-align:right;background:#004085">&#128179; Crédito</th>
+          <th style="padding:10px 12px;text-align:right;background:#383d41">&#127970; Débito</th>
+          <th style="padding:10px 12px;text-align:right;background:#0c5460">&#128309; PIX</th>
+          <th style="padding:10px 12px;text-align:right">Total</th>
+          <th style="padding:10px 12px;text-align:center">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="hist-tbody">
+        <tr><td colspan="10" style="text-align:center;padding:32px;color:#bbb">Carregando...</td></tr>
+      </tbody>
+      <tfoot id="hist-tfoot" style="display:none">
+        <tr style="background:#eef2ff;font-weight:800;border-top:2px solid var(--azul2)">
+          <td colspan="4" style="padding:10px 12px;font-size:.88rem;color:var(--azul)">TOTAL GERAL</td>
+          <td id="tf-dinheiro" style="padding:10px 12px;text-align:right;color:#155724"></td>
+          <td id="tf-credito"  style="padding:10px 12px;text-align:right;color:#004085"></td>
+          <td id="tf-debito"   style="padding:10px 12px;text-align:right;color:#383d41"></td>
+          <td id="tf-pix"      style="padding:10px 12px;text-align:right;color:#0c5460"></td>
+          <td id="tf-total"    style="padding:10px 12px;text-align:right;color:var(--verde2);font-size:1rem"></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
   </div>
 </div>
 
@@ -571,23 +610,83 @@ tbody td{padding:8px 12px}
       </div>
     </div>
 
-    <!-- Pagamento -->
-    <div class="cmp">
-      <label>Método de Pagamento *</label>
-      <select id="fin-metodo">
-        <option value="">— Selecione —</option>
-        <option>Dinheiro</option>
-        <option>Cartão Crédito</option>
-        <option>Cartão Débito</option>
-        <option>PIX</option>
-      </select>
+    <!-- Toggle: simples / dividido -->
+    <div style="display:flex;gap:0;border:1px solid var(--borda);border-radius:8px;overflow:hidden;margin-bottom:12px">
+      <button id="btn-pag-simples" onclick="setPagMode('simples')"
+        style="flex:1;padding:8px;border:none;cursor:pointer;font-size:.85rem;font-weight:700;
+        background:var(--azul);color:#fff;transition:.15s">💳 Simples</button>
+      <button id="btn-pag-dividido" onclick="setPagMode('dividido')"
+        style="flex:1;padding:8px;border:none;cursor:pointer;font-size:.85rem;font-weight:700;
+        background:#e9ecef;color:#555;transition:.15s">✂️ Dividido (2 métodos)</button>
     </div>
 
-    <!-- Troco (só aparece se Dinheiro) -->
-    <div class="cmp" id="div-troco" style="display:none">
-      <label>Valor Recebido (R$)</label>
-      <input type="number" id="fin-recebido" min="0" step="0.01" placeholder="0.00" oninput="calcularTroco()">
-      <div id="fin-troco" style="margin-top:6px;font-size:.9rem;font-weight:700;color:var(--verde2)"></div>
+    <!-- MODO SIMPLES -->
+    <div id="pag-simples-wrap">
+      <div class="cmp">
+        <label>Método de Pagamento *</label>
+        <select id="fin-metodo" onchange="recalcularTotal()">
+          <option value="">— Selecione —</option>
+          <option>Dinheiro</option>
+          <option>Cartão Crédito</option>
+          <option>Cartão Débito</option>
+          <option>PIX</option>
+        </select>
+      </div>
+      <!-- Troco -->
+      <div class="cmp" id="div-troco" style="display:none">
+        <label>Valor Recebido (R$)</label>
+        <input type="number" id="fin-recebido" min="0" step="0.01" placeholder="0.00" oninput="calcularTroco()">
+        <div id="fin-troco" style="margin-top:6px;font-size:.9rem;font-weight:700;color:var(--verde2)"></div>
+      </div>
+    </div>
+
+    <!-- MODO DIVIDIDO -->
+    <div id="pag-dividido-wrap" style="display:none;background:#f0f4ff;border:1px solid var(--azul2);border-radius:8px;padding:12px 14px">
+      <div style="font-size:.78rem;color:var(--azul);font-weight:700;margin-bottom:10px">✂️ Divida o total entre dois métodos de pagamento</div>
+      <div class="g2" style="margin-bottom:8px">
+        <div class="cmp" style="margin:0">
+          <label>1º Método</label>
+          <select id="fin-met1" onchange="calcularDividido()">
+            <option value="">— Selecione —</option>
+            <option>Dinheiro</option>
+            <option>Cartão Crédito</option>
+            <option>Cartão Débito</option>
+            <option>PIX</option>
+          </select>
+        </div>
+        <div class="cmp" style="margin:0">
+          <label>Valor 1º (R$)</label>
+          <input type="number" id="fin-val1" min="0" step="0.01" placeholder="0.00"
+            style="font-weight:700" oninput="calcularDividido()">
+        </div>
+      </div>
+      <div class="g2" style="margin-bottom:10px">
+        <div class="cmp" style="margin:0">
+          <label>2º Método</label>
+          <select id="fin-met2" onchange="calcularDividido()">
+            <option value="">— Selecione —</option>
+            <option>Dinheiro</option>
+            <option>Cartão Crédito</option>
+            <option>Cartão Débito</option>
+            <option>PIX</option>
+          </select>
+        </div>
+        <div class="cmp" style="margin:0">
+          <label>Valor 2º (R$) — automático</label>
+          <input type="number" id="fin-val2" min="0" step="0.01" placeholder="0.00"
+            style="font-weight:700;background:#e9ecef" readonly>
+        </div>
+      </div>
+      <!-- Status dividido -->
+      <div id="div-split-status" style="font-size:.84rem;font-weight:700;padding:6px 10px;border-radius:6px;text-align:center"></div>
+      <!-- Troco dividido (dinheiro no 1º método) -->
+      <div id="div-troco-split" style="display:none;margin-top:8px">
+        <label style="font-size:.78rem;font-weight:700;color:#555">Valor Recebido no 1º (Dinheiro) (R$)</label>
+        <input type="number" id="fin-recebido-split" min="0" step="0.01" placeholder="0.00"
+          style="width:100%;padding:7px 10px;border:1px solid var(--borda);border-radius:6px;font-size:.9rem;margin-top:4px"
+          oninput="calcularTrocoSplit()">
+        <div id="fin-troco-split" style="margin-top:4px;font-size:.9rem;font-weight:700;color:var(--verde2)"></div>
+      </div>
     </div>
 
     <div class="cmp">
@@ -1673,6 +1772,8 @@ function abrirModalFinalizar(){
   /* reset tipo desconto para % */
   _tipoDesc='pct';
   setTipoDesc('pct');
+  /* reset modo pagamento para simples */
+  setPagMode('simples');
   recalcularTotal();
   document.getElementById('modal-fin').classList.add('ab');
 }
@@ -1721,10 +1822,15 @@ function recalcularTotal(){
     linhaDesc.style.display='none';
   }
 
-  /* troco */
-  document.getElementById('div-troco').style.display =
-    document.getElementById('fin-metodo').value==='Dinheiro' ? 'block' : 'none';
-  calcularTroco();
+  /* troco (modo simples) */
+  if(_pagMode==='simples'){
+    document.getElementById('div-troco').style.display =
+      document.getElementById('fin-metodo').value==='Dinheiro' ? 'block' : 'none';
+    calcularTroco();
+  }
+
+  /* atualiza dividido se estiver nesse modo */
+  if(_pagMode==='dividido') calcularDividido();
 }
 
 function calcularTroco(){
@@ -1734,7 +1840,7 @@ function calcularTroco(){
   document.getElementById('fin-troco').textContent = troco>=0?'Troco: '+brl(troco):'';
 }
 
-document.getElementById('fin-metodo').addEventListener('change', recalcularTotal);
+/* fin-metodo onchange já declarado inline no select */
 
 /* busca cliente no modal de finalizar */
 async function buscarClienteFin(){
@@ -1867,142 +1973,204 @@ async function registrarTrocaOleo(clienteId, clienteNome, vendaId){
   return 1;
 }
 
-function imprimirCupomOleo(){
-  var html = document.getElementById('cupom-oleo-inner').innerHTML;
-  var w = window.open('','_blank','width=900,height=700');
-  w.document.write(
-    '<!DOCTYPE html><html><head><meta charset="UTF-8">'+
-    '<title>Cupom Fidelidade — Troca de Óleo</title>'+
-    '<style>'+
-      '*{box-sizing:border-box;margin:0;padding:0}'+
-      'body{font-family:"Segoe UI",Arial,sans-serif;background:#fff;margin:0;padding:0}'+
-      '@page{size:A4;margin:10mm 12mm}'+
-      '@media print{body{margin:0}}'+
-      'table{border-collapse:collapse}'+
-    '</style>'+
-    '</head><body>'+html+'</body></html>'
-  );
-  w.document.close();
-  w.focus();
-  setTimeout(function(){ w.print(); }, 400);
-}
-
 function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, metodo){
   var agora = new Date().toLocaleString('pt-BR');
 
-  /* ── Lata de óleo SVG compacta ── */
-  function svgLataOleo(feito, num){
-    var cor    = feito ? '#004aad' : '#d8d8d8';
-    var corEsc = feito ? '#002d6b' : '#bbb';
-    var corTxt = feito ? '#004aad' : '#bbb';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">'+
-      '<svg width="30" height="37" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg">'+
-        '<rect x="6" y="14" width="32" height="34" rx="4" fill="'+cor+'"/>'+
-        '<rect x="32" y="14" width="6" height="34" rx="0 4 4 0" fill="'+corEsc+'" opacity=".4"/>'+
-        '<rect x="4" y="10" width="36" height="6" rx="3" fill="'+corEsc+'"/>'+
-        '<rect x="14" y="5" width="16" height="7" rx="2" fill="'+corEsc+'"/>'+
-        '<rect x="18" y="2" width="8" height="5" rx="2" fill="'+corEsc+'"/>'+
-        (feito
-          ? '<rect x="6" y="26" width="32" height="10" fill="#fff" opacity=".18"/>'+
-            '<text x="22" y="34" text-anchor="middle" font-size="7" fill="#fff" font-weight="bold" font-family="Arial">ÓLEO</text>'
-          : '') +
-      '</svg>'+
-      '<span style="font-size:.58rem;font-weight:700;color:'+corTxt+'">'+num+'ª</span>'+
-    '</div>';
+  /* ── Monta grade de selos (10 círculos) ── */
+  var selos = '';
+  for(var s=0;s<10;s++){
+    var feito = s < quantidade;
+    selos +=
+      '<div style="width:52px;height:52px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;'+
+      (feito
+        ? 'background:linear-gradient(135deg,#ffc107,#e0a800);box-shadow:0 3px 8px rgba(0,0,0,.18);'
+        : 'background:#f0f0f0;border:2px dashed #ccc;')+
+      'font-size:.75rem;font-weight:900;color:'+(feito?'#fff':'#ccc')+'">'+
+        '<span style="font-size:1rem">'+(feito?'🛢️':'')+'</span>'+
+        '<span>'+(s+1)+'</span>'+
+      '</div>';
   }
 
-  var selos = '';
-  for(var s=0;s<10;s++) selos += svgLataOleo(s < quantidade, s+1);
-
-  /* ── Tabela de itens compacta ── */
+  /* ── Tabela de itens ── */
   var tabelaItens =
-    '<table style="width:100%;border-collapse:collapse;font-size:.75rem">'+
+    '<table style="width:100%;border-collapse:collapse;font-size:.88rem">'+
     '<thead><tr style="background:#004aad;color:#fff">'+
-      '<th style="padding:4px 8px;text-align:left">Produto / Serviço</th>'+
-      '<th style="padding:4px 8px;text-align:center">Qtd</th>'+
-      '<th style="padding:4px 8px;text-align:right">Total</th>'+
+      '<th style="padding:8px 12px;text-align:left;border-radius:6px 0 0 0">Produto / Serviço</th>'+
+      '<th style="padding:8px 12px;text-align:center">Qtd</th>'+
+      '<th style="padding:8px 12px;text-align:right;border-radius:0 6px 0 0">Total</th>'+
     '</tr></thead><tbody>'+
     itensVenda.map(function(it,i){
       var n = it.nome_produto || it.nome || '';
       var q = it.quantidade || 1;
       var t = (it.preco_unitario * q).toFixed(2).replace('.',',');
       return '<tr style="background:'+(i%2===0?'#fff':'#f8f9fa')+'">'+
-        '<td style="padding:4px 8px">'+eh(n)+'</td>'+
-        '<td style="padding:4px 8px;text-align:center;color:#666">'+q+'</td>'+
-        '<td style="padding:4px 8px;text-align:right;font-weight:700;color:#004aad">R$ '+t+'</td>'+
+        '<td style="padding:8px 12px;color:#2c3e50">'+eh(n)+'</td>'+
+        '<td style="padding:8px 12px;text-align:center;color:#666">'+q+'</td>'+
+        '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#004aad">R$ '+t+'</td>'+
       '</tr>';
     }).join('')+
-    '<tr style="background:#e8f0fe;font-weight:900">'+
-      '<td colspan="2" style="padding:5px 8px;color:#004aad;font-size:.78rem">TOTAL PAGO</td>'+
-      '<td style="padding:5px 8px;text-align:right;color:#004aad;font-size:.78rem">R$ '+Number(total).toFixed(2).replace('.',',')+'</td>'+
+    '<tr style="background:#e8f0fe;font-weight:900;font-size:.95rem">'+
+      '<td colspan="2" style="padding:10px 12px;color:#004aad">TOTAL PAGO</td>'+
+      '<td style="padding:10px 12px;text-align:right;color:#004aad">R$ '+Number(total).toFixed(2).replace('.',',')+'</td>'+
     '</tr>'+
     '</tbody></table>';
 
+  /* ── Rodapé de progresso ── */
+  var faltam = Math.ceil(quantidade/5)*5 - quantidade;
+  var msgProgresso = quantidade % 5 === 0
+    ? '<div style="background:linear-gradient(135deg,#ffc107,#e0a800);border-radius:10px;padding:16px 20px;text-align:center;color:#fff;margin-top:16px">'+
+        '<div style="font-size:1.6rem">🎁</div>'+
+        '<div style="font-size:1.1rem;font-weight:900;margin:4px 0">PARABÉNS! BRINDE DISPONÍVEL!</div>'+
+        '<div style="font-size:.85rem;opacity:.9">Você completou '+quantidade+' trocas de óleo! Fale com a gente.</div>'+
+      '</div>'
+    : '<div style="background:#eef2ff;border-radius:10px;padding:14px 20px;text-align:center;color:#004aad;margin-top:16px">'+
+        '<div style="font-size:.85rem;font-weight:700">Faltam apenas <b style="font-size:1.1rem">'+faltam+'</b> troca'+(faltam===1?'':'s')+' para seu próximo brinde! 🎁</div>'+
+      '</div>';
+
   document.getElementById('cupom-oleo-inner').innerHTML =
-  /* CABEÇALHO */
-  '<div style="background:linear-gradient(135deg,#004aad,#5271ff);color:#fff;padding:14px 20px 12px;text-align:center">'+
-    '<div style="display:flex;align-items:center;justify-content:center;gap:10px">'+
-      '<span style="font-size:1.6rem">🛢️</span>'+
-      '<div>'+
-        '<div style="font-size:1.05rem;font-weight:900;letter-spacing:1px;text-transform:uppercase">Mendezza Auto Peças</div>'+
-        '<div style="font-size:.68rem;opacity:.8">Rua Roque Ferreira Pimenta, 418A · (38) 2100-4246</div>'+
-      '</div>'+
-    '</div>'+
-    '<div style="margin-top:8px;background:rgba(255,255,255,.15);border-radius:6px;padding:5px 14px;display:inline-block">'+
-      '<div style="font-size:.6rem;letter-spacing:2px;text-transform:uppercase;opacity:.8">Cartão Fidelidade — TROCA DE ÓLEO</div>'+
+  /* ══ CABEÇALHO ══ */
+  '<div style="background:linear-gradient(135deg,#004aad,#5271ff);color:#fff;padding:36px 40px 28px;text-align:center">'+
+    '<div style="font-size:3.5rem;margin-bottom:8px">🛢️</div>'+
+    '<div style="font-size:1.7rem;font-weight:900;letter-spacing:2px;text-transform:uppercase">Mendezza Auto Peças</div>'+
+    '<div style="font-size:.85rem;opacity:.8;margin-top:6px">Rua Roque Ferreira Pimenta, 418A · (38) 2100-4246</div>'+
+    '<div style="margin-top:20px;background:rgba(255,255,255,.15);border-radius:10px;padding:10px 20px;display:inline-block">'+
+      '<div style="font-size:.75rem;letter-spacing:3px;text-transform:uppercase;opacity:.8">Cartão Fidelidade</div>'+
+      '<div style="font-size:1.3rem;font-weight:900;letter-spacing:1px">TROCA DE ÓLEO</div>'+
     '</div>'+
   '</div>'+
 
-  /* CLIENTE + CONTADOR numa linha */
-  '<div style="padding:10px 16px;border-bottom:1px dashed #ddd;display:flex;align-items:center;justify-content:space-between;gap:12px">'+
+  /* ══ CLIENTE + CONTADOR ══ */
+  '<div style="padding:32px 40px;border-bottom:2px dashed #e0e0e0;display:flex;align-items:center;justify-content:space-between;gap:20px">'+
     '<div>'+
-      '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888">Cliente</div>'+
-      '<div style="font-size:1.1rem;font-weight:900;color:#2c3e50">'+eh(clienteNome)+'</div>'+
-      '<div style="font-size:.68rem;color:#888;margin-top:2px">'+agora+' · Venda #'+vendaId+'</div>'+
-      '<div style="font-size:.68rem;color:#888">💳 '+metodo+'</div>'+
+      '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:4px">Cliente</div>'+
+      '<div style="font-size:1.5rem;font-weight:900;color:#2c3e50">'+eh(clienteNome)+'</div>'+
+      '<div style="font-size:.8rem;color:#888;margin-top:6px">📅 '+agora+'</div>'+
+      '<div style="font-size:.8rem;color:#888">🔖 Venda #'+vendaId+' · 💳 '+metodo+'</div>'+
     '</div>'+
     '<div style="text-align:center;flex-shrink:0">'+
-      '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888">Trocas</div>'+
-      '<div style="font-size:3.2rem;font-weight:900;color:#004aad;line-height:1">'+quantidade+'</div>'+
-      '<div style="font-size:.65rem;color:#888">vez(es)</div>'+
+      '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:4px">Nº de trocas</div>'+
+      '<div style="font-size:5rem;font-weight:900;color:#004aad;line-height:1">'+quantidade+'</div>'+
+      '<div style="font-size:.78rem;color:#888;margin-top:2px">vezes aqui</div>'+
     '</div>'+
   '</div>'+
 
-  /* GRADE DE SELOS */
-  '<div style="padding:10px 16px;border-bottom:1px dashed #ddd">'+
-    '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Histórico de trocas</div>'+
-    '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px 4px;justify-items:center">'+selos+'</div>'+
+  /* ══ GRADE DE SELOS ══ */
+  '<div style="padding:28px 40px;border-bottom:2px dashed #e0e0e0">'+
+    '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:16px">Seu histórico de trocas</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:12px">'+selos+'</div>'+
+    msgProgresso+
   '</div>'+
 
-  /* ITENS */
-  '<div style="padding:10px 16px;border-bottom:1px dashed #ddd">'+
-    '<div style="font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:6px">Itens desta visita</div>'+
+  /* ══ ITENS DA VISITA ══ */
+  '<div style="padding:28px 40px;border-bottom:2px dashed #e0e0e0">'+
+    '<div style="font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:#888;margin-bottom:14px">Itens desta visita</div>'+
     tabelaItens+
   '</div>'+
 
-  /* RODAPÉ */
-  '<div style="padding:10px 16px;text-align:center">'+
-    '<div style="font-size:.72rem;color:#666">'+
-      'Guarde este comprovante · <b style="color:#004aad">Obrigado pela confiança! 🤝</b>'+
+  /* ══ RODAPÉ ══ */
+  '<div style="padding:28px 40px;text-align:center;color:#aaa">'+
+    '<div style="font-size:.82rem;line-height:1.8;color:#666">'+
+      'Guarde este comprovante · A cada <b>5 trocas</b> você ganha um brinde especial!<br>'+
+      '<b style="color:#004aad;font-size:.9rem">Obrigado pela confiança! 🤝</b>'+
     '</div>'+
-    '<div style="margin-top:4px;font-size:.58rem;color:#ccc">OMG Softwares · Sistema Mendezza</div>'+
+    '<div style="margin-top:12px;font-size:.65rem;color:#ccc">OMG Softwares · Sistema Mendezza</div>'+
   '</div>'+
 
-  /* BOTÕES */
-  '<div class="cupom-oleo-acoes" style="display:flex;gap:10px;padding:10px 16px 14px;justify-content:center;background:#f8f9fa;border-radius:0 0 16px 16px">'+
-    '<button onclick="imprimirCupomOleo()" style="background:#004aad;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:.88rem;font-weight:700">🖨️ Imprimir A4</button>'+
-    '<button onclick="document.getElementById(\'cupom-oleo-popup\').classList.remove(\'ab\')" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:.88rem;font-weight:700">✕ Fechar</button>'+
+  /* ══ BOTÕES (ocultos na impressão) ══ */
+  '<div class="cupom-oleo-acoes" style="display:flex;gap:10px;padding:16px 40px 24px;justify-content:center;background:#f8f9fa;border-radius:0 0 16px 16px">'+
+    '<button onclick="window.print()" style="background:#004aad;color:#fff;border:none;border-radius:8px;padding:12px 28px;cursor:pointer;font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:8px">🖨️ Imprimir A4</button>'+
+    '<button onclick="document.getElementById(\'cupom-oleo-popup\').classList.remove(\'ab\')" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:12px 22px;cursor:pointer;font-size:.9rem;font-weight:700">✕ Fechar</button>'+
   '</div>';
 
   document.getElementById('cupom-oleo-popup').classList.add('ab');
 }
 
+/* ══════════════════════════════════════════
+   MODO DE PAGAMENTO: simples / dividido
+══════════════════════════════════════════ */
+var _pagMode = 'simples';
+
+function setPagMode(modo){
+  _pagMode = modo;
+  var isDiv = modo === 'dividido';
+
+  document.getElementById('btn-pag-simples').style.background  = isDiv ? '#e9ecef' : 'var(--azul)';
+  document.getElementById('btn-pag-simples').style.color       = isDiv ? '#555'    : '#fff';
+  document.getElementById('btn-pag-dividido').style.background = isDiv ? 'var(--azul2)' : '#e9ecef';
+  document.getElementById('btn-pag-dividido').style.color      = isDiv ? '#fff'    : '#555';
+
+  document.getElementById('pag-simples-wrap').style.display   = isDiv ? 'none'  : 'block';
+  document.getElementById('pag-dividido-wrap').style.display  = isDiv ? 'block' : 'none';
+
+  if(isDiv){
+    /* pre-preenche valor 1 com metade do total */
+    var totalStr = document.getElementById('fin-total').textContent;
+    var total = parseFloat(totalStr.replace('R$','').replace(/\./g,'').replace(',','.'))||0;
+    document.getElementById('fin-val1').value = (total/2).toFixed(2);
+    document.getElementById('fin-val2').value = (total/2).toFixed(2);
+    calcularDividido();
+  } else {
+    recalcularTotal();
+  }
+}
+
+function calcularDividido(){
+  var totalStr = document.getElementById('fin-total').textContent;
+  var total = parseFloat(totalStr.replace('R$','').replace(/\./g,'').replace(',','.'))||0;
+  var v1 = parseFloat(document.getElementById('fin-val1').value)||0;
+  var v2 = Math.max(0, parseFloat((total - v1).toFixed(2)));
+
+  document.getElementById('fin-val2').value = v2.toFixed(2);
+
+  var status = document.getElementById('div-split-status');
+  var diff   = parseFloat((v1 + v2 - total).toFixed(2));
+
+  if(diff === 0){
+    status.style.background = '#d4edda';
+    status.style.color      = '#155724';
+    status.textContent      = '✅ Valores corretos — '+brl(v1)+' + '+brl(v2)+' = '+brl(total);
+  } else if(v1 > total){
+    status.style.background = '#f8d7da';
+    status.style.color      = '#721c24';
+    status.textContent      = '❌ 1º valor maior que o total!';
+  } else {
+    status.style.background = '#fff3cd';
+    status.style.color      = '#856404';
+    status.textContent      = '⚠️ Restante: '+brl(v2);
+  }
+
+  /* troco split — só aparece se 1º método for Dinheiro */
+  var met1 = document.getElementById('fin-met1').value;
+  var divTroco = document.getElementById('div-troco-split');
+  divTroco.style.display = met1 === 'Dinheiro' ? 'block' : 'none';
+  if(met1 === 'Dinheiro') calcularTrocoSplit();
+}
+
+function calcularTrocoSplit(){
+  var v1  = parseFloat(document.getElementById('fin-val1').value)||0;
+  var rec = parseFloat(document.getElementById('fin-recebido-split').value)||0;
+  var t   = document.getElementById('fin-troco-split');
+  t.textContent = rec >= v1 ? 'Troco: '+brl(rec - v1) : '';
+}
+
 /* ── CONFIRMAR VENDA — confirmar_pagamento ── */
 async function confirmarVenda(){
-  var metodo = document.getElementById('fin-metodo').value;
-  var obs    = document.getElementById('fin-obs').value.trim();
+  /* ── coleta método e valida ── */
+  var metodo, metodo2 = null, val1 = 0, val2 = 0;
 
-  if(!metodo){ toast('Selecione o método de pagamento!','er'); return; }
+  if(_pagMode === 'simples'){
+    metodo = document.getElementById('fin-metodo').value;
+    if(!metodo){ toast('Selecione o método de pagamento!','er'); return; }
+  } else {
+    metodo  = document.getElementById('fin-met1').value;
+    metodo2 = document.getElementById('fin-met2').value;
+    val1    = parseFloat(document.getElementById('fin-val1').value)||0;
+    val2    = parseFloat(document.getElementById('fin-val2').value)||0;
+    if(!metodo || !metodo2){ toast('Selecione os dois métodos de pagamento!','er'); return; }
+    if(val1 <= 0)           { toast('Informe o valor do 1º método!','er'); return; }
+  }
+
+  var obs    = document.getElementById('fin-obs').value.trim();
 
   var bruto     = _carrinho.reduce(function(s,it){ return s+it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1); },0);
   var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
@@ -2019,13 +2187,26 @@ async function confirmarVenda(){
   var cliNome = _clienteFinSel ? _clienteFinSel.nome : 'Consumidor Final';
   var cliId   = _clienteFinSel ? _clienteFinSel.id   : null;
 
+  /* valida soma no modo dividido */
+  if(_pagMode === 'dividido'){
+    var soma = parseFloat((val1 + val2).toFixed(2));
+    if(Math.abs(soma - total) > 0.01){
+      toast('❌ Soma dos valores ('+brl(soma)+') ≠ Total ('+brl(total)+')!','er'); return;
+    }
+  }
+
+  /* metodo_pagamento salvo: no dividido, concatena os dois */
+  var metodoDB = _pagMode === 'dividido'
+    ? metodo + ' + ' + metodo2 + ' ('+brl(val1)+' / '+brl(val2)+')'
+    : metodo;
+
   try{
     /* 1. Insere venda */
     var rv = await db.from('vendas').insert({
       total:parseFloat(total.toFixed(2)),
       total_bruto:parseFloat(bruto.toFixed(2)),
       desconto:desc,
-      metodo_pagamento:metodo,
+      metodo_pagamento:metodoDB,
       cliente_nome:cliNome,
       cliente_id:cliId||null,
       responsavel:USERNAME,
@@ -2081,21 +2262,12 @@ async function confirmarVenda(){
     /* 3b. Troca de óleo — registra fidelidade */
     var qtdTrocas = null;
     if(_trocaOleoMarcada){
-      /* Só registra se tiver cliente identificado */
-      if(!cliId && (!cliNome || cliNome === 'Consumidor Final')){
-        toast('⚠️ Selecione um cliente para registrar a troca de óleo!','av');
-      } else {
-        try{
-          qtdTrocas = await registrarTrocaOleo(cliId, cliNome, vendaId);
-          if(qtdTrocas === null) toast('⚠️ Erro ao salvar troca de óleo no banco.','av');
-        }catch(e){
-          console.error('Troca de óleo erro:', e);
-          toast('❌ Erro ao registrar troca de óleo: '+e.message,'er');
-        }
-      }
+      try{
+        qtdTrocas = await registrarTrocaOleo(cliId, cliNome, vendaId);
+      }catch(e){ console.warn('Troca de óleo:', e); }
     }
 
-    mostrarCupom(vendaId, cliNome, metodo, bruto, total, desc, obs);
+    mostrarCupom(vendaId, cliNome, metodoDB, bruto, total, desc, obs);
 
     /* Se houve troca de óleo, mostra cupom fidelidade logo após */
     if(qtdTrocas !== null){
@@ -2105,7 +2277,7 @@ async function confirmarVenda(){
         return {nome_produto:it.nome, preco_unitario:it.preco, quantidade:it.qtd||1};
       });
       setTimeout(function(){
-        gerarCupomOleo(cliNome, qtdTrocas, vendaId, itensOleo, total, metodo);
+        gerarCupomOleo(cliNome, qtdTrocas, vendaId, itensOleo, total, metodoDB);
       }, 800);
     }
 
@@ -2237,28 +2409,68 @@ async function salvarNovoCliente(){
 }
 
 /* ══════════════════════════════════════════
-   HISTÓRICO DE VENDAS
+   HISTÓRICO DE VENDAS — tabela com colunas por método
 ══════════════════════════════════════════ */
+
+/* Extrai os valores por método de uma venda.
+   metodo_pagamento pode ser:
+     "PIX"
+     "Dinheiro + PIX (R$ 150,00 / R$ 80,00)"
+*/
+function parsePagamento(v){
+  var met = v.metodo_pagamento || '';
+  var total = Number(v.total || 0);
+  var r = {dinheiro:0, credito:0, debito:0, pix:0};
+
+  if(met.includes(' + ')){
+    /* Formato: "MET1 + MET2 (R$ V1 / R$ V2)" */
+    var partes = met.split(' + ');
+    var met1 = partes[0].trim();
+    var resto = partes[1] || '';
+    /* extrai met2 antes do " (" */
+    var met2 = resto.replace(/\s*\(.*\)/, '').trim();
+    /* extrai valores dentro dos parênteses */
+    var mVals = met.match(/\(R\$\s*([\d.,]+)\s*\/\s*R\$\s*([\d.,]+)\)/);
+    var v1 = mVals ? parseFloat(mVals[1].replace('.','').replace(',','.')) : total/2;
+    var v2 = mVals ? parseFloat(mVals[2].replace('.','').replace(',','.')) : total/2;
+    atribuir(r, met1, v1);
+    atribuir(r, met2, v2);
+  } else {
+    atribuir(r, met, total);
+  }
+  return r;
+}
+
+function atribuir(r, met, val){
+  met = (met||'').trim();
+  if(met === 'Dinheiro')       r.dinheiro += val;
+  else if(met === 'Cartão Crédito') r.credito += val;
+  else if(met === 'Cartão Débito')  r.debito  += val;
+  else if(met === 'PIX')       r.pix     += val;
+}
+
 async function carregarHistorico(){
-  var el = document.getElementById('hist-lista');
-  el.innerHTML='<div style="text-align:center;color:#bbb;padding:32px">Carregando...</div>';
+  var tbody = document.getElementById('hist-tbody');
+  var tfoot = document.getElementById('hist-tfoot');
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;color:#bbb">Carregando...</td></tr>';
+  tfoot.style.display = 'none';
 
   var de     = document.getElementById('hist-de').value;
   var ate    = document.getElementById('hist-ate').value;
   var metodo = document.getElementById('hist-metodo').value;
   var busca  = document.getElementById('hist-busca').value.trim().toLowerCase();
 
-  /* query direta — sem view para evitar cache miss */
   var q = db.from('vendas')
     .select('id,data,total,total_bruto,desconto,metodo_pagamento,cliente_nome,responsavel,status,observacoes,cliente_id,clientes(telefone)');
 
   if(de)     q = q.gte('data', de+'T00:00:00');
   if(ate)    q = q.lte('data', ate+'T23:59:59');
-  if(metodo) q = q.eq('metodo_pagamento', metodo);
+  /* filtro por método: inclui tanto simples quanto divididos que contenham o método */
+  if(metodo) q = q.ilike('metodo_pagamento', '%'+metodo+'%');
 
-  var r = await q.order('data',{ascending:false}).limit(100);
+  var r = await q.order('data',{ascending:false}).limit(200);
   if(r.error){
-    el.innerHTML='<div style="color:red;padding:20px">❌ '+eh(r.error.message)+'</div>';
+    tbody.innerHTML='<tr><td colspan="10" style="color:red;padding:20px">❌ '+eh(r.error.message)+'</td></tr>';
     return;
   }
 
@@ -2268,54 +2480,82 @@ async function carregarHistorico(){
   });
 
   if(!dados.length){
-    el.innerHTML='<div style="text-align:center;color:#bbb;padding:32px">Nenhuma venda encontrada.</div>';
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:#bbb">Nenhuma venda encontrada.</td></tr>';
     return;
   }
 
-  /* busca contagem de itens por venda em lote */
+  /* contagem de itens */
   var ids = dados.map(function(v){ return v.id; });
   var riv = await db.from('itens_venda').select('venda_id').in('venda_id', ids);
   var contagem = {};
   (riv.data||[]).forEach(function(x){ contagem[x.venda_id]=(contagem[x.venda_id]||0)+1; });
 
-  var totalGeral = dados.reduce(function(s,v){ return s+Number(v.total||0); },0);
-  document.getElementById('hist-resumo').textContent =
-    dados.length+' venda(s) · Total: '+brl(totalGeral);
+  /* acumuladores de totais */
+  var totDin=0, totCred=0, totDeb=0, totPix=0, totGeral=0;
 
-  var badges = {'Dinheiro':'bdinheiro','Cartão Crédito':'bcredito','Cartão Débito':'bdebito','PIX':'bpix'};
-
-  el.innerHTML = dados.map(function(v){
-    var bcls   = badges[v.metodo_pagamento]||'';
+  tbody.innerHTML = dados.map(function(v){
+    var canc   = v.status === 'cancelada';
+    var pag    = parsePagamento(v);
+    var total  = Number(v.total||0);
     var telCli = v.clientes ? v.clientes.telefone : null;
-    var canc   = v.status==='cancelada';
-    return '<div class="hist-card" style="border-left-color:'+(canc?'#dc3545':'var(--azul2)')+'">'+
-      '<div>'+
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">'+
-          '<span class="badge '+bcls+'">'+eh(v.metodo_pagamento||'—')+'</span>'+
-          (canc?'<span class="badge" style="background:#f8d7da;color:#721c24">❌ Cancelada</span>':'')+
-          '<span style="font-size:.74rem;color:#aaa">#'+v.id+' · '+dHora(v.data)+'</span>'+
-        '</div>'+
-        '<h4>'+eh(v.cliente_nome||'Consumidor Final')+'</h4>'+
-        '<p>'+(contagem[v.id]||0)+' item(ns)'+
-          (v.desconto>0?' · Desconto: '+v.desconto+'%':'')+
-          (v.responsavel?' · '+v.responsavel:'')+
-        '</p>'+
-        (v.observacoes?'<p style="font-size:.76rem;color:#999;margin-top:2px">📝 '+eh(v.observacoes)+'</p>':'')+
-      '</div>'+
-      '<div style="text-align:right;flex-shrink:0">'+
-        (v.total_bruto&&Number(v.total_bruto)>Number(v.total)?
-          '<div style="font-size:.76rem;color:#aaa;text-decoration:line-through">'+brl(v.total_bruto)+'</div>':'')+
-        '<div class="total" style="'+(canc?'text-decoration:line-through;color:#aaa':'')+'">'+brl(v.total)+'</div>'+
-        '<div style="display:flex;gap:5px;margin-top:6px;justify-content:flex-end;flex-wrap:wrap">'+
-          '<button class="btn ba" style="padding:4px 10px;font-size:.76rem" onclick="verDetalhesVenda('+v.id+')">📋 Detalhes / Reverter</button>'+
-          (telCli?'<button class="btn bwp" style="padding:4px 10px;font-size:.76rem" onclick="reenviarZapVenda('+v.id+',\''+eq(telCli)+'\')">📲</button>':'')+
-          (!canc?'<button class="btn" style="padding:4px 10px;font-size:.76rem;background:#0066cc;color:#fff" onclick="abrirModalNFe('+v.id+')">📄 NF-e</button>':'')+
-        '</div>'+
-      '</div>'+
-    '</div>';
-  }).join('');
-}
 
+    if(!canc){
+      totDin   += pag.dinheiro;
+      totCred  += pag.credito;
+      totDeb   += pag.debito;
+      totPix   += pag.pix;
+      totGeral += total;
+    }
+
+    var rowStyle = canc
+      ? 'opacity:.55;text-decoration:line-through;background:#fff5f5'
+      : 'border-bottom:1px solid #f0f0f0';
+
+    var btnAcoes =
+      '<button class="btn ba" style="padding:3px 9px;font-size:.74rem" onclick="verDetalhesVenda('+v.id+')">📋</button>'+
+      (telCli?'<button class="btn bwp" style="padding:3px 9px;font-size:.74rem" onclick="reenviarZapVenda('+v.id+',\''+eq(telCli)+'\')">📲</button>':'')+
+      (!canc?'<button class="btn" style="padding:3px 9px;font-size:.74rem;background:#0066cc;color:#fff" onclick="abrirModalNFe('+v.id+')">📄</button>':'');
+
+    return '<tr style="'+rowStyle+'">'+
+      '<td style="padding:8px 12px;color:#aaa;font-size:.78rem">#'+v.id+'</td>'+
+      '<td style="padding:8px 12px;white-space:nowrap;font-size:.8rem">'+dHora(v.data)+'</td>'+
+      '<td style="padding:8px 12px">'+
+        '<div style="font-weight:600;font-size:.86rem">'+eh(v.cliente_nome||'Consumidor Final')+'</div>'+
+        (v.desconto>0?'<div style="font-size:.74rem;color:#e74c3c">Desc: '+v.desconto+'%</div>':'')+
+        (canc?'<div style="font-size:.72rem;color:#e74c3c;font-weight:700">❌ CANCELADA</div>':'')+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:center;color:#888;font-size:.82rem">'+(contagem[v.id]||0)+'</td>'+
+      /* colunas de método */
+      '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#155724">'+
+        (pag.dinheiro>0 ? brl(pag.dinheiro) : '<span style="color:#ddd">—</span>')+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#004085">'+
+        (pag.credito>0  ? brl(pag.credito)  : '<span style="color:#ddd">—</span>')+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#383d41">'+
+        (pag.debito>0   ? brl(pag.debito)   : '<span style="color:#ddd">—</span>')+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:right;font-weight:700;color:#0c5460">'+
+        (pag.pix>0      ? brl(pag.pix)      : '<span style="color:#ddd">—</span>')+
+      '</td>'+
+      '<td style="padding:8px 12px;text-align:right;font-weight:800;color:var(--verde2)">'+brl(total)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+
+        '<div style="display:flex;gap:4px;justify-content:center">'+btnAcoes+'</div>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+
+  /* totais no rodapé */
+  document.getElementById('tf-dinheiro').textContent = totDin  > 0 ? brl(totDin)  : '—';
+  document.getElementById('tf-credito').textContent  = totCred > 0 ? brl(totCred) : '—';
+  document.getElementById('tf-debito').textContent   = totDeb  > 0 ? brl(totDeb)  : '—';
+  document.getElementById('tf-pix').textContent      = totPix  > 0 ? brl(totPix)  : '—';
+  document.getElementById('tf-total').textContent    = brl(totGeral);
+  tfoot.style.display = '';
+
+  document.getElementById('hist-resumo').textContent =
+    dados.length+' venda(s) · Total: '+brl(totGeral);
+}
 /* ══════════════════════════════════════════
    DETALHES DA VENDA — com reversão por item
 ══════════════════════════════════════════ */
