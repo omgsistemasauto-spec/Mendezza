@@ -918,7 +918,7 @@ async function atualizarCaixa(){
       : (rfech.data ? Number(rfech.data.saldo_final) : 0);
 
   /* vendas DO MÊS INTEIRO */
-  var rv = await db.from('vendas').select('total')
+  var rv = await db.from('vendas').select('total').gt('total',0)
     .gte('data', inicio+'T00:00:00').lte('data', fim+'T23:59:59');
   var totalVendasMes = (rv.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
 
@@ -931,7 +931,7 @@ async function atualizarCaixa(){
 
   /* atualiza caixa de hoje no banco se existir */
   if(rcHoje.data){
-    var rvHj = await db.from('vendas').select('total')
+    var rvHj = await db.from('vendas').select('total').gt('total',0)
       .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
     var vendHj = (rvHj.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
     var rcpHj = await db.from('contas_pagar').select('valor,retirada_caixa').eq('pago',true).eq('data_pagamento', hj);
@@ -958,7 +958,7 @@ async function atualizarCaixa(){
     'Abertura: '+brl(saldoInicial)+' · Vendas '+nomeMes+': +'+brl(totalVendasMes)+' · Despesas: -'+brl(totalRetiradasMes);
 
   /* mini cards */
-  var rv2 = await db.from('vendas').select('total')
+  var rv2 = await db.from('vendas').select('total').gt('total',0)
     .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
   var vendasHoje = (rv2.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
 
@@ -972,6 +972,41 @@ async function atualizarCaixa(){
 }
 
 /* ══════════════════════════════════════════
+   parsePagamento — distribui valores por método
+   Suporta simples ("PIX") e dividido ("Dinheiro + PIX (R$ 50,00 / R$ 80,00)")
+══════════════════════════════════════════ */
+function parsePagamento(v){
+  var met   = (v.metodo_pagamento||'').trim();
+  var total = Number(v.total||0);
+  var r = {din:0, cred:0, deb:0, pix:0};
+
+  if(met.includes(' + ')){
+    /* Formato: "MET1 + MET2 (R$ V1 / R$ V2)" */
+    var partes = met.split(' + ');
+    var met1   = partes[0].trim();
+    var resto  = partes[1]||'';
+    var met2   = resto.replace(/\s*\(.*\)/,'').trim();
+    var mVals  = met.match(/\(R\$\s*([\d.,]+)\s*\/\s*R\$\s*([\d.,]+)\)/);
+    var v1 = mVals ? parseFloat(mVals[1].replace(/\./g,'').replace(',','.')) : total/2;
+    var v2 = mVals ? parseFloat(mVals[2].replace(/\./g,'').replace(',','.')) : total/2;
+    atribuirMet(r, met1, v1);
+    atribuirMet(r, met2, v2);
+  } else {
+    atribuirMet(r, met, total);
+  }
+  return r;
+}
+
+function atribuirMet(r, met, val){
+  var m = (met||'').toLowerCase();
+  if(m.includes('dinheiro'))                        r.din  += val;
+  else if(m.includes('cr\u00e9d')||m.includes('cred'))  r.cred += val;
+  else if(m.includes('d\u00e9b')||m.includes('deb'))    r.deb  += val;
+  else if(m.includes('pix'))                        r.pix  += val;
+  else                                              r.din  += val; /* fallback */
+}
+
+/* ══════════════════════════════════════════
    VENDAS DO MÊS — tabela por dia e método
 ══════════════════════════════════════════ */
 async function carregarVendasMes(){
@@ -981,7 +1016,7 @@ async function carregarVendasMes(){
   /* 1. Vendas do mês com seus IDs */
   var rv = await db.from('vendas')
     .select('id,data,total,metodo_pagamento')
-    .gte('data',inicio).lte('data',fim+'T23:59:59');
+    .gte('data',inicio).lte('data',fim+'T23:59:59').gt('total',0);
 
   /* 2. Despesas pagas no mês */
   var rd = await db.from('contas_pagar')
@@ -1019,12 +1054,11 @@ async function carregarVendasMes(){
     var dia = v.data ? v.data.substring(0,10) : '?';
     if(!dias[dia]) dias[dia]={din:0,cred:0,deb:0,pix:0,total:0,custo:0,desp:0};
     var tot = Number(v.total||0);
-    var met = (v.metodo_pagamento||'').toLowerCase();
-    if(met.includes('dinheiro'))                              dias[dia].din  += tot;
-    else if(met.includes('créd')||met.includes('cred'))       dias[dia].cred += tot;
-    else if(met.includes('déb')||met.includes('deb'))         dias[dia].deb  += tot;
-    else if(met.includes('pix'))                              dias[dia].pix  += tot;
-    else                                                      dias[dia].din  += tot;
+    var pg  = parsePagamento(v);
+    dias[dia].din  += pg.din;
+    dias[dia].cred += pg.cred;
+    dias[dia].deb  += pg.deb;
+    dias[dia].pix  += pg.pix;
     dias[dia].total += tot;
     dias[dia].custo += custoPorVenda[v.id]||0;
   });
@@ -1288,19 +1322,18 @@ var _fcDados = null;
 async function abrirFecharCaixa(){
   /* busca totais do dia */
   var hoje2 = hoje();
-  var rv = await db.from('vendas').select('total,metodo_pagamento').gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59');
+  var rv = await db.from('vendas').select('total,metodo_pagamento').gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59').gt('total',0);
   var vendas = rv.data||[];
 
   var totalVendas=0,din=0,cred=0,deb=0,pix=0;
   vendas.forEach(function(v){
     var tot = Number(v.total||0);
     totalVendas += tot;
-    var met = (v.metodo_pagamento||'').toLowerCase();
-    if(met.includes('dinheiro')) din+=tot;
-    else if(met.includes('créd')||met.includes('cred')) cred+=tot;
-    else if(met.includes('déb')||met.includes('deb'))   deb+=tot;
-    else if(met.includes('pix')) pix+=tot;
-    else din+=tot;
+    var pg = parsePagamento(v);
+    din  += pg.din;
+    cred += pg.cred;
+    deb  += pg.deb;
+    pix  += pg.pix;
   });
 
   /* busca contas pagas HOJE — separando retiradas de caixa físico das demais */
@@ -1509,7 +1542,7 @@ async function abrirModalHistDia(){
 
   var hoje2 = hoje();
   var r = await db.from('vendas')
-    .select('id,data,total,metodo_pagamento,cliente_nome,itens_venda(nome_produto,quantidade,preco_unitario)')
+    .select('id,data,total,metodo_pagamento,cliente_nome,itens_venda(nome_produto,quantidade,preco_unitario)').gt('total',0)
     .gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59')
     .order('data',{ascending:false});
 
@@ -1718,7 +1751,7 @@ async function carregarGraficoAnual(){
   
   // Busca vendas e despesas do ano
   var [rv, rd] = await Promise.all([
-    db.from('vendas').select('data,total,metodo_pagamento').gte('data',inicio).lte('data',fim),
+    db.from('vendas').select('data,total,metodo_pagamento').gte('data',inicio).lte('data',fim).gt('total',0),
     db.from('contas_pagar').select('data_pagamento,valor').eq('pago',true).gte('data_pagamento',inicio).lte('data_pagamento',ano+'-12-31')
   ]);
   
@@ -1731,11 +1764,11 @@ async function carregarGraficoAnual(){
     var tot = Number(v.total||0);
     mesesVendas[m] += tot;
     
-    // Lógica MEI: Crédito, Débito e PIX
-    var met = (v.metodo_pagamento||'').toLowerCase();
-    if(met.includes('créd')||met.includes('cred')) meiCred += tot;
-    else if(met.includes('déb')||met.includes('deb')) meiDeb += tot;
-    else if(met.includes('pix')) meiPix += tot;
+    // Lógica MEI: Crédito, Débito e PIX (suporta pagamento dividido)
+    var pg = parsePagamento(v);
+    meiCred += pg.cred;
+    meiDeb  += pg.deb;
+    meiPix  += pg.pix;
   });
   
   // Atualiza UI MEI
@@ -1796,7 +1829,7 @@ async function verDetalhesVendasDia(diaStr){
   document.getElementById('modal-detalhes-vendas-dia').classList.add('ab');
   
   var r = await db.from('vendas')
-    .select('id,data,total,metodo_pagamento,cliente_nome,itens_venda(nome_produto,quantidade,preco_unitario)')
+    .select('id,data,total,metodo_pagamento,cliente_nome,itens_venda(nome_produto,quantidade,preco_unitario)').gt('total',0)
     .gte('data',diaStr+'T00:00:00').lte('data',diaStr+'T23:59:59')
     .order('data',{ascending:true});
     
@@ -1880,7 +1913,7 @@ async function abrirVisaoCaixa(){
 
   /* Busca tudo em paralelo */
   var [rvAll, rdAll, rcAll] = await Promise.all([
-    db.from('vendas').select('id,data,total,metodo_pagamento,cliente_nome')
+    db.from('vendas').select('id,data,total,metodo_pagamento,cliente_nome').gt('total',0)
       .gte('data', inicio+'T00:00:00').lte('data', fim+'T23:59:59')
       .order('data',{ascending:true}),
     db.from('contas_pagar').select('id,descricao,valor,data_pagamento,data_vencimento,pago')
