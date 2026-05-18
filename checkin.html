@@ -2,498 +2,588 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Check-in — Mendezza</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check-in — Mendezza Auto Peças</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="sidebar.css">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --azul:#004aad;--azul2:#5271ff;--verde:#22c55e;
-  --verm:#ef4444;--am:#f59e0b;--bg:#f1f5f9;
-  --card:#fff;--txt:#1e293b;--sub:#64748b;--borda:#e2e8f0;
-  --sombra:0 1px 6px rgba(0,0,0,.08)
+  --azul:#004aad;--azul2:#5271ff;--verde:#22c55e;--verde2:#16a34a;
+  --verm:#ef4444;--am:#f59e0b;--wp:#25D366;
+  --bg:#f1f5f9;--card:#fff;--txt:#1e293b;--sub:#64748b;--borda:#e2e8f0;
+  --sombra:0 1px 8px rgba(0,0,0,.08)
 }
-html,body{width:100%;max-width:100vw;overflow-x:hidden;background:var(--bg);
-  font-family:'Segoe UI',Arial,sans-serif;color:var(--txt);font-size:14px}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:14px}
 
-/* ── TOPBAR ── */
-.topbar{position:sticky;top:0;z-index:100;background:var(--azul);color:#fff;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 16px;height:52px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
-.topbar h1{font-size:.95rem;font-weight:700}
+.topbar{background:#fff;border-bottom:1px solid var(--borda);height:56px;
+  display:flex;align-items:center;padding:0 24px;gap:14px;
+  position:sticky;top:0;z-index:100;box-shadow:var(--sombra)}
+.topbar-titulo{font-size:1rem;font-weight:800;color:var(--txt);flex:1}
 
-/* ── ABAS ── */
-.abas{display:flex;background:var(--azul);border-bottom:2px solid rgba(255,255,255,.1)}
-.aba{flex:1;background:none;border:none;color:rgba(255,255,255,.6);
-  padding:10px 6px;font-size:.75rem;font-weight:700;cursor:pointer;
-  border-bottom:3px solid transparent;transition:.15s;text-align:center}
-.aba.ativa{color:#fff;border-bottom-color:var(--am)}
+.abas{display:flex;gap:0;border-bottom:2px solid var(--borda);
+  background:#fff;padding:0 24px;flex-shrink:0}
+.aba{background:none;border:none;padding:13px 22px;font-size:.85rem;font-weight:700;
+  color:var(--sub);cursor:pointer;border-bottom:3px solid transparent;
+  margin-bottom:-2px;transition:.15s;white-space:nowrap}
+.aba:hover{color:var(--azul2)}
+.aba.ativa{color:var(--azul2);border-bottom-color:var(--azul2)}
 
-/* ── PAINEL ── */
+.main-wrap{padding:20px 24px 40px}
 .painel{display:none}.painel.ativo{display:block}
-.page{padding:12px 12px 90px}
 
-/* ── CARD ── */
+/* GRID FORMULÁRIO */
+.grid-form{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}
+
+/* CARDS */
 .card{background:var(--card);border-radius:12px;box-shadow:var(--sombra);
-  border:1px solid var(--borda);padding:14px;margin-bottom:10px}
-.card-titulo{font-size:.82rem;font-weight:800;color:var(--azul);
-  margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--borda)}
+  border:1px solid var(--borda);padding:20px;margin-bottom:16px}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;
+  padding-bottom:12px;border-bottom:1px solid var(--borda)}
+.card-ico{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:1rem;flex-shrink:0}
+.ic-az{background:#dbeafe}.ic-am{background:#fef9c3}
+.ic-vd{background:#dcfce7}.ic-rx{background:#ede9fe}
+.card-head h3{font-size:.9rem;font-weight:800;color:var(--txt);margin:0}
+.card-head p{font-size:.74rem;color:var(--sub);margin:2px 0 0}
 
-/* ── CAMPOS ── */
-.campo{margin-bottom:11px}
-.campo label{display:block;font-size:.72rem;font-weight:700;color:var(--sub);margin-bottom:4px}
+/* CAMPOS */
+.campo{margin-bottom:12px}
+.campo label{display:block;font-size:.72rem;font-weight:700;color:var(--sub);
+  margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
 .campo input,.campo select,.campo textarea{
-  width:100%;padding:11px 12px;border:1.5px solid var(--borda);
-  border-radius:10px;font-size:.9rem;outline:none;font-family:inherit;
-  background:#fff;-webkit-appearance:none}
-.campo input:focus,.campo select:focus,.campo textarea:focus{border-color:var(--azul2)}
-.campo textarea{resize:none;min-height:90px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  width:100%;padding:9px 12px;border:1.5px solid var(--borda);
+  border-radius:8px;font-size:.88rem;outline:none;font-family:inherit;
+  background:#fff;transition:border .15s;color:var(--txt)}
+.campo input:focus,.campo select:focus,.campo textarea:focus{
+  border-color:var(--azul2);box-shadow:0 0 0 3px rgba(82,113,255,.1)}
+.campo textarea{resize:vertical;min-height:95px;line-height:1.6}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
 
-/* ── BUSCA CLIENTE ── */
+/* BUSCA */
 .busca-wrap{position:relative}
-.busca-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;
-  border:1.5px solid var(--azul2);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.12);
-  z-index:200;max-height:180px;overflow-y:auto;display:none}
-.busca-item{padding:11px 14px;cursor:pointer;font-size:.84rem;border-bottom:1px solid var(--borda)}
-.busca-item:active{background:#eef2ff}
-.busca-item .sub{font-size:.72rem;color:var(--sub);margin-top:2px}
+.busca-row{display:flex;gap:8px}
+.busca-row input{flex:1;padding:9px 12px;border:1.5px solid var(--borda);
+  border-radius:8px;font-size:.88rem;outline:none;transition:border .15s}
+.busca-row input:focus{border-color:var(--azul2);box-shadow:0 0 0 3px rgba(82,113,255,.1)}
+.drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;
+  border:1.5px solid var(--azul2);border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:300;
+  max-height:220px;overflow-y:auto;display:none}
+.drop-item{padding:10px 14px;cursor:pointer;font-size:.84rem;
+  border-bottom:1px solid var(--borda);transition:background .1s}
+.drop-item:hover{background:#f0f4ff}
+.drop-item .sub{font-size:.72rem;color:var(--sub);margin-top:2px}
 
-/* ── CLIENTE SELECIONADO ── */
-.cli-sel-box{background:#eef2ff;border-radius:10px;padding:10px 12px;
-  display:flex;align-items:center;gap:10px;margin-top:8px}
-.cli-sel-box .info{flex:1;min-width:0}
-.cli-sel-box .nome{font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cli-sel-box .tel{font-size:.74rem;color:var(--sub);margin-top:2px}
-.btn-trocar{background:none;border:1px solid var(--verm);color:var(--verm);
-  border-radius:6px;padding:4px 10px;font-size:.72rem;font-weight:700;cursor:pointer;flex-shrink:0}
+/* CLIENTE SEL */
+.cli-box{background:linear-gradient(135deg,#eef2ff,#e0e7ff);
+  border:1.5px solid #c7d2fe;border-radius:10px;padding:12px 14px;
+  display:flex;align-items:center;gap:12px;margin-top:8px}
+.cli-av{width:40px;height:40px;background:var(--azul2);border-radius:50%;
+  color:#fff;font-weight:800;font-size:1rem;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;letter-spacing:-1px}
+.cli-info{flex:1;min-width:0}
+.cli-info .nm{font-weight:700;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cli-info .tl{font-size:.76rem;color:var(--sub);margin-top:2px}
+.btn-troc{background:#fff;border:1.5px solid var(--verm);color:var(--verm);
+  border-radius:7px;padding:5px 12px;font-size:.75rem;font-weight:700;
+  cursor:pointer;transition:.15s;flex-shrink:0}
+.btn-troc:hover{background:var(--verm);color:#fff}
 
-/* ── CHIPS VEÍCULOS ── */
-.chips-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.chip{padding:6px 12px;background:#eef2ff;border:2px solid var(--azul2);
-  border-radius:20px;font-size:.75rem;font-weight:700;color:var(--azul2);cursor:pointer}
-.chip.sel{background:#dcfce7;border-color:var(--verde);color:#166534}
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{padding:6px 14px;background:#fff;border:1.5px solid var(--borda);
+  border-radius:20px;font-size:.78rem;font-weight:600;color:var(--sub);
+  cursor:pointer;transition:.15s;white-space:nowrap}
+.chip:hover{border-color:var(--azul2);color:var(--azul2);background:#eef2ff}
+.chip.sel{background:#dcfce7;border-color:var(--verde);color:#166534;font-weight:700}
 
-/* ── SERVIÇOS RÁPIDOS ── */
-.srv-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.srv-tag{padding:7px 12px;background:#fff;border:1.5px solid var(--borda);
-  border-radius:20px;font-size:.76rem;font-weight:700;cursor:pointer;transition:.15s;color:var(--txt)}
-.srv-tag:active{background:var(--am);border-color:var(--am);color:#222}
+.srv-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.srv-tag{padding:6px 12px;background:#fff;border:1.5px solid var(--borda);
+  border-radius:6px;font-size:.78rem;font-weight:600;color:var(--sub);
+  cursor:pointer;transition:.15s;white-space:nowrap}
+.srv-tag:hover{border-color:var(--azul2);color:var(--azul2);background:#eef2ff}
 
-/* ── FOTO GRID ── */
-.foto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.foto-thumb{position:relative;border-radius:8px;overflow:hidden;
-  aspect-ratio:4/3;background:#f0f0f0;border:2px solid var(--borda)}
-.foto-thumb img{width:100%;height:100%;object-fit:cover}
+/* FOTOS */
+.foto-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.foto-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;border:2px dashed var(--borda);border-radius:10px;padding:16px;
+  background:#fafbfc;cursor:pointer;transition:.15s;
+  font-size:.78rem;font-weight:700;color:var(--sub);text-align:center}
+.foto-btn:hover{border-color:var(--azul2);color:var(--azul2);background:#eef2ff}
+.foto-ico{font-size:1.6rem}
+.foto-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
+.foto-thumb{position:relative;aspect-ratio:4/3;border-radius:8px;
+  overflow:hidden;border:1.5px solid var(--borda)}
+.foto-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .foto-rm{position:absolute;top:4px;right:4px;background:rgba(239,68,68,.9);
   color:#fff;border:none;border-radius:50%;width:22px;height:22px;
-  cursor:pointer;font-size:.8rem;line-height:22px;text-align:center}
-.btn-foto{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  border:2px dashed var(--azul2);border-radius:8px;cursor:pointer;
-  aspect-ratio:4/3;background:#f8f9ff;color:var(--azul2);font-size:.72rem;gap:3px}
-.btn-foto span{font-size:1.6rem}
+  font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.foto-count{font-size:.76rem;color:var(--sub);text-align:center;
+  padding:6px;background:#f8fafc;border-radius:6px}
 
-/* ── BOTÃO FULL ── */
-.btn-full{width:100%;border:none;border-radius:12px;padding:14px;
-  font-size:.92rem;font-weight:800;cursor:pointer;margin-bottom:8px;
-  display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
-.btn-full:active{transform:scale(.97)}
+/* LATERAL */
+.lateral{background:#fff;border-radius:12px;box-shadow:var(--sombra);
+  border:1px solid var(--borda);position:sticky;top:76px;overflow:hidden}
+.lat-head{background:linear-gradient(135deg,var(--azul),var(--azul2));
+  color:#fff;padding:18px 20px}
+.lat-head h3{font-size:.95rem;font-weight:800;margin:0}
+.lat-head p{font-size:.76rem;opacity:.8;margin:3px 0 0}
+.lat-body{padding:16px 18px}
+.res-item{display:flex;justify-content:space-between;align-items:flex-start;
+  padding:9px 0;border-bottom:1px solid var(--borda);font-size:.82rem;gap:10px}
+.res-item:last-child{border-bottom:none}
+.res-lbl{color:var(--sub);font-weight:600;flex-shrink:0;white-space:nowrap}
+.res-val{font-weight:700;color:var(--txt);text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.res-ok{color:var(--verde2) !important}
+.res-miss{color:var(--sub) !important}
+.lat-foot{padding:14px 18px;border-top:1px solid var(--borda);display:flex;flex-direction:column;gap:8px}
+
+/* BOTÕES */
+.btn{border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:.85rem;
+  font-weight:700;transition:.14s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{opacity:.88;transform:translateY(-1px)}
 .bv{background:var(--verde);color:#fff}
-.bwp{background:#25D366;color:#fff}
-.bc{background:#6b7280;color:#fff}
-.br{background:var(--verm);color:#fff}
 .ba{background:var(--azul2);color:#fff}
+.br{background:var(--verm);color:#fff}
+.bc{background:#6b7280;color:#fff}
+.bwp{background:var(--wp);color:#fff}
+.bam{background:var(--am);color:#222}
+.btn-full{width:100%;justify-content:center;padding:11px}
+.btn-sm{padding:5px 12px;font-size:.78rem}
 
-/* ── CHECK-IN CARD (lista) ── */
-.ci-card{background:var(--card);border-radius:12px;box-shadow:var(--sombra);
-  border:1px solid var(--borda);padding:12px 14px;margin-bottom:8px;
-  border-left:4px solid var(--azul2)}
-.ci-card.aguardando{border-left-color:var(--am)}
-.ci-card.em_servico{border-left-color:var(--azul2)}
-.ci-card.concluido{border-left-color:var(--verde)}
-.ci-card.entregue{border-left-color:#94a3b8}
-.ci-nome{font-weight:800;font-size:.9rem;margin-bottom:2px}
-.ci-vei{font-size:.78rem;color:var(--sub);margin-bottom:6px}
-.ci-srv{font-size:.76rem;color:var(--txt);margin-bottom:8px;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ci-footer{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.badge{display:inline-block;padding:3px 9px;border-radius:10px;font-size:.68rem;font-weight:700}
-.b-aguardando{background:#fef9c3;color:#854d0e}
-.b-em_servico{background:#dbeafe;color:#1e40af}
-.b-concluido{background:#dcfce7;color:#166534}
-.b-entregue{background:#f1f5f9;color:#475569}
-.ci-acoes{display:flex;gap:6px;margin-left:auto}
-.btn-sm{padding:5px 10px;border:none;border-radius:6px;font-size:.72rem;
-  font-weight:700;cursor:pointer}
+/* TABELA */
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--borda)}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+thead th{background:var(--azul);color:#fff;padding:11px 12px;
+  text-align:left;white-space:nowrap;font-weight:700}
+tbody tr{border-bottom:1px solid var(--borda);transition:background .1s}
+tbody tr:hover{background:#f8faff}
+tbody td{padding:10px 12px;vertical-align:middle}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;
+  border-radius:10px;font-size:.73rem;font-weight:700}
+.b-ag{background:#fef9c3;color:#854d0e}
+.b-em{background:#dbeafe;color:#1e40af}
+.b-co{background:#dcfce7;color:#166534}
+.b-en{background:#e5e7eb;color:#374151}
 
-/* ── STATUS SELECT ── */
-.status-sel{border:1.5px solid var(--borda);border-radius:8px;padding:5px 8px;
-  font-size:.72rem;font-weight:700;background:#fff;cursor:pointer;-webkit-appearance:none;
-  color:var(--txt)}
-
-/* ── CLIENTES CARD ── */
-.cli-card{background:var(--card);border-radius:12px;box-shadow:var(--sombra);
-  border:1px solid var(--borda);padding:12px 14px;margin-bottom:8px}
-.cli-card-nome{font-weight:800;font-size:.9rem;margin-bottom:3px}
-.cli-card-tel{font-size:.78rem;color:var(--sub)}
-
-/* ── MODAL SHEET ── */
-.bd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;
-  align-items:flex-end;justify-content:center}
-.bd.ab{display:flex}
-.modal{background:#fff;border-radius:20px 20px 0 0;width:100%;
-  max-height:90vh;overflow-y:auto;padding:20px 16px;animation:slideup .22s ease}
-@keyframes slideup{from{transform:translateY(100%)}}
-.modal-handle{width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 16px}
-.modal h2{font-size:.95rem;font-weight:800;color:var(--azul);margin-bottom:14px}
-.mf{position:absolute;top:20px;right:18px;background:none;border:none;
-  font-size:1.3rem;cursor:pointer;color:#9ca3af}
-.mac{display:flex;flex-direction:column;gap:8px;margin-top:14px}
-
-/* ── CÂMERA ── */
-#cam-video{width:100%;border-radius:10px;background:#000}
-
-/* ── FILTROS ── */
-.filtros{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px}
+.filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
 .filtros input,.filtros select{padding:8px 12px;border:1.5px solid var(--borda);
-  border-radius:20px;font-size:.78rem;outline:none;background:#fff;flex-shrink:0}
+  border-radius:8px;font-size:.84rem;outline:none;background:#fff}
+.filtros input:focus,.filtros select:focus{border-color:var(--azul2)}
 
-/* ── BOTTOM NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;
-  border-top:1px solid var(--borda);display:flex;z-index:200;
-  padding-bottom:env(safe-area-inset-bottom,0)}
-.bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:2px;padding:8px 4px;text-decoration:none;
-  color:var(--sub);font-size:.6rem;font-weight:700;transition:color .15s}
-.bottom-nav a.ativo{color:var(--azul2)}
-.bottom-nav a span:first-child{font-size:1.3rem}
+.cli-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.cli-card{background:#fff;border-radius:10px;box-shadow:var(--sombra);
+  border:1px solid var(--borda);padding:16px;display:flex;gap:12px;align-items:flex-start}
+.cli-av2{width:44px;height:44px;background:var(--azul2);border-radius:50%;
+  color:#fff;font-weight:800;font-size:1.05rem;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0}
+.cli-card-info{flex:1;min-width:0}
+.cli-card-nome{font-weight:700;font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cli-card-tel{font-size:.76rem;color:var(--sub);margin-top:3px}
 
-/* ── TOAST ── */
-#toast{position:fixed;top:60px;left:12px;right:12px;z-index:9999;
-  color:#fff;padding:12px 16px;border-radius:10px;font-size:.84rem;
-  display:none;box-shadow:0 4px 16px rgba(0,0,0,.18);text-align:center}
+/* MODAL */
+.bd{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:1000;align-items:center;justify-content:center;padding:20px}
+.bd.ab{display:flex}
+.modal{background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.2);
+  width:460px;max-width:100%;max-height:90vh;overflow-y:auto;
+  padding:26px;position:relative;animation:pop .17s ease}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+.modal h2{font-size:1rem;font-weight:800;color:var(--azul);
+  margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--bg)}
+.mf{position:absolute;top:16px;right:18px;background:none;border:none;
+  font-size:1.3rem;cursor:pointer;color:#9ca3af}
+.mf:hover{color:var(--verm)}
+.mac{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+#cam-video{width:100%;border-radius:8px;background:#000;display:block;max-height:55vh;object-fit:cover}
+#cam-canvas{display:none}
+.cam-row{display:flex;gap:10px;margin-top:12px}
+
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;color:#fff;
+  padding:11px 20px;border-radius:8px;font-size:.86rem;display:none;
+  box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:200px}
 #toast.vis{display:block}
 #toast.ok{background:var(--verde)}
 #toast.er{background:var(--verm)}
 #toast.av{background:var(--am);color:#222}
-
-/* ── LOADER ── */
-.loader{text-align:center;padding:32px;color:var(--sub);font-size:.88rem}
 </style>
 </head>
 <body>
+<div id="main-content">
 
-<!-- TOPBAR -->
 <div class="topbar">
-  <h1>🔑 Check-in de Veículos</h1>
+  <span class="topbar-titulo">🔑 Check-in de Veículos</span>
+  <div style="display:flex;gap:8px">
+    <button class="btn bc btn-sm" onclick="aba('lista')">📋 Histórico</button>
+    <button class="btn bv btn-sm" onclick="aba('novo')">➕ Novo Check-in</button>
+  </div>
 </div>
 
-<!-- ABAS -->
 <div class="abas">
-  <button class="aba ativa" onclick="aba('novo')">➕ Novo</button>
-  <button class="aba" onclick="aba('lista')">📋 Check-ins</button>
+  <button class="aba ativa" onclick="aba('novo')">➕ Novo Check-in</button>
+  <button class="aba" onclick="aba('lista')">📋 Histórico</button>
   <button class="aba" onclick="aba('clientes')">👥 Clientes</button>
 </div>
 
-<!-- ══════════════════════════════
-     ABA: NOVO CHECK-IN
-══════════════════════════════ -->
+<!-- ABA NOVO -->
 <div id="p-novo" class="painel ativo">
-<div class="page">
+<div class="main-wrap">
+<div class="grid-form">
 
-  <!-- CLIENTE -->
-  <div class="card">
-    <div class="card-titulo">👤 Cliente</div>
-    <div class="busca-wrap">
-      <div style="display:flex;gap:8px">
-        <input id="busca-cli" placeholder="Nome ou telefone..." autocomplete="off"
-          oninput="buscarCliente()" style="flex:1">
-        <button class="btn-sm ba" onclick="abrirModalCliente(null)"
-          style="flex-shrink:0;padding:10px 14px;border-radius:10px;font-size:.8rem">➕ Novo</button>
+  <!-- ESQUERDA -->
+  <div>
+
+    <!-- CLIENTE -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-ico ic-az">👤</div>
+        <div style="flex:1"><h3>Cliente</h3><p>Busque pelo nome ou telefone</p></div>
+        <button class="btn ba btn-sm" onclick="abrirModalCliente(null)">➕ Novo</button>
       </div>
-      <div class="busca-drop" id="drop-cli"></div>
-    </div>
-    <div id="cli-sel" style="display:none" class="cli-sel-box">
-      <div class="info">
-        <div class="nome" id="cli-nome"></div>
-        <div class="tel" id="cli-tel"></div>
+      <div class="busca-wrap">
+        <div class="busca-row">
+          <input id="busca-cli" placeholder="🔍  Nome ou telefone..." autocomplete="off" oninput="buscarCliente()">
+        </div>
+        <div class="drop" id="drop-cli"></div>
       </div>
-      <button class="btn-trocar" onclick="limparCliente()">✕ Trocar</button>
-      <button class="btn-sm ba" onclick="abrirModalCliente(_clienteSel?.id)"
-        style="border-radius:6px;padding:5px 10px;font-size:.72rem">✏️</button>
+      <div id="cli-sel" class="cli-box" style="display:none">
+        <div class="cli-av" id="cli-av">?</div>
+        <div class="cli-info">
+          <div class="nm" id="cli-nome"></div>
+          <div class="tl" id="cli-tel"></div>
+        </div>
+        <button class="btn-troc" onclick="limparCliente()">✕ Trocar</button>
+      </div>
+      <input type="hidden" id="ci-cliente-id">
     </div>
-    <input type="hidden" id="ci-cliente-id">
+
+    <!-- VEÍCULO -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-ico ic-am">🚗</div>
+        <div><h3>Veículo</h3><p>Preencha ou selecione um veículo cadastrado</p></div>
+      </div>
+      <div id="vei-lista" style="display:none;margin-bottom:14px">
+        <div style="font-size:.72rem;font-weight:700;color:var(--sub);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px">
+          Veículos cadastrados — clique para preencher:
+        </div>
+        <div class="chips" id="vei-chips"></div>
+      </div>
+      <div class="g4">
+        <div class="campo"><label>Marca *</label><input id="vei-marca" placeholder="Ex: Fiat" oninput="atualizarResumo()"></div>
+        <div class="campo"><label>Modelo *</label><input id="vei-modelo" placeholder="Ex: Strada" oninput="atualizarResumo()"></div>
+        <div class="campo"><label>Placa</label><input id="vei-placa" placeholder="ABC1D23" oninput="this.value=this.value.toUpperCase()"></div>
+        <div class="campo"><label>KM</label><input type="number" id="vei-km" placeholder="85000" oninput="atualizarResumo()"></div>
+      </div>
+      <div class="g3">
+        <div class="campo"><label>Motor</label><input id="vei-motor" placeholder="1.4 Flex"></div>
+        <div class="campo"><label>Ano</label><input id="vei-ano" placeholder="2022"></div>
+        <div class="campo"><label>Cor</label><input id="vei-cor" placeholder="Prata"></div>
+      </div>
+      <input type="hidden" id="ci-veiculo-id">
+    </div>
+
+    <!-- SERVIÇOS -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-ico ic-rx">🔧</div>
+        <div><h3>Serviços Solicitados</h3><p>Clique nos atalhos ou descreva</p></div>
+      </div>
+      <div class="srv-chips">
+        <span class="srv-tag" onclick="addSrv('Troca de óleo e filtro')">🛢️ Óleo</span>
+        <span class="srv-tag" onclick="addSrv('Revisão geral')">🔍 Revisão</span>
+        <span class="srv-tag" onclick="addSrv('Alinhamento e balanceamento')">⚖️ Alinha/Bal.</span>
+        <span class="srv-tag" onclick="addSrv('Freios dianteiros')">🔴 Freios</span>
+        <span class="srv-tag" onclick="addSrv('Suspensão')">🔩 Suspensão</span>
+        <span class="srv-tag" onclick="addSrv('Elétrica geral')">💡 Elétrica</span>
+        <span class="srv-tag" onclick="addSrv('Diagnóstico eletrônico')">💻 Diagnóstico</span>
+        <span class="srv-tag" onclick="addSrv('Ar-condicionado')">❄️ A/C</span>
+        <span class="srv-tag" onclick="addSrv('Troca de correia dentada')">⚙️ Correia</span>
+        <span class="srv-tag" onclick="addSrv('Troca de velas')">✨ Velas</span>
+        <span class="srv-tag" onclick="addSrv('Limpeza de bicos injetores')">💧 Injetores</span>
+        <span class="srv-tag" onclick="addSrv('Pneus')">🟠 Pneus</span>
+      </div>
+      <div class="g2">
+        <div class="campo">
+          <label>Serviços Solicitados *</label>
+          <textarea id="ci-servicos" placeholder="Descreva os serviços detalhadamente..." oninput="atualizarResumo()"></textarea>
+        </div>
+        <div class="campo">
+          <label>Observações</label>
+          <textarea id="ci-obs" placeholder="Arranhões, itens no veículo, condições..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOTOS -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-ico ic-vd">📸</div>
+        <div><h3>Fotos do Veículo</h3><p>Documente o estado de entrada</p></div>
+      </div>
+      <div class="foto-btns">
+        <div class="foto-btn" onclick="abrirCamera()">
+          <div class="foto-ico">📷</div>
+          <span>Usar Câmera</span>
+        </div>
+        <label class="foto-btn" for="inp-foto">
+          <div class="foto-ico">🖼️</div>
+          <span>Selecionar da Galeria</span>
+        </label>
+      </div>
+      <input type="file" id="inp-foto" accept="image/*" multiple style="display:none" onchange="addFotos(event)">
+      <div class="foto-grid" id="foto-grid"></div>
+      <div class="foto-count" id="foto-count">Nenhuma foto</div>
+    </div>
+
+  </div><!-- /esquerda -->
+
+  <!-- DIREITA (sticky) -->
+  <div>
+    <div class="lateral">
+      <div class="lat-head">
+        <h3>📋 Resumo do Check-in</h3>
+        <p>Revise os dados antes de salvar</p>
+      </div>
+      <div class="lat-body">
+        <div class="res-item">
+          <span class="res-lbl">👤 Cliente</span>
+          <span class="res-val res-miss" id="res-cli">Não selecionado</span>
+        </div>
+        <div class="res-item">
+          <span class="res-lbl">🚗 Veículo</span>
+          <span class="res-val res-miss" id="res-vei">Não informado</span>
+        </div>
+        <div class="res-item">
+          <span class="res-lbl">🔢 KM</span>
+          <span class="res-val res-miss" id="res-km">—</span>
+        </div>
+        <div class="res-item">
+          <span class="res-lbl">🔧 Serviços</span>
+          <span class="res-val res-miss" id="res-srv">Não descritos</span>
+        </div>
+        <div class="res-item">
+          <span class="res-lbl">📸 Fotos</span>
+          <span class="res-val res-miss" id="res-foto">0 foto(s)</span>
+        </div>
+        <div class="res-item">
+          <span class="res-lbl">📋 OS</span>
+          <span class="res-val res-ok">Gerada automaticamente</span>
+        </div>
+      </div>
+      <div class="lat-foot">
+        <button class="btn bv btn-full" id="btn-salvar" onclick="salvarCheckin()">
+          💾 Salvar Check-in
+        </button>
+        <button class="btn bwp btn-full" id="btn-zap" onclick="salvarEEnviarZap()" disabled>
+          📲 Salvar + Enviar WhatsApp
+        </button>
+        <button class="btn bc btn-full" onclick="limparForm()">
+          🗑️ Limpar Formulário
+        </button>
+      </div>
+    </div>
   </div>
 
-  <!-- VEÍCULO -->
-  <div class="card">
-    <div class="card-titulo">🚗 Veículo</div>
-    <div id="vei-lista" style="display:none">
-      <div style="font-size:.72rem;font-weight:700;color:var(--sub);margin-bottom:6px">Veículos do cliente:</div>
-      <div class="chips-wrap" id="vei-chips"></div>
-    </div>
-    <div class="g2">
-      <div class="campo"><label>Marca *</label><input id="vei-marca" placeholder="Ex: Fiat"></div>
-      <div class="campo"><label>Modelo *</label><input id="vei-modelo" placeholder="Ex: Uno"></div>
-    </div>
-    <div class="g3">
-      <div class="campo"><label>Placa</label><input id="vei-placa" placeholder="ABC-1234" oninput="this.value=this.value.toUpperCase()"></div>
-      <div class="campo"><label>Motor</label><input id="vei-motor" placeholder="1.0"></div>
-      <div class="campo"><label>Ano</label><input id="vei-ano" placeholder="2020"></div>
-    </div>
-    <div class="campo" style="max-width:160px">
-      <label>KM Entrada</label>
-      <input type="number" id="vei-km" inputmode="numeric" placeholder="85000">
-    </div>
-    <input type="hidden" id="ci-veiculo-id">
-  </div>
-
-  <!-- SERVIÇOS -->
-  <div class="card">
-    <div class="card-titulo">🔧 Serviços Solicitados</div>
-    <div class="srv-wrap">
-      <button class="srv-tag" onclick="addServico('Troca de óleo e filtro')">🛢️ Óleo</button>
-      <button class="srv-tag" onclick="addServico('Revisão geral')">🔍 Revisão</button>
-      <button class="srv-tag" onclick="addServico('Alinhamento e balanceamento')">⚖️ Alinha.</button>
-      <button class="srv-tag" onclick="addServico('Freios')">🔴 Freios</button>
-      <button class="srv-tag" onclick="addServico('Suspensão')">🔧 Suspensão</button>
-      <button class="srv-tag" onclick="addServico('Elétrica')">💡 Elétrica</button>
-      <button class="srv-tag" onclick="addServico('Diagnóstico')">💻 Diagnóstico</button>
-      <button class="srv-tag" onclick="addServico('Ar-condicionado')">❄️ Ar-cond.</button>
-      <button class="srv-tag" onclick="addServico('Correia dentada')">⚙️ Correia</button>
-    </div>
-    <div class="campo">
-      <label>Descrição dos serviços *</label>
-      <textarea id="ci-servicos" placeholder="Descreva os serviços..."></textarea>
-    </div>
-    <div class="campo">
-      <label>Observações</label>
-      <textarea id="ci-obs" placeholder="Arranhões, avarias, pedidos especiais..." style="min-height:60px"></textarea>
-    </div>
-  </div>
-
-  <!-- FOTOS -->
-  <div class="card">
-    <div class="card-titulo">📸 Fotos do Veículo</div>
-    <div class="foto-grid" id="foto-grid">
-      <button class="btn-foto" onclick="abrirCamera()">
-        <span>📷</span><div>Câmera</div>
-      </button>
-      <label class="btn-foto" for="inp-foto">
-        <span>🖼️</span><div>Galeria</div>
-      </label>
-      <input type="file" id="inp-foto" accept="image/*" multiple style="display:none" onchange="adicionarFotosArq(event)">
-    </div>
-    <div style="font-size:.72rem;color:var(--sub);margin-top:6px" id="foto-count">0 foto(s)</div>
-  </div>
-
-  <!-- AÇÕES -->
-  <button class="btn-full bwp" id="btn-zap" onclick="salvarEEnviarZap()" disabled>
-    📲 Salvar e Enviar WhatsApp
-  </button>
-  <button class="btn-full bv" id="btn-salvar" onclick="salvarCheckin()">
-    💾 Salvar Check-in
-  </button>
-  <button class="btn-full bc" onclick="limparForm()">🗑️ Limpar</button>
-
+</div><!-- /grid-form -->
 </div>
-</div>
+</div><!-- /p-novo -->
 
-<!-- ══════════════════════════════
-     ABA: LISTA CHECK-INS
-══════════════════════════════ -->
+<!-- ABA HISTÓRICO -->
 <div id="p-lista" class="painel">
-<div class="page">
+<div class="main-wrap">
   <div class="filtros">
-    <input type="date" id="filtro-data" onchange="carregarCheckins()">
+    <input type="date" id="filtro-data">
     <select id="filtro-status" onchange="carregarCheckins()">
-      <option value="">Todos</option>
+      <option value="">Todos os status</option>
       <option value="aguardando">⏳ Aguardando</option>
       <option value="em_servico">🔧 Em serviço</option>
       <option value="concluido">✅ Concluído</option>
       <option value="entregue">🏁 Entregue</option>
     </select>
-    <button class="btn-sm ba" onclick="carregarCheckins()" style="border-radius:20px;padding:8px 14px">🔄</button>
+    <button class="btn ba btn-sm" onclick="carregarCheckins()">🔍 Filtrar</button>
+    <span id="hist-count" style="margin-left:auto;font-size:.78rem;color:var(--sub)"></span>
   </div>
-  <div id="lista-ci"><div class="loader">Carregando...</div></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>Cliente</th><th>Veículo</th><th>KM</th>
+        <th>Serviços</th><th>📸</th><th>Data/Hora</th><th>Status</th><th>Ações</th>
+      </tr></thead>
+      <tbody id="t-ci">
+        <tr><td colspan="9" style="text-align:center;padding:28px;color:var(--sub)">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 </div>
 
-<!-- ══════════════════════════════
-     ABA: CLIENTES
-══════════════════════════════ -->
+<!-- ABA CLIENTES -->
 <div id="p-clientes" class="painel">
-<div class="page">
-  <div style="display:flex;gap:8px;margin-bottom:10px">
-    <input id="busca-cli-aba" placeholder="Buscar cliente..." oninput="carregarClientesAba()"
-      style="flex:1;padding:10px 14px;border:1.5px solid var(--borda);border-radius:20px;font-size:.84rem;outline:none">
-    <button class="btn-sm bv" onclick="abrirModalCliente(null)"
-      style="border-radius:20px;padding:10px 16px;font-size:.8rem;border:none;cursor:pointer">➕ Novo</button>
+<div class="main-wrap">
+  <div class="filtros">
+    <input id="busca-cli-aba" placeholder="🔍  Buscar cliente..." oninput="carregarClientes()" style="min-width:260px">
+    <button class="btn bv btn-sm" onclick="abrirModalCliente(null)">➕ Novo Cliente</button>
+    <span id="cli-count" style="margin-left:auto;font-size:.78rem;color:var(--sub)"></span>
   </div>
-  <div id="lista-clientes"><div class="loader">Carregando...</div></div>
+  <div class="cli-grid" id="lista-cli"></div>
 </div>
 </div>
 
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-  <a href="vendas.html"><span>🛒</span><span>Vendas</span></a>
-  <a href="checkin_mobile.html" class="ativo"><span>🔑</span><span>Check-in</span></a>
-  <a href="estoque.html"><span>📦</span><span>Estoque</span></a>
-  <a href="financeiro_mobile.html"><span>💰</span><span>Financeiro</span></a>
+</div><!-- /main-content -->
+
+<!-- MODAL CÂMERA -->
+<div class="bd" id="modal-cam">
+  <div class="modal" style="width:560px">
+    <button class="mf" onclick="fecharCam()">✕</button>
+    <h2>📷 Câmera</h2>
+    <video id="cam-video" autoplay playsinline></video>
+    <canvas id="cam-canvas"></canvas>
+    <div class="cam-row">
+      <button class="btn bc" onclick="girarCam()" style="flex:1">🔄 Girar</button>
+      <button class="btn bv" onclick="tirarFoto()" style="flex:2">📸 Tirar Foto</button>
+    </div>
+  </div>
 </div>
 
-<!-- MODAL: CLIENTE -->
+<!-- MODAL CLIENTE -->
 <div class="bd" id="modal-cli">
-  <div class="modal" style="position:relative">
-    <div class="modal-handle"></div>
-    <button class="mf" onclick="fecharModalCliente()">✕</button>
+  <div class="modal">
+    <button class="mf" onclick="fechar('modal-cli')">✕</button>
     <h2 id="modal-cli-titulo">➕ Novo Cliente</h2>
     <div class="campo"><label>Nome *</label><input id="cli-f-nome" placeholder="Nome completo"></div>
     <div class="g2">
-      <div class="campo"><label>Telefone / WhatsApp *</label><input id="cli-f-tel" placeholder="(38) 99999-9999" inputmode="tel"></div>
-      <div class="campo"><label>CPF</label><input id="cli-f-cpf" placeholder="000.000.000-00" inputmode="numeric"></div>
+      <div class="campo"><label>Telefone / WhatsApp</label><input id="cli-f-tel" placeholder="(11) 99999-9999"></div>
+      <div class="campo"><label>CPF</label><input id="cli-f-cpf" placeholder="000.000.000-00"></div>
     </div>
-    <div class="campo"><label>E-mail</label><input type="email" id="cli-f-email" inputmode="email"></div>
+    <div class="campo"><label>E-mail</label><input type="email" id="cli-f-email" placeholder="email@..."></div>
     <input type="hidden" id="cli-f-id">
     <div class="mac">
-      <button class="btn-full bv" onclick="salvarCliente()">💾 Salvar</button>
-      <button class="btn-full bc" onclick="fecharModalCliente()">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: CÂMERA -->
-<div class="bd" id="modal-cam">
-  <div class="modal" style="position:relative">
-    <div class="modal-handle"></div>
-    <button class="mf" onclick="fecharCamera()">✕</button>
-    <h2>📷 Câmera</h2>
-    <video id="cam-video" autoplay playsinline style="margin-bottom:12px"></video>
-    <canvas id="cam-canvas" style="display:none"></canvas>
-    <div class="mac">
-      <button class="btn-full ba" onclick="trocarCamera()">🔄 Girar câmera</button>
-      <button class="btn-full bv" onclick="tirarFoto()" style="font-size:1.1rem">📸 Tirar Foto</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: VER CHECK-IN -->
-<div class="bd" id="modal-ci">
-  <div class="modal" style="position:relative">
-    <div class="modal-handle"></div>
-    <button class="mf" onclick="fechar('modal-ci')">✕</button>
-    <h2>🔑 Check-in</h2>
-    <div id="modal-ci-body" style="max-height:65vh;overflow-y:auto"></div>
-    <div class="mac">
-      <button class="btn-full bc" onclick="fechar('modal-ci')">Fechar</button>
+      <button class="btn bc" onclick="fechar('modal-cli')">Cancelar</button>
+      <button class="btn bv" onclick="salvarCliente()">💾 Salvar</button>
     </div>
   </div>
 </div>
 
 <div id="toast"></div>
-
 <script>
-/* ── CONFIG ── */
-var SUPA_URL = 'https://xyvsgvzgmwmvxtdxhjiw.supabase.co';
-var SUPA_KEY = 'sb_publishable_da-bSRiEwES37SKPryK-Uw_fvNuiLNE';
-var USERNAME = 'Admin';
-var BUCKET   = 'checkin-fotos';
-var db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+var SB_URL='https://xyvsgvzgmwmvxtdxhjiw.supabase.co';
+var SB_KEY='sb_publishable_da-bSRiEwES37SKPryK-Uw_fvNuiLNE';
+var USERNAME='Admin', BUCKET='checkin-fotos';
+var db=window.supabase.createClient(SB_URL,SB_KEY);
 
-/* ── UTILS ── */
-function eh(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function eq(s){ return String(s||'').replace(/'/g,"\\'"); }
-function dHora(s){ if(!s) return ''; var d=new Date(s); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function eh(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function eq(s){return String(s||'').replace(/'/g,"\\'");}
+function dh(s){if(!s)return '';var d=new Date(s);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function hoje(){return new Date().toISOString().split('T')[0];}
 var _tt;
-function toast(m,t){ var e=document.getElementById('toast'); e.textContent=m; e.className='vis '+(t||'ok'); clearTimeout(_tt); _tt=setTimeout(function(){e.className=''},3500); }
-function fechar(id){ document.getElementById(id).classList.remove('ab'); }
+function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='vis '+(t||'ok');clearTimeout(_tt);_tt=setTimeout(function(){e.className=''},4000);}
+function fechar(id){document.getElementById(id).classList.remove('ab');}
 
-/* ── ABAS ── */
-function aba(nome){
-  ['novo','lista','clientes'].forEach(function(n){
-    document.getElementById('p-'+n).classList.toggle('ativo',n===nome);
-    document.querySelectorAll('.aba').forEach(function(b,i){
-      b.classList.toggle('ativa',['novo','lista','clientes'][i]===nome);
-    });
+/* ABAS */
+function aba(n){
+  ['novo','lista','clientes'].forEach(function(x,i){
+    document.getElementById('p-'+x).classList.toggle('ativo',x===n);
+    document.querySelectorAll('.aba')[i].classList.toggle('ativa',x===n);
   });
-  if(nome==='lista')    carregarCheckins();
-  if(nome==='clientes') carregarClientesAba();
+  if(n==='lista')    carregarCheckins();
+  if(n==='clientes') carregarClientes();
 }
 
-/* ── FOTOS ── */
+/* RESUMO LATERAL */
+function atualizarResumo(){
+  var nome=document.getElementById('cli-nome').textContent;
+  var marca=document.getElementById('vei-marca').value;
+  var modelo=document.getElementById('vei-modelo').value;
+  var km=document.getElementById('vei-km').value;
+  var srv=document.getElementById('ci-servicos').value.trim();
+
+  var r=document.getElementById('res-cli');
+  r.textContent=nome||'Não selecionado';
+  r.className='res-val '+(nome?'res-ok':'res-miss');
+
+  var rv=document.getElementById('res-vei');
+  rv.textContent=[marca,modelo].filter(Boolean).join(' ')||'Não informado';
+  rv.className='res-val '+((marca&&modelo)?'res-ok':'res-miss');
+
+  document.getElementById('res-km').textContent=km?km+' km':'—';
+  var rs=document.getElementById('res-srv');
+  rs.textContent=srv?srv.substring(0,45)+(srv.length>45?'...':''):'Não descritos';
+  rs.className='res-val '+(srv?'res-ok':'res-miss');
+  var rf=document.getElementById('res-foto');
+  rf.textContent=_fotos.length+' foto(s)';
+  rf.className='res-val '+(_fotos.length?'res-ok':'res-miss');
+}
+
+/* FOTOS */
 var _fotos=[];
 function atualizarGrid(){
-  var grid=document.getElementById('foto-grid');
-  grid.querySelectorAll('.foto-thumb').forEach(function(e){e.remove();});
+  var g=document.getElementById('foto-grid');
+  g.querySelectorAll('.foto-thumb').forEach(function(e){e.remove();});
   _fotos.forEach(function(f,i){
-    var div=document.createElement('div');
-    div.className='foto-thumb';
-    div.innerHTML='<img src="'+f.url+'"><button class="foto-rm" onclick="removerFoto('+i+')">✕</button>';
-    grid.insertBefore(div,grid.firstChild);
+    var d=document.createElement('div');d.className='foto-thumb';
+    d.innerHTML='<img src="'+f.url+'"><button class="foto-rm" onclick="rmFoto('+i+')">✕</button>';
+    g.insertBefore(d,g.firstChild);
   });
-  document.getElementById('foto-count').textContent=_fotos.length+' foto(s) adicionada(s)';
+  document.getElementById('foto-count').textContent=
+    _fotos.length?'✅ '+_fotos.length+' foto(s) adicionada(s)':'Nenhuma foto';
+  atualizarResumo();
 }
-function removerFoto(i){ URL.revokeObjectURL(_fotos[i].url); _fotos.splice(i,1); atualizarGrid(); }
-function adicionarFotosArq(ev){
-  Array.from(ev.target.files).forEach(function(f){ _fotos.push({blob:f,url:URL.createObjectURL(f),legenda:''}); });
-  ev.target.value=''; atualizarGrid();
-}
+function rmFoto(i){URL.revokeObjectURL(_fotos[i].url);_fotos.splice(i,1);atualizarGrid();}
+function addFotos(ev){Array.from(ev.target.files).forEach(function(f){_fotos.push({blob:f,url:URL.createObjectURL(f)});});ev.target.value='';atualizarGrid();}
 
-/* ── CÂMERA ── */
+/* CÂMERA */
 var _stream=null,_facing='environment';
 async function abrirCamera(){
-  try{
-    _stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:_facing},audio:false});
+  try{_stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:_facing},audio:false});
     document.getElementById('cam-video').srcObject=_stream;
     document.getElementById('modal-cam').classList.add('ab');
-  }catch(e){ toast('Câmera não disponível','er'); }
+  }catch(e){toast('Câmera indisponível','er');}
 }
-function fecharCamera(){ if(_stream) _stream.getTracks().forEach(function(t){t.stop();}); _stream=null; fechar('modal-cam'); }
-async function trocarCamera(){
+function fecharCam(){if(_stream)_stream.getTracks().forEach(function(t){t.stop();});_stream=null;fechar('modal-cam');}
+async function girarCam(){
   _facing=_facing==='environment'?'user':'environment';
-  if(_stream) _stream.getTracks().forEach(function(t){t.stop();});
+  if(_stream)_stream.getTracks().forEach(function(t){t.stop();});
   _stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:_facing},audio:false});
   document.getElementById('cam-video').srcObject=_stream;
 }
 function tirarFoto(){
   var v=document.getElementById('cam-video'),c=document.getElementById('cam-canvas');
-  c.width=v.videoWidth; c.height=v.videoHeight;
-  c.getContext('2d').drawImage(v,0,0);
-  c.toBlob(function(blob){
-    _fotos.push({blob:blob,url:URL.createObjectURL(blob),legenda:'Câmera'});
-    atualizarGrid(); toast('📸 Foto tirada!','ok');
-  },'image/jpeg',0.85);
+  c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+  c.toBlob(function(b){_fotos.push({blob:b,url:URL.createObjectURL(b)});atualizarGrid();toast('📸 Foto tirada!','ok');},'image/jpeg',.85);
 }
 
-/* ── BUSCA CLIENTE ── */
+/* CLIENTE */
 var _clienteSel=null;
 async function buscarCliente(){
   var t=document.getElementById('busca-cli').value.trim();
   var drop=document.getElementById('drop-cli');
   if(t.length<2){drop.style.display='none';return;}
   var r=await db.from('clientes').select('id,nome,telefone').or('nome.ilike.%'+t+'%,telefone.ilike.%'+t+'%').limit(8);
-  if(!r.data||!r.data.length){
-    drop.innerHTML='<div class="busca-item" style="color:var(--sub)">Nenhum cliente encontrado</div>';
-    drop.style.display='block'; return;
-  }
+  if(!r.data||!r.data.length){drop.innerHTML='<div class="drop-item" style="color:var(--sub)">Nenhum encontrado</div>';drop.style.display='block';return;}
   drop.innerHTML=r.data.map(function(c){
-    return '<div class="busca-item" onclick="selecionarCliente('+c.id+',\''+eq(c.nome)+'\',\''+eq(c.telefone||'')+'\')">'+
-      '<div>'+eh(c.nome)+'</div><div class="sub">📞 '+(c.telefone||'—')+'</div></div>';
+    return '<div class="drop-item" onclick="selCli('+c.id+',\''+eq(c.nome)+'\',\''+eq(c.telefone||'')+'\')"><b>'+eh(c.nome)+'</b><div class="sub">📞 '+(c.telefone||'—')+'</div></div>';
   }).join('');
   drop.style.display='block';
 }
-async function selecionarCliente(id,nome,tel){
+async function selCli(id,nome,tel){
   document.getElementById('drop-cli').style.display='none';
   document.getElementById('busca-cli').value='';
   document.getElementById('ci-cliente-id').value=id;
   var r=await db.from('clientes').select('*').eq('id',id).single();
   _clienteSel=r.data||{id,nome,telefone:tel};
   document.getElementById('cli-nome').textContent=nome;
-  document.getElementById('cli-tel').textContent='📞 '+(tel||'Sem telefone');
+  document.getElementById('cli-tel').textContent='📞 '+(tel||'—');
+  document.getElementById('cli-av').textContent=(nome[0]||'?').toUpperCase();
   document.getElementById('cli-sel').style.display='flex';
-  carregarVeiculosCliente(id);
   document.getElementById('btn-zap').disabled=!tel||!tel.replace(/\D/g,'');
+  carregarVeiculos(id);
+  atualizarResumo();
 }
 function limparCliente(){
   _clienteSel=null;
@@ -503,24 +593,24 @@ function limparCliente(){
   document.getElementById('vei-lista').style.display='none';
   document.getElementById('ci-veiculo-id').value='';
   document.getElementById('btn-zap').disabled=true;
+  atualizarResumo();
 }
 document.addEventListener('click',function(e){
-  if(!e.target.closest('.busca-wrap')) document.getElementById('drop-cli').style.display='none';
+  if(!e.target.closest('.busca-wrap'))document.getElementById('drop-cli').style.display='none';
 });
 
-/* ── VEÍCULOS ── */
-async function carregarVeiculosCliente(id){
+/* VEÍCULOS */
+async function carregarVeiculos(id){
   var r=await db.from('veiculos').select('*').eq('cliente_id',id).order('created_at',{ascending:false});
   var chips=document.getElementById('vei-chips');
   var lista=document.getElementById('vei-lista');
   if(!r.data||!r.data.length){lista.style.display='none';return;}
   chips.innerHTML=r.data.map(function(v){
-    return '<div class="chip" onclick="preencherVeiculo('+JSON.stringify(v).replace(/"/g,'&quot;')+')">'
-      +'🚗 '+eh(v.marca)+' '+eh(v.modelo)+(v.placa?' · '+eh(v.placa):'')+'</div>';
+    return '<div class="chip" onclick="preencherVei('+JSON.stringify(v).replace(/"/g,'&quot;')+',this)">🚗 '+eh(v.marca)+' '+eh(v.modelo)+(v.placa?' · '+eh(v.placa):'')+'</div>';
   }).join('');
   lista.style.display='block';
 }
-function preencherVeiculo(v){
+function preencherVei(v,el){
   document.getElementById('vei-marca').value=v.marca||'';
   document.getElementById('vei-modelo').value=v.modelo||'';
   document.getElementById('vei-placa').value=v.placa||'';
@@ -528,19 +618,21 @@ function preencherVeiculo(v){
   document.getElementById('vei-ano').value=v.ano||'';
   document.getElementById('ci-veiculo-id').value=v.id;
   document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('sel');});
-  event.target.closest('.chip').classList.add('sel');
-  toast('Veículo selecionado!','ok');
+  if(el)el.classList.add('sel');
+  atualizarResumo();
+  toast('🚗 Veículo preenchido!','ok');
 }
 
-/* ── SERVIÇOS RÁPIDOS ── */
-function addServico(s){
+/* SERVIÇOS RÁPIDOS */
+function addSrv(s){
   var ta=document.getElementById('ci-servicos');
   ta.value=ta.value.trim()?(ta.value.trim()+'\n- '+s):'- '+s;
+  atualizarResumo();
 }
 
-/* ── SALVAR CHECK-IN ── */
-async function salvarCheckin(){
-  var clienteId=document.getElementById('ci-cliente-id').value;
+/* SALVAR */
+async function _salvar(zap){
+  var cliId=document.getElementById('ci-cliente-id').value;
   var servicos=document.getElementById('ci-servicos').value.trim();
   var obs=document.getElementById('ci-obs').value.trim();
   var marca=document.getElementById('vei-marca').value.trim();
@@ -549,233 +641,143 @@ async function salvarCheckin(){
   var motor=document.getElementById('vei-motor').value.trim();
   var ano=document.getElementById('vei-ano').value.trim();
   var km=parseInt(document.getElementById('vei-km').value)||null;
-  var veiculoId=document.getElementById('ci-veiculo-id').value||null;
+  var veiId=document.getElementById('ci-veiculo-id').value||null;
 
-  if(!clienteId){toast('Selecione um cliente!','er');return;}
+  if(!cliId){toast('Selecione um cliente!','er');return;}
   if(!marca||!modelo){toast('Informe marca e modelo!','er');return;}
   if(!servicos){toast('Informe os serviços!','er');return;}
 
-  var btn=document.getElementById('btn-salvar');
-  btn.textContent='⏳ Salvando...'; btn.disabled=true;
+  var bs=document.getElementById('btn-salvar'),bz=document.getElementById('btn-zap');
+  bs.textContent='⏳ Salvando...';bs.disabled=true;bz.disabled=true;
 
   try{
-    if(!veiculoId){
-      var rv=await db.from('veiculos').insert({cliente_id:parseInt(clienteId),marca,modelo,placa:placa||null,motor:motor||null,ano:ano||null}).select('id').single();
-      if(rv.error) throw new Error(rv.error.message);
-      veiculoId=rv.data.id;
+    if(!veiId){
+      var rv=await db.from('veiculos').insert({cliente_id:parseInt(cliId),marca,modelo,placa:placa||null,motor:motor||null,ano:ano||null}).select('id').single();
+      if(rv.error)throw new Error(rv.error.message);
+      veiId=rv.data.id;
     }
-    var rci=await db.from('checkins').insert({cliente_id:parseInt(clienteId),veiculo_id:veiculoId,servicos,observacoes:obs||null,km_entrada:km,responsavel:USERNAME,status:'aguardando'}).select('id').single();
-    if(rci.error) throw new Error(rci.error.message);
-    var checkinId=rci.data.id;
+    var rci=await db.from('checkins').insert({cliente_id:parseInt(cliId),veiculo_id:veiId,servicos,observacoes:obs||null,km_entrada:km,responsavel:USERNAME,status:'aguardando'}).select('id').single();
+    if(rci.error)throw new Error(rci.error.message);
+    var ciId=rci.data.id;
 
-    /* upload fotos */
-    var urlsFotos=[];
+    var urls=[];
     for(var i=0;i<_fotos.length;i++){
       var f=_fotos[i];
-      var path='ci-'+checkinId+'/foto-'+(i+1)+'-'+Date.now()+'.jpg';
-      var upl=await db.storage.from(BUCKET).upload(path,f.blob,{contentType:'image/jpeg',upsert:true});
-      if(!upl.error){
-        var {data:ud}=db.storage.from(BUCKET).getPublicUrl(path);
-        urlsFotos.push(ud.publicUrl);
-        await db.from('checkin_fotos').insert({checkin_id:checkinId,url:ud.publicUrl,path,legenda:f.legenda||null});
-      }
+      var path='ci-'+ciId+'/foto-'+(i+1)+'-'+Date.now()+'.jpg';
+      var up=await db.storage.from(BUCKET).upload(path,f.blob,{contentType:'image/jpeg',upsert:true});
+      if(!up.error){var ud=db.storage.from(BUCKET).getPublicUrl(path);urls.push(ud.data.publicUrl);await db.from('checkin_fotos').insert({checkin_id:ciId,url:ud.data.publicUrl,path});}
     }
 
-    /* cria OS */
     var cliNome=_clienteSel?_clienteSel.nome:'Cliente';
     var cliTel=_clienteSel?(_clienteSel.telefone||''):'';
     var rn=await db.rpc('gerar_numero_os');
-    var numero=(rn.data&&!rn.error)?rn.data:('OS-'+Date.now());
-    var ros=await db.from('ordens_servico').insert({numero,cliente_id:parseInt(clienteId),cliente_nome:cliNome,cliente_tel:cliTel||null,veiculo_marca:marca,veiculo_modelo:modelo,veiculo_placa:placa||null,km_entrada:km,diagnostico:servicos,observacoes:obs||null,status:'aberta',responsavel:USERNAME}).select('id,numero').single();
+    var num=(rn.data&&!rn.error)?rn.data:('OS-'+Date.now());
+    var ros=await db.from('ordens_servico').insert({numero:num,cliente_id:parseInt(cliId),cliente_nome:cliNome,cliente_tel:cliTel||null,veiculo_marca:marca,veiculo_modelo:modelo,veiculo_placa:placa||null,veiculo_motor:motor||null,veiculo_ano:ano||null,km_entrada:km||null,diagnostico:servicos,observacoes:obs||null,status:'aberta',responsavel:USERNAME}).select('id,numero').single();
+    if(!ros.error&&ros.data){localStorage.setItem('os_pendente',JSON.stringify({id:ros.data.id,numero:ros.data.numero,cliente_id:parseInt(cliId),cliente_nome:cliNome,cliente_tel:cliTel,veiculo_marca:marca,veiculo_modelo:modelo,diagnostico:servicos}));}
 
-    if(!ros.error){
-      localStorage.setItem('os_pendente',JSON.stringify({id:ros.data.id,numero:ros.data.numero,cliente_id:parseInt(clienteId),cliente_nome:cliNome,veiculo_marca:marca,veiculo_modelo:modelo,diagnostico:servicos}));
+    toast('✅ Check-in #'+ciId+' salvo! OS '+num+' criada.','ok');
+
+    if(zap&&cliTel){
+      var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+[marca,modelo,placa].filter(Boolean).join(' ')+'\n🔧 '+servicos;
+      if(km)msg+='\n🔢 KM: '+km;
+      if(urls.length)msg+='\n\n📸 Fotos:\n'+urls.map(function(u,i){return 'Foto '+(i+1)+': '+u;}).join('\n');
+      msg+='\n\n✅ Veículo recebido! Check-in #'+ciId;
+      var tel=cliTel.replace(/\D/g,'');
+      if(tel.length===11)tel='55'+tel;
+      setTimeout(function(){window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');},500);
     }
 
-    toast('✅ Check-in #'+checkinId+' salvo! Abrindo OS...','ok');
     limparForm();
-    setTimeout(function(){window.location.href='vendas.html';},1200);
-  }catch(e){
-    toast('❌ Erro: '+e.message,'er');
-    console.error(e);
-  }finally{
-    btn.textContent='💾 Salvar Check-in'; btn.disabled=false;
-  }
+    setTimeout(function(){window.location.href='vendas.html';},1500);
+  }catch(e){toast('❌ '+e.message,'er');console.error(e);}
+  finally{bs.textContent='💾 Salvar Check-in';bs.disabled=false;bz.disabled=!(_clienteSel&&_clienteSel.telefone);}
 }
+function salvarCheckin(){_salvar(false);}
+function salvarEEnviarZap(){_salvar(true);}
 
-async function salvarEEnviarZap(){
-  if(!_clienteSel||!_clienteSel.telefone){toast('Cliente sem telefone!','er');return;}
-  var btnZap=document.getElementById('btn-zap');
-  var btnSalvar=document.getElementById('btn-salvar');
-  btnZap.disabled=true;
-  btnZap.textContent='⏳ Salvando...';
-
-  /* Salva o check-in manualmente (sem redirecionar pra OS) */
-  var clienteId=document.getElementById('ci-cliente-id').value;
-  var servicos=document.getElementById('ci-servicos').value.trim();
-  var obs=document.getElementById('ci-obs').value.trim();
-  var marca=document.getElementById('vei-marca').value.trim();
-  var modelo=document.getElementById('vei-modelo').value.trim();
-  var placa=document.getElementById('vei-placa').value.trim();
-  var motor=document.getElementById('vei-motor').value.trim();
-  var ano=document.getElementById('vei-ano').value.trim();
-  var km=parseInt(document.getElementById('vei-km').value)||null;
-  var veiculoId=document.getElementById('ci-veiculo-id').value||null;
-
-  if(!clienteId){toast('Selecione um cliente!','er');btnZap.disabled=false;btnZap.textContent='📲 Salvar e Enviar WhatsApp';return;}
-  if(!marca||!modelo){toast('Informe marca e modelo!','er');btnZap.disabled=false;btnZap.textContent='📲 Salvar e Enviar WhatsApp';return;}
-  if(!servicos){toast('Informe os serviços!','er');btnZap.disabled=false;btnZap.textContent='📲 Salvar e Enviar WhatsApp';return;}
-
-  try{
-    if(!veiculoId){
-      var rv=await db.from('veiculos').insert({cliente_id:parseInt(clienteId),marca,modelo,placa:placa||null,motor:motor||null,ano:ano||null}).select('id').single();
-      if(rv.error) throw new Error(rv.error.message);
-      veiculoId=rv.data.id;
-    }
-    var rci=await db.from('checkins').insert({cliente_id:parseInt(clienteId),veiculo_id:veiculoId,servicos,observacoes:obs||null,km_entrada:km,responsavel:USERNAME,status:'aguardando'}).select('id').single();
-    if(rci.error) throw new Error(rci.error.message);
-    var checkinId=rci.data.id;
-
-    /* Upload de TODAS as fotos */
-    var urlsFotos=[];
-    for(var i=0;i<_fotos.length;i++){
-      var f=_fotos[i];
-      var path='ci-'+checkinId+'/foto-'+(i+1)+'-'+Date.now()+'.jpg';
-      var upl=await db.storage.from(BUCKET).upload(path,f.blob,{contentType:'image/jpeg',upsert:true});
-      if(!upl.error){
-        var pub=db.storage.from(BUCKET).getPublicUrl(path);
-        urlsFotos.push(pub.data.publicUrl);
-        await db.from('checkin_fotos').insert({checkin_id:checkinId,url:pub.data.publicUrl,path,legenda:f.legenda||null});
-      }
-    }
-
-    /* Cria OS */
-    var cliNome=_clienteSel?_clienteSel.nome:'Cliente';
-    var cliTel=_clienteSel?(_clienteSel.telefone||''):'';
-    var rn=await db.rpc('gerar_numero_os');
-    var numero=(rn.data&&!rn.error)?rn.data:('OS-'+Date.now());
-    await db.from('ordens_servico').insert({numero,cliente_id:parseInt(clienteId),cliente_nome:cliNome,cliente_tel:cliTel||null,veiculo_marca:marca,veiculo_modelo:modelo,veiculo_placa:placa||null,km_entrada:km,diagnostico:servicos,observacoes:obs||null,status:'aberta',responsavel:USERNAME}).select('id,numero').single();
-
-    /* Monta mensagem WhatsApp com TODAS as fotos */
-    var veiTxt=[marca,modelo,placa].filter(Boolean).join(' ');
-    var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+veiTxt+'\n🔧 '+servicos;
-    if(km) msg+='\n🔢 KM: '+km;
-    if(urlsFotos.length){
-      msg+='\n\n📸 '+urlsFotos.length+' foto(s) do veículo:\n';
-      msg+=urlsFotos.map(function(u,i){return 'Foto '+(i+1)+': '+u;}).join('\n');
-    }
-    msg+='\n\n✅ Veículo recebido! Check-in #'+checkinId;
-
-    var tel=cliTel.replace(/\D/g,'');
-    if(tel.length===11) tel='55'+tel;
-
-    toast('✅ Check-in #'+checkinId+' salvo!','ok');
-    limparForm();
-    setTimeout(function(){ window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank'); },600);
-  }catch(e){
-    toast('❌ Erro: '+e.message,'er');
-    console.error(e);
-  }finally{
-    btnZap.textContent='📲 Salvar e Enviar WhatsApp';
-    btnZap.disabled=false;
-  }
-}
-
-/* ── CARREGAR CHECK-INS ── */
+/* HISTÓRICO */
 async function carregarCheckins(){
-  var el=document.getElementById('lista-ci');
-  el.innerHTML='<div class="loader">Carregando...</div>';
-  var data=document.getElementById('filtro-data').value;
-  var status=document.getElementById('filtro-status').value;
-  var q=db.from('checkins').select('id,status,servicos,created_at,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(id)').order('created_at',{ascending:false});
-  if(data) q=q.gte('created_at',data+'T00:00:00').lte('created_at',data+'T23:59:59');
-  if(status) q=q.eq('status',status);
-  var r=await q.limit(40);
-  if(!r.data||!r.data.length){el.innerHTML='<div class="loader">Nenhum check-in encontrado.</div>';return;}
-  var labels={aguardando:'⏳ Aguardando',em_servico:'🔧 Em serviço',concluido:'✅ Concluído',entregue:'🏁 Entregue'};
-  var badges={aguardando:'b-aguardando',em_servico:'b-em_servico',concluido:'b-concluido',entregue:'b-entregue'};
-  el.innerHTML=r.data.map(function(ci){
-    var cli=ci.clientes||{},vei=ci.veiculos||{},nFotos=(ci.checkin_fotos||[]).length;
-    var veiTxt=[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' · ');
-    return '<div class="ci-card '+ci.status+'">'+
-      '<div class="ci-nome">'+eh(cli.nome||'—')+'</div>'+
-      '<div class="ci-vei">🚗 '+eh(veiTxt||'—')+(ci.km_entrada?' · '+ci.km_entrada+' km':'')+'</div>'+
-      '<div class="ci-srv">'+eh(ci.servicos||'—')+'</div>'+
-      '<div class="ci-footer">'+
-        '<span class="badge '+badges[ci.status]+'">'+labels[ci.status]+'</span>'+
-        (nFotos?'<span style="font-size:.7rem;color:var(--azul2)">📸 '+nFotos+'</span>':'')+
-        '<div class="ci-acoes">'+
-          '<select class="status-sel" onchange="mudarStatus('+ci.id+',this.value)">'+
-            '<option value="aguardando"'+(ci.status==='aguardando'?' selected':'')+'>⏳ Aguardando</option>'+
-            '<option value="em_servico"'+(ci.status==='em_servico'?' selected':'')+'>🔧 Em serviço</option>'+
-            '<option value="concluido"'+(ci.status==='concluido'?' selected':'')+'>✅ Concluído</option>'+
-            '<option value="entregue"'+(ci.status==='entregue'?' selected':'')+'>🏁 Entregue</option>'+
-          '</select>'+
-          (cli.telefone?'<button class="btn-sm bwp" style="border-radius:6px;padding:5px 10px;font-size:.72rem;background:#25D366;color:#fff;border:none;cursor:pointer" onclick="reenvirarZap('+ci.id+')">📲</button>':'')+
+  var tb=document.getElementById('t-ci');
+  tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--sub)">Carregando...</td></tr>';
+  var dt=document.getElementById('filtro-data').value;
+  var st=document.getElementById('filtro-status').value;
+  var q=db.from('checkins').select('id,status,servicos,km_entrada,created_at,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(id)').order('created_at',{ascending:false});
+  if(dt)q=q.gte('created_at',dt+'T00:00:00').lte('created_at',dt+'T23:59:59');
+  if(st)q=q.eq('status',st);
+  var r=await q.limit(60);
+  if(!r.data||!r.data.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--sub)">Nenhum check-in encontrado.</td></tr>';return;}
+  document.getElementById('hist-count').textContent=r.data.length+' registro(s)';
+  var lbl={aguardando:'⏳ Aguardando',em_servico:'🔧 Em serviço',concluido:'✅ Concluído',entregue:'🏁 Entregue'};
+  var bcl={aguardando:'b-ag',em_servico:'b-em',concluido:'b-co',entregue:'b-en'};
+  tb.innerHTML=r.data.map(function(ci){
+    var cli=ci.clientes||{},vei=ci.veiculos||{},nf=(ci.checkin_fotos||[]).length;
+    return '<tr>'+
+      '<td style="font-size:.76rem;color:var(--sub);font-weight:700">#'+ci.id+'</td>'+
+      '<td><b>'+eh(cli.nome||'—')+'</b>'+(cli.telefone?'<br><small style="color:var(--sub)">📞 '+cli.telefone+'</small>':'')+'</td>'+
+      '<td>'+eh([vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')||'—')+'</td>'+
+      '<td>'+(ci.km_entrada?ci.km_entrada+' km':'—')+'</td>'+
+      '<td style="max-width:180px;font-size:.79rem;color:var(--sub)">'+eh((ci.servicos||'').substring(0,55))+'</td>'+
+      '<td style="text-align:center">'+(nf?'<span style="color:var(--azul2);font-size:.79rem">📸 '+nf+'</span>':'—')+'</td>'+
+      '<td style="font-size:.76rem;color:var(--sub)">'+dh(ci.created_at)+'</td>'+
+      '<td><span class="badge '+bcl[ci.status]+'">'+lbl[ci.status]+'</span></td>'+
+      '<td><div style="display:flex;gap:5px;align-items:center">'+
+        '<select onchange="mudaSt('+ci.id+',this.value)" style="padding:4px 7px;border:1.5px solid var(--borda);border-radius:6px;font-size:.74rem;cursor:pointer">'+
+          '<option value="aguardando"'+(ci.status==='aguardando'?' selected':'')+'>⏳</option>'+
+          '<option value="em_servico"'+(ci.status==='em_servico'?' selected':'')+'>🔧</option>'+
+          '<option value="concluido"'+(ci.status==='concluido'?' selected':'')+'>✅</option>'+
+          '<option value="entregue"'+(ci.status==='entregue'?' selected':'')+'>🏁</option>'+
+        '</select>'+
+        (cli.telefone?'<button onclick="zapCi('+ci.id+')" style="background:var(--wp);color:#fff;border:none;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.74rem">📲</button>':'')+
+      '</div></td>'+
+    '</tr>';
+  }).join('');
+}
+async function mudaSt(id,st){await db.from('checkins').update({status:st}).eq('id',id);toast('Status atualizado!','ok');}
+async function zapCi(id){
+  var r=await db.from('checkins').select('servicos,km_entrada,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(url)').eq('id',id).single();
+  if(!r.data)return;
+  var ci=r.data,cli=ci.clientes||{},vei=ci.veiculos||{},ft=ci.checkin_fotos||[];
+  var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n🔧 '+ci.servicos;
+  if(ci.km_entrada)msg+='\n🔢 KM: '+ci.km_entrada;
+  if(ft.length)msg+='\n\n📸 Fotos:\n'+ft.map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');
+  var tel=(cli.telefone||'').replace(/\D/g,'');
+  if(tel.length===11)tel='55'+tel;
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
+}
+
+/* CLIENTES */
+async function carregarClientes(){
+  var t=document.getElementById('busca-cli-aba').value.trim();
+  var el=document.getElementById('lista-cli');
+  el.innerHTML='<div style="text-align:center;padding:28px;color:var(--sub);grid-column:1/-1">Carregando...</div>';
+  var q=db.from('clientes').select('*').order('nome');
+  if(t)q=q.or('nome.ilike.%'+t+'%,telefone.ilike.%'+t+'%');
+  var r=await q.limit(60);
+  if(!r.data||!r.data.length){el.innerHTML='<div style="text-align:center;padding:28px;color:var(--sub);grid-column:1/-1">Nenhum cliente.</div>';return;}
+  document.getElementById('cli-count').textContent=r.data.length+' cliente(s)';
+  el.innerHTML=r.data.map(function(c){
+    return '<div class="cli-card">'+
+      '<div class="cli-av2">'+(c.nome[0]||'?').toUpperCase()+'</div>'+
+      '<div class="cli-card-info">'+
+        '<div class="cli-card-nome">'+eh(c.nome)+'</div>'+
+        '<div class="cli-card-tel">📞 '+(c.telefone||'—')+'</div>'+
+        (c.email?'<div style="font-size:.73rem;color:var(--sub);margin-top:2px">✉️ '+eh(c.email)+'</div>':'')+
+        '<div style="display:flex;gap:6px;margin-top:10px">'+
+          '<button class="btn ba btn-sm" onclick="abrirModalCliente('+c.id+')">✏️ Editar</button>'+
+          (c.telefone?'<button class="btn bwp btn-sm" onclick="window.open(\'https://wa.me/55'+c.telefone.replace(/\D/g,'')+'\',\'_blank\')">📲</button>':'')+
         '</div>'+
       '</div>'+
     '</div>';
   }).join('');
 }
-
-async function mudarStatus(id,status){
-  await db.from('checkins').update({status}).eq('id',id);
-  toast('Status atualizado!','ok');
-}
-
-async function reenvirarZap(id){
-  var r=await db.from('checkins').select('servicos,observacoes,km_entrada,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(url)').eq('id',id).single();
-  if(!r.data) return;
-  var ci=r.data,cli=ci.clientes||{},vei=ci.veiculos||{},fotos=ci.checkin_fotos||[];
-  var msg='🔧 *Mendezza Auto Peças*\n\n🚗 '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n🔧 '+ci.servicos;
-  if(ci.km_entrada) msg+='\n🔢 KM: '+ci.km_entrada;
-  if(fotos.length){msg+='\n\n📸 '+fotos.length+' foto(s) do veículo:\n'+fotos.map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');}
-  msg+='\n\n✅ Veículo recebido!';
-  var tel=(cli.telefone||'').replace(/\D/g,'');
-  if(tel.length===11) tel='55'+tel;
-  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
-}
-
-/* ── CLIENTES ── */
-async function carregarClientesAba(){
-  var t=document.getElementById('busca-cli-aba').value.trim();
-  var el=document.getElementById('lista-clientes');
-  el.innerHTML='<div class="loader">Carregando...</div>';
-  var q=db.from('clientes').select('*').order('nome');
-  if(t) q=q.or('nome.ilike.%'+t+'%,telefone.ilike.%'+t+'%');
-  var r=await q.limit(50);
-  if(!r.data||!r.data.length){el.innerHTML='<div class="loader">Nenhum cliente.</div>';return;}
-  el.innerHTML=r.data.map(function(c){
-    return '<div class="cli-card">'+
-      '<div class="cli-card-nome">'+eh(c.nome)+'</div>'+
-      '<div class="cli-card-tel">📞 '+(c.telefone||'—')+'</div>'+
-      (c.email?'<div style="font-size:.74rem;color:var(--sub);margin-top:2px">✉️ '+eh(c.email)+'</div>':'')+
-      '<div style="display:flex;gap:6px;margin-top:10px">'+
-        '<button class="btn-sm ba" onclick="abrirModalCliente('+c.id+')" style="border-radius:6px;padding:6px 12px;font-size:.76rem;background:var(--azul2);color:#fff;border:none;cursor:pointer">✏️ Editar</button>'+
-        (c.telefone?'<button class="btn-sm" onclick="window.open(\'https://wa.me/55\'+\''+c.telefone.replace(/\D/g,'')+'\',\'_blank\')" style="border-radius:6px;padding:6px 12px;font-size:.76rem;background:#25D366;color:#fff;border:none;cursor:pointer">📲 Zap</button>':'')+
-      '</div>'+
-    '</div>';
-  }).join('');
-}
-
-/* ── MODAL CLIENTE ── */
 async function abrirModalCliente(id){
   document.getElementById('modal-cli-titulo').textContent=id?'✏️ Editar Cliente':'➕ Novo Cliente';
   document.getElementById('cli-f-id').value=id||'';
   ['cli-f-nome','cli-f-tel','cli-f-cpf','cli-f-email'].forEach(function(i){document.getElementById(i).value='';});
-  if(id){
-    var r=await db.from('clientes').select('*').eq('id',id).single();
-    if(r.data){
-      document.getElementById('cli-f-nome').value=r.data.nome||'';
-      document.getElementById('cli-f-tel').value=r.data.telefone||'';
-      document.getElementById('cli-f-cpf').value=r.data.cpf||'';
-      document.getElementById('cli-f-email').value=r.data.email||'';
-    }
-  }
+  if(id){var r=await db.from('clientes').select('*').eq('id',id).single();if(r.data){document.getElementById('cli-f-nome').value=r.data.nome||'';document.getElementById('cli-f-tel').value=r.data.telefone||'';document.getElementById('cli-f-cpf').value=r.data.cpf||'';document.getElementById('cli-f-email').value=r.data.email||'';}}
   document.getElementById('modal-cli').classList.add('ab');
-  setTimeout(function(){document.getElementById('cli-f-nome').focus();},100);
+  setTimeout(function(){document.getElementById('cli-f-nome').focus();},80);
 }
-function fecharModalCliente(){fechar('modal-cli');}
 async function salvarCliente(){
   var id=document.getElementById('cli-f-id').value;
   var nome=document.getElementById('cli-f-nome').value.trim();
@@ -787,23 +789,27 @@ async function salvarCliente(){
   var r=id?await db.from('clientes').update(dados).eq('id',id):await db.from('clientes').insert(dados).select('id,nome,telefone').single();
   if(r.error){toast('❌ '+r.error.message,'er');return;}
   toast('✅ Cliente salvo!','ok');
-  fecharModalCliente();
-  if(!id&&r.data) selecionarCliente(r.data.id,r.data.nome,r.data.telefone||'');
-  carregarClientesAba();
+  fechar('modal-cli');
+  if(!id&&r.data)selCli(r.data.id,r.data.nome,r.data.telefone||'');
+  carregarClientes();
 }
 
-/* ── LIMPAR FORM ── */
+/* LIMPAR */
 function limparForm(){
   limparCliente();
-  ['vei-marca','vei-modelo','vei-placa','vei-motor','vei-ano','ci-servicos','ci-obs'].forEach(function(id){document.getElementById(id).value='';});
+  ['vei-marca','vei-modelo','vei-placa','vei-motor','vei-ano','vei-cor','ci-servicos','ci-obs'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('vei-km').value='';
   document.getElementById('ci-veiculo-id').value='';
-  _fotos.forEach(function(f){URL.revokeObjectURL(f.url);}); _fotos=[];
+  _fotos.forEach(function(f){URL.revokeObjectURL(f.url);});
+  _fotos=[];
   atualizarGrid();
+  atualizarResumo();
 }
 
-/* ── BOOT ── */
-document.getElementById('filtro-data').value=new Date().toISOString().split('T')[0];
+/* BOOT */
+document.getElementById('filtro-data').value=hoje();
+atualizarResumo();
 </script>
+<script src="sidebar.js"></script>
 </body>
 </html>
