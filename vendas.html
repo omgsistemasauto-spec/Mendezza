@@ -260,14 +260,60 @@ tbody td{padding:8px 12px}
   font-family:'Segoe UI',Arial,sans-serif
 }
 @media print{
-  body>*{display:none!important}
-  #cupom-oleo-popup{display:block!important;position:fixed;inset:0;background:none;padding:0}
+  /* Oculta tudo exceto o que está sendo impresso */
+  body>*:not(#cupom-popup):not(#cupom-oleo-popup){ display:none!important }
+
+  /* ── CUPOM VENDA (popup normal) ── */
+  #cupom-popup{
+    display:block!important;
+    position:fixed!important;
+    inset:0!important;
+    background:none!important;
+    padding:0!important;
+    margin:0!important;
+  }
+  .cupom-box{
+    display:block!important;
+    width:100%!important;
+    max-width:none!important;
+    max-height:none!important;
+    overflow:visible!important;
+    box-shadow:none!important;
+    border-radius:0!important;
+    margin:0!important;
+    page-break-inside:avoid;
+  }
+  .cupom-acoes{display:none!important}
+  .cupom-header{border-radius:0!important}
+  .cupom-body{padding:16px 20px!important}
+  .cupom-table th,.cupom-table td{padding:6px 8px!important;font-size:.8rem!important}
+  .cupom-totais{padding:10px 14px!important}
+
+  /* ── CUPOM ÓLEO ── */
+  #cupom-oleo-popup{
+    display:block!important;
+    position:fixed!important;
+    inset:0!important;
+    background:none!important;
+    padding:0!important;
+  }
   .cupom-oleo-box{
-    display:block!important;box-shadow:none;border-radius:0;
-    width:210mm;min-height:297mm;max-height:none;overflow:visible;
-    margin:0;padding:0
+    display:block!important;
+    box-shadow:none!important;
+    border-radius:0!important;
+    width:210mm!important;
+    min-height:297mm!important;
+    max-height:none!important;
+    overflow:visible!important;
+    margin:0!important;
+    padding:0!important;
   }
   .cupom-oleo-acoes{display:none!important}
+
+  @page{
+    margin:8mm;
+    size:A4;
+  }
 }
 
 /* ── NF-e Modal ── */
@@ -320,8 +366,8 @@ tbody td{padding:8px 12px}
         <select id="fil-estq" onchange="filtrarProdutos()"
           style="padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
           font-size:.86rem;outline:none;cursor:pointer;background:#fff">
-          <option value="">Todos</option>
-          <option value="disp">✅ Com estoque</option>
+          <option value="disp" selected>✅ Com estoque</option>
+          <option value="">Todos (com e sem)</option>
           <option value="esgo">❌ Sem estoque</option>
         </select>
       </div>
@@ -759,7 +805,7 @@ tbody td{padding:8px 12px}
       </div>
     </div>
     <div class="cupom-acoes">
-      <button class="btn bv" onclick="window.print()">🖨️ Imprimir</button>
+      <button class="btn bv" onclick="imprimirCupomVenda()">🖨️ Imprimir</button>
       <button class="btn bwp" id="btn-zap-cupom" onclick="enviarZapCupom()">
         📲 Enviar WhatsApp
       </button>
@@ -2376,6 +2422,62 @@ async function getValorCompra(codigo){
    CUPOM — gerar_cupom (HTML popup inline)
 ══════════════════════════════════════════ */
 var _cupomDados = null;
+
+function imprimirCupomVenda(){
+  var info    = document.getElementById('cupom-info').innerHTML;
+  var itens   = document.getElementById('cupom-itens').innerHTML;
+  var bruto   = document.getElementById('cupom-bruto').textContent;
+  var desc    = document.getElementById('cupom-desc').textContent;
+  var liq     = document.getElementById('cupom-liq').textContent;
+  var metodo  = document.getElementById('cupom-metodo').textContent;
+
+  var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'+
+    '<title>Cupom \u2014 Mendezza<\/title>'+
+    '<style>'+
+      '*{box-sizing:border-box;margin:0;padding:0}'+
+      'body{font-family:Arial,sans-serif;font-size:12px;color:#000;padding:10mm 12mm}'+
+      'h1{font-size:15px;margin-bottom:2px}'+
+      'p{font-size:10px;color:#555;margin-bottom:1px}'+
+      '.header{text-align:center;border-bottom:2px solid #004aad;padding-bottom:10px;margin-bottom:12px}'+
+      '.info{background:#f5f5f5;border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:11px;line-height:1.8}'+
+      'table{width:100%;border-collapse:collapse;margin-bottom:12px}'+
+      'thead th{background:#004aad;color:#fff;padding:7px 8px;text-align:left;font-size:11px}'+
+      'tbody td{padding:6px 8px;border-bottom:1px solid #eee;font-size:11px}'+
+      'tbody tr:nth-child(even){background:#fafafa}'+
+      '.totais{background:#f5f5f5;border-radius:6px;padding:10px 12px}'+
+      '.bruto{color:#888;text-decoration:line-through;font-size:11px}'+
+      '.liq{font-size:16px;font-weight:800;color:#2e7d32;margin-top:4px}'+
+      '.met{font-size:11px;margin-top:3px;color:#444}'+
+      '.rodape{text-align:center;font-size:9px;color:#aaa;margin-top:14px;border-top:1px dashed #ccc;padding-top:8px}'+
+      '@media print{@page{margin:8mm;size:A4}}'+
+    '<\/style><\/head><body>'+
+    '<div class="header">'+
+      '<h1>Mendezza Auto Pe\u00e7as<\/h1>'+
+      '<p>Rua Roque Ferreira Pimenta, 418A \u2014 Ja\u00edba\/MG<\/p>'+
+      '<p>(38) 2100-4246 \u00b7 mendezzaautopecas@gmail.com<\/p>'+
+    '<\/div>'+
+    '<div class="info">'+info+'<\/div>'+
+    '<table>'+
+      '<thead><tr>'+
+        '<th>Produto\/Servi\u00e7o<\/th><th>Qtd<\/th><th>Unit.<\/th><th>Total<\/th>'+
+      '<\/tr><\/thead>'+
+      '<tbody>'+itens+'<\/tbody>'+
+    '<\/table>'+
+    '<div class="totais">'+
+      (bruto?'<div class="bruto">'+bruto+'<\/div>':'')+
+      (desc?'<div style="font-size:11px">'+desc+'<\/div>':'')+
+      '<div class="liq">'+liq+'<\/div>'+
+      '<div class="met">'+metodo+'<\/div>'+
+    '<\/div>'+
+    '<div class="rodape">Garantia de 90 dias nas pe\u00e7as \u00b7 Obrigado pela prefer\u00eancia!<\/div>'+
+    '<\/body><\/html>';
+
+  var w = window.open('','_blank','width=800,height=600');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(function(){ w.print(); }, 500);
+}
 
 function mostrarCupom(vendaId, cliNome, metodo, bruto, total, desc, obs){
   _cupomDados = {vendaId, cliNome, metodo, bruto, total, desc};
