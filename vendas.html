@@ -14,6 +14,16 @@
 }
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--cinza);color:#2c3e50;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
+/* FOTO PRODUTO */
+.img-prod{width:40px;height:40px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--borda);transition:.15s;background:#eee}
+.img-prod:hover{transform:scale(1.1);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.img-prod-vazia{width:40px;height:40px;background:#f0f0f0;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:1.2rem;border:1px solid var(--borda)}
+
+/* MODAL FOTO EXPANDIDA */
+#modal-foto{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:3000;align-items:center;justify-content:center;padding:20px;cursor:zoom-out}
+#modal-foto.ab{display:flex}
+#modal-foto img{max-width:95%;max-height:95%;border-radius:12px;box-shadow:0 0 30px rgba(0,0,0,.5);animation:pop .2s ease}
+
 /* HEADER */
 header{background:var(--azul);color:#fff;display:flex;align-items:center;
   justify-content:space-between;padding:0 20px;height:52px;flex-shrink:0;box-shadow:var(--sombra)}
@@ -318,11 +328,12 @@ tbody td{padding:8px 12px}
       <div class="tabela-wrap">
         <table>
           <thead><tr>
+            <th style="text-align:center">Foto</th>
             <th>Código</th><th>Produto</th><th>Marca</th><th>Aplicação</th>
             <th style="text-align:center">Estoque</th><th style="text-align:right">Preço</th><th style="text-align:center">Ação</th>
           </tr></thead>
           <tbody id="tbody-prod">
-            <tr><td colspan="7" style="text-align:center;padding:32px;color:#bbb">Carregando produtos...</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:32px;color:#bbb">Carregando produtos...</td></tr>
           </tbody>
         </table>
       </div>
@@ -1206,6 +1217,11 @@ tbody td{padding:8px 12px}
 
 <div id="toast"></div>
 
+<!-- MODAL FOTO EXPANDIDA -->
+<div id="modal-foto" onclick="this.classList.remove('ab')">
+  <img id="foto-expandida" src="" alt="Foto do Produto">
+</div>
+
 <script>
 /* ══════════════════════════════════════════
    CONFIG
@@ -1223,6 +1239,7 @@ function eh(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function eq(s){ return String(s||'').replace(/'/g,"\\'") }
 function brl(n){ return 'R$ '+Number(n||0).toFixed(2).replace('.',',') }
 function dHora(s){ if(!s) return ''; var d=new Date(s); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function expandirFoto(url){ if(!url) return; var m=document.getElementById('modal-foto'); document.getElementById('foto-expandida').src=url; m.classList.add('ab'); }
 
 var _tt;
 function toast(msg,tipo){
@@ -1258,7 +1275,7 @@ async function carregarProdutos(){
 
   while(buscando){
     var r = await db.from('itens')
-      .select('codigo,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id')
+      .select('codigo,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id,foto_url')
       .gt('preco_venda',0)
       .order('nome')
       .range(de, ate);
@@ -1317,7 +1334,7 @@ function filtrarProdutos(){
   });
 
   if(!lista.length){
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:#bbb">Nenhum produto encontrado.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:#bbb">Nenhum produto encontrado.</td></tr>';
     return;
   }
 
@@ -1329,7 +1346,12 @@ function filtrarProdutos(){
     /* linha vermelha para sem estoque */
     var rowStyle= esgo ? 'background:#fff5f5;' : '';
 
+    var imgHtml = p.foto_url 
+      ? '<img src="'+p.foto_url+'" class="img-prod" onclick="expandirFoto(\''+eq(p.foto_url)+'\')" title="Clique para ampliar">'
+      : '<div class="img-prod-vazia">🖼️</div>';
+
     return '<tr style="'+rowStyle+'">'+
+      '<td style="padding:8px 12px;text-align:center">'+imgHtml+'</td>'+
       '<td style="font-family:monospace;font-size:.8rem;'+(esgo?'color:#c0392b':'')+'">'+eh(p.codigo)+'</td>'+
       '<td style="font-weight:600;'+(esgo?'color:#c0392b':'')+'">'+eh(p.nome)+'</td>'+
       '<td>'+eh(p.marca||'—')+'</td>'+
@@ -2949,7 +2971,7 @@ async function buscarProdAdd(){
   var drop = document.getElementById('add-drop');
   if(t.length<2){ drop.style.display='none'; return; }
 
-  var r = await db.from('itens').select('codigo,nome,marca,estoque,preco_venda')
+  var r = await db.from('itens').select('codigo,nome,marca,estoque,preco_venda,foto_url')
     .or('codigo.ilike.%'+t+'%,nome.ilike.%'+t+'%,marca.ilike.%'+t+'%')
     .gt('estoque',0).limit(8);
 
@@ -2958,11 +2980,18 @@ async function buscarProdAdd(){
     drop.style.display='block'; return;
   }
   drop.innerHTML = r.data.map(function(p){
+    var imgHtml = p.foto_url 
+      ? '<img src="'+p.foto_url+'" style="width:32px;height:32px;object-fit:cover;border-radius:4px;margin-right:10px;border:1px solid #eee">'
+      : '<div style="width:32px;height:32px;background:#f0f0f0;border-radius:4px;margin-right:10px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:.8rem;border:1px solid #eee">🖼️</div>';
+
     return '<div onclick="selecionarProdAdd(\''+eq(p.codigo)+'\',\''+eq(p.nome)+'\','+p.estoque+','+p.preco_venda+',\''+eq(p.marca||'')+'\')'+
-      '" style="padding:9px 14px;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f0f0f0;transition:.1s"'+
+      '" style="padding:9px 14px;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f0f0f0;transition:.1s;display:flex;align-items:center"'+
       ' onmouseover="this.style.background=\'#eef2ff\'" onmouseout="this.style.background=\'\'">' +
-      '<b>'+eh(p.nome)+'</b> <span style="color:#aaa;font-size:.78rem">['+eh(p.codigo)+']</span><br>'+
-      '<span style="font-size:.78rem;color:#666">'+eh(p.marca||'')+'  ·  Estoque: '+p.estoque+' un.  ·  '+brl(p.preco_venda)+'</span>'+
+      imgHtml +
+      '<div>'+
+        '<b>'+eh(p.nome)+'</b> <span style="color:#aaa;font-size:.78rem">['+eh(p.codigo)+']</span><br>'+
+        '<span style="font-size:.78rem;color:#666">'+eh(p.marca||'')+'  ·  Estoque: '+p.estoque+' un.  ·  '+brl(p.preco_venda)+'</span>'+
+      '</div>'+
     '</div>';
   }).join('');
   drop.style.display='block';
