@@ -375,7 +375,7 @@ tbody td{padding:8px 12px}
         <table>
           <thead><tr>
             <th style="text-align:center">Foto</th>
-            <th>Código</th><th>Produto</th><th>Marca</th><th>Aplicação</th>
+            <th>Código</th><th>Cód. Barras</th><th>Produto</th><th>Marca</th><th>Aplicação</th>
             <th style="text-align:center">Estoque</th><th style="text-align:right">Preço</th><th style="text-align:center">Ação</th>
           </tr></thead>
           <tbody id="tbody-prod">
@@ -1321,7 +1321,7 @@ async function carregarProdutos(){
 
   while(buscando){
     var r = await db.from('itens')
-      .select('codigo,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id,foto_url')
+      .select('codigo,codigo_barras,nome,marca,aplicacao,estoque,preco_venda,valor_unitario,categoria_id,foto_url')
       .gt('preco_venda',0)
       .order('nome')
       .range(de, ate);
@@ -1368,8 +1368,9 @@ function filtrarProdutos(){
 
   var lista = _produtos.filter(function(p){
     if(t && !(
-      p.codigo.toLowerCase().includes(t) ||
-      p.nome.toLowerCase().includes(t)   ||
+p.codigo.toLowerCase().includes(t) ||
+	      (p.codigo_barras||'').toLowerCase().includes(t) ||
+	      p.nome.toLowerCase().includes(t)   ||
       (p.marca||'').toLowerCase().includes(t) ||
       (p.aplicacao||'').toLowerCase().includes(t)
     )) return false;
@@ -1398,8 +1399,9 @@ function filtrarProdutos(){
 
     return '<tr style="'+rowStyle+'">'+
       '<td style="padding:8px 12px;text-align:center">'+imgHtml+'</td>'+
-      '<td style="font-family:monospace;font-size:.8rem;'+(esgo?'color:#c0392b':'')+'">'+eh(p.codigo)+'</td>'+
-      '<td style="font-weight:600;'+(esgo?'color:#c0392b':'')+'">'+eh(p.nome)+'</td>'+
+'<td style="font-family:monospace;font-size:.8rem;'+(esgo?'color:#c0392b':'')+'">'+eh(p.codigo)+'</td>'+
+	      '<td style="font-family:monospace;font-size:.8rem;'+(esgo?'color:#c0392b':'')+'">'+eh(p.codigo_barras||'—')+'</td>'+
+	      '<td style="font-weight:600;'+(esgo?'color:#c0392b':'')+'">'+eh(p.nome)+'</td>'+
       '<td>'+eh(p.marca||'—')+'</td>'+
       '<td style="font-size:.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--azul2)" title="Clique para ver aplicações" data-aplicacao="'+eh(p.aplicacao||'')+'" onclick="abrirModalAplicacoes(this.getAttribute(\'data-aplicacao\'))" class="td-aplicacao">'+eh((p.aplicacao||'—').substring(0,40))+'</td>'+
       '<td class="td-estoque"><span class="'+cls+'">'+eh(estTxt)+'</span></td>'+
@@ -4442,9 +4444,46 @@ window.addEventListener('load', function(){
 window.addEventListener('hashchange', function(){
   var hash = window.location.hash.toLowerCase();
   if(hash === '#fiado') aba('fiado');
-  if(hash === '#os') abrirPainelOS();
-});
-</script>
+	  if(hash === '#os') abrirPainelOS();
+	});
+
+		/* ESTRATÉGIA PARA LEITOR DE CÓDIGO DE BARRAS (LCBS600A) */
+		/* Captura global de teclado: se o usuário começar a digitar (ou o leitor disparar), 
+		   o foco é jogado para a busca automaticamente, a menos que ele esteja em outro campo intencional. */
+		document.addEventListener('keydown', function(e) {
+		  const inpBusca = document.getElementById('inp-busca');
+		  if (!inpBusca) return;
+
+		  // Se já estiver focado na busca, não faz nada
+		  if (document.activeElement === inpBusca) return;
+
+		  // Se houver um modal aberto, respeitamos o foco do modal
+		  const modalAberto = document.querySelector('.bd.ab, #modal-foto.ab, #cupom-popup.ab, #cupom-oleo-popup.ab, #modal-aplicacoes.ab');
+		  if (modalAberto) return;
+
+		  // Se o usuário estiver em outro campo de texto (ex: observação, nome de cliente no finalizar), não interfere
+		  const tagsIgnorar = ['INPUT', 'TEXTAREA', 'SELECT'];
+		  if (tagsIgnorar.includes(document.activeElement.tagName)) return;
+
+		  // Teclas de controle que não devem disparar o foco
+		  const teclasIgnorar = ['Alt', 'Control', 'Shift', 'Meta', 'CapsLock', 'Tab', 'Escape', 'F1', 'F2', 'F3', 'F4', 'F5', 'F12'];
+		  if (teclasIgnorar.includes(e.key)) return;
+
+		  // Se chegou aqui, é um caractere alfanumérico ou o início de um código de barras
+		  // Jogamos o foco para o input e deixamos o caractere ser digitado lá
+		  inpBusca.focus();
+		});
+
+		// Fallback: Manter o foco sempre que clicar no vazio da página
+		document.addEventListener('click', function(e) {
+		  const inpBusca = document.getElementById('inp-busca');
+		  const modalAberto = document.querySelector('.bd.ab, #modal-foto.ab, #cupom-popup.ab, #cupom-oleo-popup.ab, #modal-aplicacoes.ab');
+		  
+		  if (inpBusca && !modalAberto && e.target.tagName === 'BODY' || e.target.classList.contains('main') || e.target.classList.contains('painel-produtos')) {
+		    inpBusca.focus();
+		  }
+		});
+	</script>
 <script src="sidebar.js"></script>
 </body>
 </html>
