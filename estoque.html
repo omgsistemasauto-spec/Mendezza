@@ -113,7 +113,7 @@ tbody td{padding:8px 12px}
 <div id="token-bar" style="background:#1e1e2e;color:#cdd6f4;font-size:.75rem;
   display:flex;align-items:center;gap:16px;padding:5px 18px;flex-wrap:wrap;cursor:pointer"
   onclick="toggleTokenDetail()" title="Clique para ver detalhes">
-  <span style="font-weight:700;color:#89b4fa">🤖 DeepSeek IA</span>
+  <span style="font-weight:700;color:#89b4fa">🤖 Gemini IA</span>
   <span>📥 Input: <b id="tk-in">0</b> tokens</span>
   <span>📤 Output: <b id="tk-out">0</b> tokens</span>
   <span>🔢 Total: <b id="tk-tot">0</b> tokens</span>
@@ -126,7 +126,7 @@ tbody td{padding:8px 12px}
   <div style="font-weight:700;color:#89b4fa;margin-bottom:6px">📊 Histórico de consultas</div>
   <div id="token-log" style="max-height:120px;overflow-y:auto;font-family:monospace;font-size:.72rem"></div>
   <div style="margin-top:8px;display:flex;gap:12px">
-    <span style="color:#585b70">Preço DeepSeek: $0.07/M input · $0.27/M output</span>
+    <span style="color:#585b70">Gemini 2.0 Flash — gratuito no tier free</span>
     <button onclick="resetTokens(event)" style="background:#f38ba8;border:none;color:#1e1e2e;
       border-radius:4px;padding:2px 8px;cursor:pointer;font-size:.7rem;font-weight:700">🗑 Zerar</button>
   </div>
@@ -146,15 +146,23 @@ tbody td{padding:8px 12px}
     <button class="btn bv"  onclick="abrirNfe()">📄 Importar NF-e</button>
     <button class="btn bam" onclick="aba('edicao')">⚡ Edição Rápida</button>
     <button class="btn ba"  onclick="abrirForm(null)">➕ Novo Item</button>
+    <button class="btn" onclick="abrirModalGerarImagens()"
+      style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+      🖼️ Gerar Imagens com IA
+    </button>
+    <button class="btn" onclick="abrirModalGerarBarcodes()"
+      style="background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:.83rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+      📊 Gerar Códigos de Barras
+    </button>
   </div>
   <div class="tw">
     <table>
       <thead><tr>
-        <th>Código</th><th>Nome</th><th>Unidade</th><th>Valor Unit.</th>
+        <th>Código</th><th>Foto</th><th>Nome</th><th>Unidade</th><th>Valor Unit.</th>
         <th>Estoque</th><th>Valor Total</th><th>Mín</th><th>Máx</th>
         <th>Data Criação</th><th>Último Fornecedor</th><th>CNPJ</th><th>Ações</th>
       </tr></thead>
-      <tbody id="ti"><tr class="vz"><td colspan="12">Carregando...</td></tr></tbody>
+      <tbody id="ti"><tr class="vz"><td colspan="13">Carregando...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -313,7 +321,7 @@ tbody td{padding:8px 12px}
       <!-- Status IA -->
       <div id="ai-status" style="display:none;font-size:.75rem;margin-bottom:6px;
         padding:6px 10px;border-radius:6px;background:#eef2ff;color:var(--azul2)">
-        🤖 Consultando DeepSeek...
+        🤖 Consultando Gemini...
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="text" id="fapl" readonly placeholder="Clique em Editar ou use IA para preencher..."
@@ -477,6 +485,614 @@ tbody td{padding:8px 12px}
   </div>
 </div>
 
+<!-- MODAL GERAR IMAGENS -->
+
+<script>
+/* ══════════════════════════════════════════
+   GERAR IMAGENS COM IA — Gemini
+══════════════════════════════════════════ */
+/* ── IMAGENS ── */
+var _imgItens=[], _imgLinks={}, _gerandoImgs=false;
+
+
+async function abrirModalGerarImagens(){
+  document.getElementById('modal-imgs').classList.add('ab');
+  document.getElementById('imgs-prog-bar').style.width='0%';
+  document.getElementById('imgs-prog-txt').textContent='';
+  document.getElementById('btn-salvar-imgs').disabled=true;
+  document.getElementById('btn-salvar-imgs').style.opacity='.35';
+  if(!SERPER_KEY) document.getElementById('serper-aviso').style.display='block';
+
+  /* Carrega TODOS os itens — paginação 1000 por vez */
+  _imgItens=[]; _imgLinks={};
+  var pagina=0, tamPag=1000;
+  while(true){
+    var r=await db.from('itens').select('codigo,nome,marca,foto_url').order('nome')
+      .range(pagina*tamPag,(pagina+1)*tamPag-1);
+    if(!r.data||!r.data.length) break;
+    _imgItens=_imgItens.concat(r.data);
+    if(r.data.length<tamPag) break;
+    pagina++;
+  }
+  _imgItens.forEach(function(it){ if(it.foto_url) _imgLinks[it.codigo]=it.foto_url; });
+
+  /* Renderiza todos os cards de uma vez */
+  var g=document.getElementById('imgs-grid');
+  var comFoto=Object.keys(_imgLinks).length;
+  var semFoto=_imgItens.length-comFoto;
+  var mins=Math.ceil(semFoto*1.5/60);
+  document.getElementById('imgs-prog-txt').textContent=
+    _imgItens.length+' itens · '+comFoto+' com foto · '+semFoto+' sem foto · ~'+mins+' min';
+
+  g.innerHTML=_imgItens.map(function(it){
+    var url=_imgLinks[it.codigo]||'';
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    return '<div class="ic'+(url?' ok':'')+'" id="ic-'+k+'">'+
+      '<div class="ic-foto" id="icf-'+k+'">'+
+        (url?'<img src="'+url+'" onload="this.classList.add(&quot;loaded&quot;)" onerror="this.classList.add(&quot;loaded&quot;)">':'📦')+
+      '</div>'+
+      '<div class="ic-info">'+
+        '<div class="ic-nome">'+eh(it.nome)+'</div>'+
+        '<div class="ic-cod">'+eh(it.codigo)+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function fecharModalImgs(){
+  if(_gerandoImgs&&!confirm('Busca em andamento. Sair mesmo assim?')) return;
+  _gerandoImgs=false;
+  document.getElementById('modal-imgs').classList.remove('ab');
+}
+
+async function buscarImagem(nome,marca){
+  if(!SERPER_KEY) throw new Error('SERPER_KEY não configurada');
+  var r=await fetch('https://google.serper.dev/images',{
+    method:'POST',
+    headers:{'X-API-KEY':SERPER_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({q:nome+(marca?' '+marca:'')+' peça automotiva',gl:'br',hl:'pt',num:3})
+  });
+  if(!r.ok) throw new Error('Serper '+r.status);
+  var d=await r.json();
+  for(var i=0;i<(d.images||[]).length;i++){
+    var u=d.images[i].imageUrl||d.images[i].thumbnailUrl||'';
+    if(u&&u.startsWith('http')) return u;
+  }
+  return null;
+}
+
+async function gerarTodasImagens(){
+  if(!SERPER_KEY){document.getElementById('serper-aviso').style.display='block';return;}
+  if(_gerandoImgs) return;
+  if(!confirm('Buscar imagens para '+_imgItens.length+' itens (~'+Math.ceil(_imgItens.length*1.5/60)+' min)?')) return;
+
+  _gerandoImgs=true;
+  document.getElementById('btn-gerar-imgs').disabled=true;
+  document.getElementById('btn-gerar-imgs').textContent='⏳';
+
+  var total=_imgItens.length, ok=0, erro=0;
+
+  for(var i=0;i<total;i++){
+    if(!_gerandoImgs) break;
+    var it=_imgItens[i];
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    var card=document.getElementById('ic-'+k);
+    var fotoDiv=document.getElementById('icf-'+k);
+
+    /* Marca como buscando */
+    if(card) card.className='ic buscando';
+
+    /* Progresso */
+    document.getElementById('imgs-prog-bar').style.width=Math.round(i/total*100)+'%';
+    document.getElementById('imgs-prog-txt').textContent=
+      (i+1)+'/'+total+' · ✅'+ok+' · ❌'+erro;
+
+    try{
+      var url=await buscarImagem(it.nome,it.marca);
+      if(url){
+        _imgLinks[it.codigo]=url;
+        if(card) card.className='ic ok';
+        if(fotoDiv){
+          fotoDiv.innerHTML='';
+          var img=document.createElement('img');
+          img.src=url;
+          img.onload=function(){this.classList.add('loaded');};
+          img.onerror=function(){this.classList.add('loaded');this.style.opacity='.2';};
+          fotoDiv.appendChild(img);
+        }
+        ok++;
+      } else {
+        if(card) card.className='ic erro';
+        erro++;
+      }
+    }catch(e){
+      if(card) card.className='ic erro';
+      erro++;
+    }
+    await new Promise(function(r){setTimeout(r,1500);});
+  }
+
+  document.getElementById('imgs-prog-bar').style.width='100%';
+  document.getElementById('imgs-prog-txt').textContent='✅ Concluído · '+ok+' encontradas · '+erro+' não encontradas';
+  _gerandoImgs=false;
+  document.getElementById('btn-gerar-imgs').disabled=false;
+  document.getElementById('btn-gerar-imgs').textContent='🔄 Gerar';
+  if(ok>0){
+    document.getElementById('btn-salvar-imgs').disabled=false;
+    document.getElementById('btn-salvar-imgs').style.opacity='1';
+    toast('🖼️ '+ok+' imagens prontas! Clique em Salvar Todos.','ok');
+  }
+}
+
+async function salvarTodasImagens(){
+  var codigos=Object.keys(_imgLinks);
+  if(!codigos.length){toast('Nenhuma imagem para salvar!','er');return;}
+  var btn=document.getElementById('btn-salvar-imgs');
+  btn.textContent='⏳ Salvando...'; btn.disabled=true;
+  var salvos=0,erros=0;
+  for(var i=0;i<codigos.length;i++){
+    var u=_imgLinks[codigos[i]];
+    if(!u) continue;
+    var r=await db.from('itens').update({foto_url:u}).eq('codigo',codigos[i]);
+    if(r.error) erros++; else salvos++;
+  }
+  btn.textContent='💾 Salvar Todos'; btn.disabled=false;
+  toast('✅ '+salvos+' fotos salvas!','ok');
+  fecharModalImgs();
+  carregarTudo();
+}
+</script>
+
+<!-- ══ MODAL GERAR IMAGENS — TELA CHEIA ══ -->
+<div class="bd" id="modal-imgs" style="padding:0;align-items:stretch">
+<div style="width:100%;height:100vh;display:flex;flex-direction:column;background:#111827;overflow:hidden">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;
+    padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+    box-shadow:0 2px 12px rgba(0,0,0,.3)">
+    <span style="font-size:1rem;font-weight:800;white-space:nowrap">🖼️ Imagens dos Itens</span>
+    <!-- barra progresso -->
+    <div style="flex:1;background:rgba(255,255,255,.2);border-radius:8px;height:7px;overflow:hidden">
+      <div id="imgs-prog-bar" style="height:100%;width:0%;background:#a5f3fc;
+        border-radius:8px;transition:width .5s ease"></div>
+    </div>
+    <span id="imgs-prog-txt" style="font-size:.78rem;opacity:.8;white-space:nowrap;min-width:140px;text-align:right"></span>
+    <button id="btn-gerar-imgs" onclick="gerarTodasImagens()"
+      style="background:#fff;color:#7c3aed;border:none;border-radius:8px;
+      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;flex-shrink:0">
+      🚀 Gerar
+    </button>
+    <button id="btn-salvar-imgs" onclick="salvarTodasImagens()" disabled
+      style="background:#22c55e;color:#fff;border:none;border-radius:8px;
+      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;
+      flex-shrink:0;opacity:.35">
+      💾 Salvar Todos
+    </button>
+    <button onclick="fecharModalImgs()"
+      style="background:rgba(255,255,255,.15);border:none;color:#fff;
+      border-radius:8px;padding:7px 12px;cursor:pointer;font-size:1rem;flex-shrink:0">✕</button>
+  </div>
+
+  <!-- GRID DE TODOS OS ITENS -->
+  <div id="imgs-grid" style="flex:1;overflow-y:auto;padding:16px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+    gap:10px;align-content:start"></div>
+
+  <!-- AVISO SERPER -->
+  <div id="serper-aviso" style="display:none;position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);background:#fff;border-radius:14px;
+    padding:28px 32px;box-shadow:0 8px 40px rgba(0,0,0,.5);text-align:center;
+    max-width:400px;z-index:20">
+    <div style="font-size:2.5rem;margin-bottom:10px">🔑</div>
+    <div style="font-weight:800;font-size:.95rem;margin-bottom:8px">Configure a chave Serper.dev</div>
+    <div style="font-size:.82rem;color:#64748b;line-height:1.7;margin-bottom:14px">
+      1. Acesse <a href="https://serper.dev" target="_blank"
+        style="color:#7c3aed;font-weight:700">serper.dev</a>
+        → conta grátis → copie a API Key<br>
+      2. No <b>estoque.html</b> localize
+        <code style="background:#f1f5f9;padding:2px 5px;border-radius:4px;font-size:.78rem">var SERPER_KEY = ''</code>
+        e cole a chave
+    </div>
+    <button onclick="document.getElementById('serper-aviso').style.display='none'"
+      style="background:#7c3aed;color:#fff;border:none;border-radius:8px;
+      padding:8px 20px;font-weight:700;cursor:pointer;font-size:.84rem">Entendi</button>
+  </div>
+
+</div>
+</div>
+
+<style>
+/* ── CARD DE IMAGEM ── */
+.ic{
+  background:#1f2937;border:2px solid #374151;border-radius:10px;
+  overflow:hidden;display:flex;flex-direction:column;
+  transition:border-color .25s
+}
+.ic.buscando{border-color:#3b82f6}
+.ic.ok{border-color:#22c55e}
+.ic.erro{border-color:#374151;opacity:.5}
+
+/* Área da foto */
+.ic-foto{
+  width:100%;aspect-ratio:1/1;background:#111827;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;font-size:2rem;color:#374151
+}
+.ic-foto img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;opacity:0;transition:opacity .4s
+}
+.ic-foto img.loaded{opacity:1}
+/* pulsando enquanto busca */
+.ic.buscando .ic-foto::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 25%,rgba(99,102,241,.25) 50%,transparent 75%);
+  background-size:200% 100%;
+  animation:ic-shimmer 1.2s infinite
+}
+@keyframes ic-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Info */
+.ic-info{padding:6px 8px}
+.ic-nome{font-size:.67rem;font-weight:700;color:#e2e8f0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+.ic-cod{font-size:.6rem;color:#6b7280;margin-top:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+
+<!-- ══ MODAL GERAR BARCODES — TELA CHEIA ══ -->
+<div class="bd" id="modal-barcodes" style="padding:0;align-items:stretch">
+<div style="width:100%;height:100vh;display:flex;flex-direction:column;background:#0f172a;overflow:hidden">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;
+    padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+    box-shadow:0 2px 12px rgba(0,0,0,.3)">
+    <span style="font-size:1rem;font-weight:800;white-space:nowrap">📊 Códigos de Barras</span>
+    <div style="flex:1;background:rgba(255,255,255,.2);border-radius:8px;height:7px;overflow:hidden">
+      <div id="bc-prog-bar" style="height:100%;width:0%;background:#a7f3d0;
+        border-radius:8px;transition:width .5s ease"></div>
+    </div>
+    <span id="bc-prog-txt" style="font-size:.78rem;opacity:.8;white-space:nowrap;min-width:180px;text-align:right"></span>
+    <button id="btn-gerar-bc" onclick="gerarTodosBarcodes()"
+      style="background:#fff;color:#0f766e;border:none;border-radius:8px;
+      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;flex-shrink:0">
+      🚀 Gerar
+    </button>
+    <button id="btn-salvar-bc" onclick="salvarTodosBarcodes()" disabled
+      style="background:#22c55e;color:#fff;border:none;border-radius:8px;
+      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;
+      flex-shrink:0;opacity:.35">
+      💾 Salvar Todos
+    </button>
+    <button onclick="fecharModalBarcodes()"
+      style="background:rgba(255,255,255,.15);border:none;color:#fff;
+      border-radius:8px;padding:7px 12px;cursor:pointer;font-size:1rem;flex-shrink:0">✕</button>
+  </div>
+
+  <!-- GRID -->
+  <div id="bc-grid" style="flex:1;overflow-y:auto;padding:16px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    gap:10px;align-content:start"></div>
+
+</div>
+</div>
+
+<style>
+/* CARD BARCODE */
+.bc-card{
+  background:#1e293b;border:2px solid #334155;border-radius:10px;
+  padding:12px;display:flex;flex-direction:column;gap:6px;
+  transition:border-color .25s
+}
+.bc-card.buscando{border-color:#0d9488}
+.bc-card.ok{border-color:#22c55e}
+.bc-card.erro{border-color:#334155;opacity:.5}
+.bc-card.buscando .bc-icon::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 25%,rgba(13,148,136,.3) 50%,transparent 75%);
+  background-size:200% 100%;animation:bc-shimmer 1.2s infinite
+}
+@keyframes bc-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.bc-nome{font-size:.72rem;font-weight:700;color:#e2e8f0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-cod{font-size:.65rem;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-ean{font-size:.8rem;font-weight:800;color:#34d399;
+  font-family:monospace;letter-spacing:1px;margin-top:2px}
+.bc-ean.vazio{color:#475569;font-weight:400;font-size:.72rem}
+.bc-barras{width:100%;height:38px;background:#fff;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  margin-top:2px}
+.bc-barras svg{width:100%;height:100%}
+.bc-icon{position:relative;font-size:1.5rem;text-align:center;
+  color:#334155;padding:6px 0}
+</style>
+
+<script>
+/* ══════════════════════════════════════════
+   BARCODE — busca EAN real via Serper + gera svg
+══════════════════════════════════════════ */
+var _bcItens=[], _bcCodes={}, _gerandoBc=false;
+
+async function abrirModalGerarBarcodes(){
+  document.getElementById('modal-barcodes').classList.add('ab');
+  document.getElementById('bc-prog-bar').style.width='0%';
+  document.getElementById('bc-prog-txt').textContent='Carregando itens...';
+  document.getElementById('btn-salvar-bc').disabled=true;
+  document.getElementById('btn-salvar-bc').style.opacity='.35';
+
+  /* Carrega TODOS os itens sem limite — paginação de 1000 por vez */
+  _bcItens=[]; _bcCodes={};
+  var pagina=0, tamPag=1000;
+  while(true){
+    var r=await db.from('itens')
+      .select('codigo,nome,marca,codigo_barras')
+      .order('nome')
+      .range(pagina*tamPag, (pagina+1)*tamPag-1);
+    if(!r.data||!r.data.length) break;
+    _bcItens=_bcItens.concat(r.data);
+    if(r.data.length<tamPag) break; /* última página */
+    pagina++;
+    document.getElementById('bc-prog-txt').textContent='Carregando... '+_bcItens.length+' itens';
+  }
+
+  /* Separa os que JÁ têm código de barras */
+  _bcItens.forEach(function(it){ if(it.codigo_barras) _bcCodes[it.codigo]=it.codigo_barras; });
+
+  /* Prioriza: mostra primeiro os SEM código de barras */
+  _bcItens.sort(function(a,b){
+    var aTemBc=!!a.codigo_barras, bTemBc=!!b.codigo_barras;
+    if(aTemBc&&!bTemBc) return 1;
+    if(!aTemBc&&bTemBc) return -1;
+    return (a.nome||'').localeCompare(b.nome||'');
+  });
+
+  var comBc=Object.keys(_bcCodes).length;
+  var semBc=_bcItens.length-comBc;
+  var mins=Math.ceil(semBc*2/60);
+  document.getElementById('bc-prog-txt').textContent=
+    _bcItens.length+' itens · '+comBc+' com código · '+semBc+' sem código · ~'+mins+' min';
+
+  var g=document.getElementById('bc-grid');
+  g.innerHTML=_bcItens.map(function(it){
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    var ean=_bcCodes[it.codigo]||'';
+    return '<div class="bc-card'+(ean?' ok':'')+'" id="bcc-'+k+'">'+
+      '<div class="bc-nome">'+eh(it.nome)+'</div>'+
+      '<div class="bc-cod">'+eh(it.codigo)+(it.marca?' · '+eh(it.marca):'')+'</div>'+
+      '<div class="bc-ean'+(ean?'':' vazio')+'" id="bcean-'+k+'">'+
+        (ean?ean:'sem código')+'</div>'+
+      '<div class="bc-barras" id="bcbar-'+k+'">'+
+        (ean?gerarBarcodeSVG(ean):'<span style="font-size:1.5rem;color:#334155">📊</span>')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function fecharModalBarcodes(){
+  if(_gerandoBc&&!confirm('Busca em andamento. Sair mesmo assim?')) return;
+  _gerandoBc=false;
+  document.getElementById('modal-barcodes').classList.remove('ab');
+}
+
+/* ── Busca EAN real via Serper ── */
+async function buscarEAN(nome, codigo, marca){
+  if(!SERPER_KEY) throw new Error('SERPER_KEY não configurada');
+
+  /* Remove sufixos desnecessários do nome: "12X1LT", "KIT", "CAIXA" etc */
+  var nomeSimples = nome
+    .replace(/\s*[-–]\s*[\d]+[xX][\d]+.*$/,'')  /* remove 12X1LT */
+    .replace(/\s*(kit|caixa|cx|un|pc|par|jogo)\b.*/i,'')
+    .replace(/\s+/g,' ').trim();
+
+  /* Usa só marca + nome curto + código do fabricante */
+  var termos = [];
+  if(marca) termos.push(marca);
+  if(codigo && codigo.length < 15) termos.push(codigo);
+  termos.push(nomeSimples.substring(0,40));
+
+  var queryBase = termos.join(' ');
+
+  /* 2 tentativas: com site restrito e sem */
+  var queries = [
+    queryBase+' EAN barcode',
+    queryBase+' código barras site:mercadolivre.com.br OR site:shopee.com.br OR site:amazon.com.br'
+  ];
+
+  for(var qi=0; qi<queries.length; qi++){
+    var r=await fetch('https://google.serper.dev/search',{
+      method:'POST',
+      headers:{'X-API-KEY':SERPER_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({q:queries[qi], gl:'br', hl:'pt', num:5})
+    });
+    if(!r.ok) throw new Error('Serper '+r.status);
+    var d=await r.json();
+
+    var links=(d.organic||[]).map(function(res){return res.link||'';}).filter(Boolean);
+    if(!links.length) continue;
+
+    /* Faz scraping das páginas para extrair EAN do JSON-LD */
+    for(var li=0;li<Math.min(links.length,3);li++){
+      try{
+        var proxy='https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(links[li]);
+        var rp=await fetch(proxy,{signal:AbortSignal.timeout(8000)});
+        if(!rp.ok) continue;
+        var html=await rp.text();
+
+        var patterns=[
+          /"gtin13"\s*:\s*"(\d{13})"/i,
+          /"gtin"\s*:\s*"(\d{8,14})"/i,
+          /"ean"\s*:\s*"(\d{8,14})"/i,
+          /barcode['":\s]+(\d{8,14})/i,
+          /EAN[:\s\-]+(\d{8,14})/i,
+          /"mpn"\s*:\s*"(\d{8,14})"/i,
+        ];
+        for(var pi=0;pi<patterns.length;pi++){
+          var m=html.match(patterns[pi]);
+          if(m&&m[1]){
+            var ean=m[1];
+            if(ean.length===13&&validarEAN13(ean)) return ean;
+            if(ean.length===8&&validarEAN8(ean)) return ean;
+            if(ean.length===12){var e13='0'+ean;if(validarEAN13(e13))return e13;}
+          }
+        }
+        /* EAN brasileiro (789...) */
+        var m2=html.replace(/\s/g,'').match(/\b(789\d{10})\b/);
+        if(m2&&validarEAN13(m2[1])) return m2[1];
+      }catch(e){}
+    }
+  }
+  return null;
+}
+
+/* Validação EAN-13 */
+function validarEAN13(c){
+  if(c.length!==13||!/^\d+$/.test(c)) return false;
+  var soma=0;
+  for(var i=0;i<12;i++) soma+=parseInt(c[i])*(i%2===0?1:3);
+  var dv=(10-(soma%10))%10;
+  return dv===parseInt(c[12]);
+}
+
+/* Validação EAN-8 */
+function validarEAN8(c){
+  if(c.length!==8||!/^\d+$/.test(c)) return false;
+  var soma=0;
+  for(var i=0;i<7;i++) soma+=parseInt(c[i])*(i%2===0?3:1);
+  var dv=(10-(soma%10))%10;
+  return dv===parseInt(c[7]);
+}
+
+/* ── Gera SVG do código de barras (Code128/EAN simplificado) ── */
+function gerarBarcodeSVG(code){
+  /* Representação visual simples com barras proporcionais ao código */
+  var bars=[];
+  var seed=0;
+  for(var i=0;i<code.length;i++) seed+=(code.charCodeAt(i)*(i+1));
+
+  /* Gera padrão de barras baseado no código */
+  var w=180, h=32;
+  var x=4, totalBars=code.length*4+8;
+  var barW=Math.floor((w-8)/totalBars);
+
+  /* Barra inicial */
+  bars.push('<rect x="'+x+'" y="0" width="'+barW+'" height="'+h+'" fill="#000"/>');
+  x+=barW;
+  bars.push('<rect x="'+x+'" y="0" width="'+Math.ceil(barW/2)+'" height="'+h+'" fill="#000"/>');
+  x+=Math.ceil(barW/2)+barW;
+
+  /* Barras do código */
+  for(var i=0;i<code.length;i++){
+    var d=parseInt(code[i])||0;
+    var w1=barW+(d%3===0?1:0);
+    var w2=Math.ceil(barW*(d>5?2:1)/2);
+    bars.push('<rect x="'+x+'" y="0" width="'+w1+'" height="'+h+'" fill="#000"/>');
+    x+=w1+w2;
+    bars.push('<rect x="'+x+'" y="0" width="'+Math.ceil(w1/2)+'" height="'+h+'" fill="#000"/>');
+    x+=Math.ceil(w1/2)+barW;
+  }
+
+  /* Barra final */
+  bars.push('<rect x="'+x+'" y="0" width="'+barW+'" height="'+h+'" fill="#000"/>');
+
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+w+' '+h+'" '+
+    'style="background:#fff;display:block">'+bars.join('')+'</svg>';
+}
+
+async function gerarTodosBarcodes(){
+  if(!SERPER_KEY){
+    toast('Configure SERPER_KEY no código!','er');
+    return;
+  }
+  if(_gerandoBc) return;
+  var semCod=_bcItens.filter(function(it){return !_bcCodes[it.codigo];}).length;
+  if(!confirm('Buscar EAN real para '+semCod+' itens sem código (~'+Math.ceil(semCod*2/60)+' min)?\n('+_bcItens.length+' total, pulando os que já têm código)')) return;
+
+  _gerandoBc=true;
+  document.getElementById('btn-gerar-bc').disabled=true;
+  document.getElementById('btn-gerar-bc').textContent='⏳';
+
+  var total=_bcItens.length, ok=0, erro=0;
+
+  for(var i=0;i<total;i++){
+    if(!_gerandoBc) break;
+    var it=_bcItens[i];
+    /* Pula itens que já têm código de barras */
+    if(_bcCodes[it.codigo]){
+      var k2=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+      var card2=document.getElementById('bcc-'+k2);
+      if(card2) card2.className='bc-card ok';
+      ok++; continue;
+    }
+    var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
+    var card=document.getElementById('bcc-'+k);
+    var eanEl=document.getElementById('bcean-'+k);
+    var barEl=document.getElementById('bcbar-'+k);
+
+    /* Buscando */
+    if(card) card.className='bc-card buscando';
+    document.getElementById('bc-prog-bar').style.width=Math.round(i/total*100)+'%';
+    document.getElementById('bc-prog-txt').textContent=
+      (i+1)+'/'+total+' · ✅'+ok+' · ❌'+erro;
+
+    try{
+      var ean=await buscarEAN(it.nome,it.codigo,it.marca);
+      if(ean){
+        _bcCodes[it.codigo]=ean;
+        if(card) card.className='bc-card ok';
+        if(eanEl){ eanEl.className='bc-ean'; eanEl.textContent=ean; }
+        if(barEl) barEl.innerHTML=gerarBarcodeSVG(ean);
+        ok++;
+      } else {
+        if(card) card.className='bc-card erro';
+        if(eanEl){ eanEl.className='bc-ean vazio'; eanEl.textContent='não encontrado'; }
+        erro++;
+      }
+    }catch(e){
+      if(card) card.className='bc-card erro';
+      erro++;
+    }
+
+    /* 2.5s delay entre itens */
+    await new Promise(function(r){setTimeout(r,2500);});
+  }
+
+  document.getElementById('bc-prog-bar').style.width='100%';
+  document.getElementById('bc-prog-txt').textContent=
+    '✅ Concluído · '+ok+' EANs encontrados · '+erro+' não encontrados';
+  _gerandoBc=false;
+  document.getElementById('btn-gerar-bc').disabled=false;
+  document.getElementById('btn-gerar-bc').textContent='🔄 Gerar';
+
+  if(ok>0){
+    document.getElementById('btn-salvar-bc').disabled=false;
+    document.getElementById('btn-salvar-bc').style.opacity='1';
+    toast('📊 '+ok+' códigos encontrados! Clique em Salvar Todos.','ok');
+  } else {
+    toast('Nenhum EAN encontrado.','av');
+  }
+}
+
+async function salvarTodosBarcodes(){
+  var codigos=Object.keys(_bcCodes);
+  if(!codigos.length){toast('Nenhum código para salvar!','er');return;}
+  var btn=document.getElementById('btn-salvar-bc');
+  btn.textContent='⏳ Salvando...'; btn.disabled=true;
+  var salvos=0, erros=0;
+  for(var i=0;i<codigos.length;i++){
+    var ean=_bcCodes[codigos[i]];
+    if(!ean) continue;
+    var r=await db.from('itens').update({codigo_barras:ean}).eq('codigo',codigos[i]);
+    if(r.error) erros++; else salvos++;
+  }
+  btn.textContent='💾 Salvar Todos'; btn.disabled=false;
+  toast('✅ '+salvos+' códigos salvos!','ok');
+  fecharModalBarcodes();
+  carregarTudo();
+}
+</script>
+
 <div id="toast"></div>
 
 <script>
@@ -565,6 +1181,12 @@ async function carregarItens(termo){
     var vTotal=(x.valor_total!==undefined)?brl(x.valor_total):brl((x.valor_unitario||0)*(x.estoque||0));
     return '<tr>'+
       '<td>'+eh(x.codigo)+'</td>'+
+      '<td style="text-align:center">'+
+        (x.foto_url
+          ? '<img src="'+x.foto_url+'" style="width:44px;height:36px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;cursor:pointer" onclick="window.open(\''+x.foto_url+'\',\'_blank\')" title="Ver foto">'
+          : '<span style="color:#cbd5e1;font-size:1.1rem" title="Sem foto">📦</span>'
+        )+
+      '</td>'+
       '<td>'+eh(x.nome)+'</td>'+
       '<td>'+eh(unid)+'</td>'+
       '<td>'+brl(x.valor_unitario)+'</td>'+
@@ -1001,10 +1623,20 @@ function renderPreview(){
       '<td style="padding:6px 8px;text-align:right;'+edt+'" title="Clique para editar" ondblclick="editPrev('+i+',\'precovenda\',this)">'+brl(it.precovenda)+'</td>'+
       /* Marca — editável */
       '<td style="padding:6px 8px;'+edt+'" title="Clique para editar" ondblclick="editPrev('+i+',\'marca\',this)">'+eh(it.marca||'—')+'</td>'+
-      /* Aplicação — abre modal */
-      '<td style="padding:6px 8px;'+edt+';max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" '+
-        'title="Duplo clique para editar aplicação" ondblclick="abrirAplPreview('+i+')">'+
-        eh(it.aplicacao||'—')+
+      /* Aplicação — abre modal + botão IA */
+      '<td style="padding:4px 8px;max-width:220px" id="td-apl-'+i+'">'+
+        '<div style="display:flex;align-items:center;gap:4px">'+
+          '<span style="'+edt+';flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 4px;border-radius:3px;font-size:.8rem;min-width:0" '+
+            'title="Duplo clique para editar" ondblclick="abrirAplPreview('+i+')">'+
+            eh(it.aplicacao||'—')+
+          '</span>'+
+          '<button onclick="sugerirAplicacaoIAPreview('+i+')" id="btn-ia-'+i+'" '+
+            'title="Sugerir aplicação com IA" '+
+            'style="flex-shrink:0;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:.72rem;font-weight:700;'+
+            'background:linear-gradient(135deg,#6e40c9,#5271ff);color:#fff;white-space:nowrap">'+
+            '🤖'+
+          '</button>'+
+        '</div>'+
       '</td>'+
       /* Categoria */
       '<td style="padding:6px 8px;background:#fffde7;min-width:160px">'+
@@ -1229,6 +1861,9 @@ async function abrirForm(codigo){
   document.getElementById('fapl').value='';
   document.getElementById('fcat').value='';
   document.getElementById('sug').style.display='none';
+  /* reset visual campo código */
+  var fcEl=document.getElementById('fc');
+  fcEl.style.background=''; fcEl.style.borderColor='';
   mudaUnidade();
 
   if(codigo){
@@ -1255,7 +1890,7 @@ async function abrirForm(codigo){
     mudaUnidade();
   }else{
     document.getElementById('mf-titulo').textContent='➕ Novo Item';
-    document.getElementById('fc').readOnly=true;
+    document.getElementById('fc').readOnly=false;
     document.getElementById('fmodo').value='novo';
     document.getElementById('forig').value='';
     document.getElementById('fe').value   ='0';
@@ -1271,6 +1906,9 @@ async function abrirForm(codigo){
       if(!isNaN(n)) prox=n+1;
     }
     document.getElementById('fc').value='AL-'+prox;
+    /* estilo visual para indicar que é editável */
+    document.getElementById('fc').style.background='#fff';
+    document.getElementById('fc').style.borderColor='var(--azul2)';
   }
   document.getElementById('mf').classList.add('ab');
 }
@@ -1374,9 +2012,9 @@ async function salvarItem(){
   var nome   = document.getElementById('fn').value.trim();
   var unid   = document.getElementById('fu').value;
   var qtdCx  = parseInt(document.getElementById('fqc').value)||1;
-  var est    = parseInt(document.getElementById('fe').value)||0;
-  var val    = parseFloat(document.getElementById('fv').value)||0;
-  var pv     = parseFloat(document.getElementById('fpv').value)||0;
+  var est    = parseInt(document.getElementById('fe').value)  || 0;
+  var val    = parseFloat(document.getElementById('fv').value.replace(',','.'))  || 0;
+  var pv     = parseFloat(document.getElementById('fpv').value.replace(',','.')) || 0;
   var marca  = document.getElementById('fmarca').value.trim()||null;
   var apl    = document.getElementById('fapl').value.trim()||null;
   var catId  = document.getElementById('fcat').value||null;
@@ -1886,18 +2524,22 @@ function setCatPrev(sel){
   _nfeParsed.itens[i].categoria_id=sel.value||null;
 }
 
+/* ── SERPER.DEV ──
+   Chave para busca de imagens e EANs (2500 req/mês grátis em serper.dev) */
+var SERPER_KEY='eacff68441e843d8be5b24f0cb56f1c65d2a64f6';
+
 /* ══════════════════════════════════════════
    BOOT
 ══════════════════════════════════════════ */
 /* ══════════════════════════════════════════
-   TOKEN TRACKER — DeepSeek
+   TOKEN TRACKER — Gemini
 ══════════════════════════════════════════ */
-var _tk = JSON.parse(localStorage.getItem('ds_tokens')||'{"in":0,"out":0,"calls":0,"log":[]}');
+var _tk = JSON.parse(localStorage.getItem('gemini_tokens')||'{"in":0,"out":0,"calls":0,"log":[]}');
 
 var PRECO_IN  = 0.07  / 1_000_000; /* $0.07 por 1M tokens input  */
 var PRECO_OUT = 0.27  / 1_000_000; /* $0.27 por 1M tokens output */
 
-function salvarTokens(){ localStorage.setItem('ds_tokens', JSON.stringify(_tk)); }
+function salvarTokens(){ localStorage.setItem('gemini_tokens', JSON.stringify(_tk)); }
 
 function registrarTokens(promptTokens, completionTokens, nomeProduto){
   _tk.in    += promptTokens;
@@ -1950,7 +2592,7 @@ function resetTokens(e){
   atualizarBarraTokens();
   toast('Tokens zerados!','ok');
 }
-var DEEPSEEK_KEY = 'sk-d38850084a4c43868ad8208b5dcbb50e';
+var GEMINI_KEY = 'AIzaSyDTKN8wq1allT2b3HoLVFFE-qVhHxhLylQ';
 
 async function sugerirAplicacaoIA(){
   var codigo = document.getElementById('fc').value.trim();
@@ -1965,29 +2607,22 @@ async function sugerirAplicacaoIA(){
   status.style.color      = 'var(--azul2)';
   status.textContent      = '🤖 Consultando IA...';
 
-  var prompt = 'Peça BR: '+nome
-    +(codigo?' ['+codigo+']':'')
-    +(marca?' fab:'+marca:'')
-    +'\nResponda APENAS neste formato: Fiat: Uno; Palio | VW: Gol; Fox\nSe universal: Universal';
+  var prompt = nome+(marca?' [fab:'+marca+']':'');
 
   try{
-    var resp = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer '+DEEPSEEK_KEY
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [
-          { role: 'system', content: 'Peças automotivas BR. Responda APENAS no formato: Marca: Modelo; Modelo | Marca: Modelo' },
-          { role: 'user', content: prompt },
-          { role: 'assistant', content: '' }
-        ],
-        max_tokens: 150,
-        temperature: 0
-      })
-    });
+    var resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+GEMINI_KEY,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: 'Você é um especialista em peças automotivas do mercado brasileiro. Quando receber o nome de uma peça, pesquise na internet as aplicações reais e específicas dessa peça. Use o nome comercial, código e fabricante para encontrar a ficha técnica oficial ou catálogos de aplicação (como Bosch, NGK, Mahle, Monroe, TRW, etc). NUNCA invente ou suponha aplicações — use apenas dados confirmados de catálogos reais. Se encontrar os dados: responda SOMENTE no formato MarcaVeiculo: Modelo; Modelo | MarcaVeiculo: Modelo (sem nenhum outro texto). Se não encontrar dados confiáveis: responda SOMENTE a palavra definir manualmente.' }] },
+          generationConfig: { temperature: 0, maxOutputTokens: 200 },
+          tools: [{ google_search: {} }]
+        })
+      }
+    );
 
     if(!resp.ok){
       var err = await resp.json();
@@ -1995,27 +2630,30 @@ async function sugerirAplicacaoIA(){
     }
 
     var data  = await resp.json();
-    var texto = ((data.choices||[])[0]?.message?.content || '').trim();
+    var texto = ((data.candidates||[])[0]?.content?.parts?.[0]?.text || '').trim();
 
     /* registra tokens usados */
-    var uso = data.usage || {};
-    registrarTokens(uso.prompt_tokens||0, uso.completion_tokens||0, nome);
+    var uso = data.usageMetadata || {};
+    registrarTokens(uso.promptTokenCount||0, uso.candidatesTokenCount||0, nome);
 
     if(!texto){ throw new Error('Resposta vazia da IA'); }
 
-    var limpo = texto.replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
+    var limpo  = texto.replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
+    var manual = /definir manualmente/i.test(limpo);
 
-    document.getElementById('fapl').value = limpo;
+    document.getElementById('fapl').value = manual ? '' : limpo;
 
-    status.style.background = '#d4edda';
-    status.style.color      = '#155724';
-    status.textContent      = '✅ Aplicação sugerida! Revise e clique em 🚗 Editar para ajustar.';
+    status.style.background = manual ? '#fff3cd' : '#d4edda';
+    status.style.color      = manual ? '#856404' : '#155724';
+    status.textContent      = manual
+      ? '⚠️ IA não reconheceu esta peça — preencha a aplicação manualmente.'
+      : '✅ Aplicação sugerida! Revise e clique em 🚗 Editar para ajustar.';
     setTimeout(function(){
       status.style.display='none';
       status.style.background='#eef2ff';
       status.style.color='var(--azul2)';
     }, 5000);
-    toast('🤖 Aplicação preenchida!','ok');
+    toast(manual ? '⚠️ Peça desconhecida — defina manualmente' : '🤖 Aplicação preenchida!', manual?'av':'ok');
 
   }catch(e){
     status.style.background='#f8d7da';
@@ -2027,9 +2665,87 @@ async function sugerirAplicacaoIA(){
       status.style.color='var(--azul2)';
     }, 4000);
     toast('❌ IA: '+e.message,'er');
-    console.error('[DeepSeek]',e);
+    console.error('[Gemini]',e);
   }
 }
+
+/* ══════════════════════════════════════════
+   IA APLICAÇÃO — PREVIEW NF-e
+   Botão 🤖 em cada linha da tabela de preview
+══════════════════════════════════════════ */
+async function sugerirAplicacaoIAPreview(i){
+  var it  = _nfeParsed.itens[i];
+  var btn = document.getElementById('btn-ia-'+i);
+
+  /* feedback visual no botão */
+  var orig = btn.innerHTML;
+  btn.disabled  = true;
+  btn.innerHTML = '⏳';
+  btn.style.opacity = '.6';
+
+  var prompt = it.nome+(it.marca?' [fab:'+it.marca+']':'');
+
+  try{
+    var resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+GEMINI_KEY,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: 'Você é um especialista em peças automotivas do mercado brasileiro. Quando receber o nome de uma peça, pesquise na internet as aplicações reais e específicas dessa peça. Use o nome comercial, código e fabricante para encontrar a ficha técnica oficial ou catálogos de aplicação (como Bosch, NGK, Mahle, Monroe, TRW, etc). NUNCA invente ou suponha aplicações — use apenas dados confirmados de catálogos reais. Se encontrar os dados: responda SOMENTE no formato MarcaVeiculo: Modelo; Modelo | MarcaVeiculo: Modelo (sem nenhum outro texto). Se não encontrar dados confiáveis: responda SOMENTE a palavra definir manualmente.' }] },
+          generationConfig: { temperature: 0, maxOutputTokens: 200 },
+          tools: [{ google_search: {} }]
+        })
+      }
+    );
+
+    if(!resp.ok){ var er=await resp.json(); throw new Error(er.error?.message||'Erro '+resp.status); }
+
+    var data  = await resp.json();
+    var texto = ((data.candidates||[])[0]?.content?.parts?.[0]?.text || '').trim();
+
+    /* registra tokens */
+    var uso = data.usageMetadata||{};
+    registrarTokens(uso.promptTokenCount||0, uso.candidatesTokenCount||0, it.nome);
+
+    if(!texto) throw new Error('Resposta vazia');
+
+    var limpo = texto.replace(/\n/g,' ').replace(/\s{2,}/g,' ').trim();
+
+    /* grava no objeto e re-renderiza APENAS a célula */
+    _nfeParsed.itens[i].aplicacao = limpo;
+
+    var span = document.querySelector('#td-apl-'+i+' span');
+    if(span) span.textContent = limpo;
+
+    btn.innerHTML  = '✅';
+    btn.style.background = 'var(--verde)';
+    btn.style.opacity    = '1';
+    setTimeout(function(){
+      btn.innerHTML        = '🤖';
+      btn.style.background = 'linear-gradient(135deg,#6e40c9,#5271ff)';
+      btn.disabled         = false;
+    }, 2500);
+
+    toast('🤖 Aplicação preenchida: '+it.nome,'ok');
+
+  }catch(e){
+    btn.innerHTML        = '❌';
+    btn.style.background = 'var(--vermelho)';
+    btn.style.opacity    = '1';
+    btn.disabled         = false;
+    setTimeout(function(){
+      btn.innerHTML        = orig;
+      btn.style.background = 'linear-gradient(135deg,#6e40c9,#5271ff)';
+    }, 3000);
+    toast('❌ IA: '+e.message,'er');
+    console.error('[IAPreview]',e);
+  }
+}
+
+/* ── SERPER.DEV ──
+   Chave para busca de imagens e EANs (2500 req/mês grátis em serper.dev) */
 
 /* ══════════════════════════════════════════
    BOOT
