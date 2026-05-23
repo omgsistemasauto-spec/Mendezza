@@ -282,6 +282,15 @@ tbody td{padding:8px 12px}
 
     <div class="cmp"><label>Código *</label><input id="fc" readonly></div>
     <div class="cmp">
+      <label>Código de Barras (EAN)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="fean" placeholder="Ex: 7891234567890" style="flex:1"
+          oninput="this.value=this.value.replace(/\D/g,'')">
+        <button type="button" class="btn ba2 bsm" onclick="document.getElementById('fean-scan').click()" title="Usar câmera">📷</button>
+        <input type="file" id="fean-scan" accept="image/*" capture="environment" style="display:none" onchange="scanBarcode(event)">
+      </div>
+    </div>
+    <div class="cmp">
       <label>Nome *</label>
       <input id="fn" placeholder="Nome do item" oninput="buscaSug()" onkeydown="tecladoSug(event)">
       <div id="sug" style="border:1px solid var(--borda);border-radius:4px;display:none;
@@ -1853,7 +1862,7 @@ async function abrirForm(codigo){
   _formAberto=true;
 
   /* limpa todos os campos */
-  ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax'].forEach(function(id){
+  ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax','fean'].forEach(function(id){
     document.getElementById(id).value='';
   });
   document.getElementById('fqc').value='1';
@@ -1887,6 +1896,7 @@ async function abrirForm(codigo){
     document.getElementById('fcat').value  = d.categoria_id||'';
     document.getElementById('fmin').value  = d.estoque_min;
     document.getElementById('fmax').value  = d.estoque_max;
+    document.getElementById('fean').value  = d.codigo_barras||'';
     mudaUnidade();
   }else{
     document.getElementById('mf-titulo').textContent='➕ Novo Item';
@@ -2020,6 +2030,7 @@ async function salvarItem(){
   var catId  = document.getElementById('fcat').value||null;
   var emin   = parseInt(document.getElementById('fmin').value)||0;
   var emax   = parseInt(document.getElementById('fmax').value)||1000;
+  var ean    = document.getElementById('fean').value.trim()||null;
 
   if(!codigo||!nome){ toast('Código e Nome são obrigatórios!','er'); return; }
 
@@ -2043,7 +2054,8 @@ async function salvarItem(){
         estoque:est,estoque_inicial:est,valor_unitario:val,
         preco_venda:pv,marca:marca,aplicacao:apl,
         categoria_id:catId?parseInt(catId):null,
-        estoque_min:emin,estoque_max:emax
+        estoque_min:emin,estoque_max:emax,
+        codigo_barras:ean
       });
       if(ins.error) throw new Error(ins.error.message);
       await db.from('historico_compras').insert({data:new Date().toISOString(),valor_total:est*val,chave_nfe:null});
@@ -2060,7 +2072,8 @@ async function salvarItem(){
         estoque:est,valor_unitario:val,preco_venda:pv,
         marca:marca,aplicacao:apl,
         categoria_id:catId?parseInt(catId):null,
-        estoque_min:emin,estoque_max:emax
+        estoque_min:emin,estoque_max:emax,
+        codigo_barras:ean
       }).eq('codigo',orig);
       if(upd2.error) throw new Error(upd2.error.message);
       toast('Item atualizado com sucesso!','ok');
@@ -2592,6 +2605,16 @@ function resetTokens(e){
   atualizarBarraTokens();
   toast('Tokens zerados!','ok');
 }
+/* ── SCAN BARCODE (câmera) ── */
+function scanBarcode(e){
+  var file=e.target.files[0];
+  if(!file){ return; }
+  /* apenas informa ao usuário — leitura real de código de barras por câmera
+     requer lib como ZXing; por ora, avisa e deixa digitar manualmente */
+  toast('📷 Imagem capturada — digite o código manualmente abaixo.','av');
+  e.target.value='';
+}
+
 var GEMINI_KEY = 'AIzaSyDTKN8wq1allT2b3HoLVFFE-qVhHxhLylQ';
 
 async function sugerirAplicacaoIA(){
