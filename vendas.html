@@ -646,7 +646,7 @@ tbody td{padding:8px 12px}
             style="padding:5px 12px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;
             background:#e9ecef;color:#555;transition:.15s">R$</button>
         </div>
-        <input type="number" id="fin-desconto" min="0" value="0" step="0.01"
+        <input type="number" id="fin-desconto" min="0" max="15" value="0" step="0.01"
           style="flex:1;padding:6px 10px;border:1px solid var(--borda);border-radius:6px;
           text-align:right;font-size:.95rem;font-weight:700;outline:none"
           oninput="recalcularTotal()">
@@ -658,6 +658,12 @@ tbody td{padding:8px 12px}
         font-size:.84rem;color:var(--vermelho);margin-bottom:6px">
         <span>Valor do desconto:</span>
         <span id="fin-desc-val-exib">- R$ 0,00</span>
+      </div>
+      <!-- Aviso limite desconto -->
+      <div id="fin-desc-aviso" style="display:none;font-size:.76rem;font-weight:700;
+        color:#dc3545;background:#fff5f5;border:1px solid #f5c6cb;border-radius:5px;
+        padding:4px 10px;margin-bottom:6px">
+        ⚠️ Desconto máximo permitido: <b>15%</b>
       </div>
 
       <hr style="margin:10px 0;border:1px solid var(--borda)">
@@ -1900,6 +1906,7 @@ function abrirModalFinalizar(){
 
 /* tipo de desconto: 'pct' = porcentagem, 'val' = valor fixo em R$ */
 var _tipoDesc = 'pct';
+var MAX_DESC_PCT = 15; /* máximo 15% de desconto */
 
 function setTipoDesc(tipo){
   _tipoDesc = tipo;
@@ -1910,7 +1917,7 @@ function setTipoDesc(tipo){
   document.getElementById('btn-desc-val').style.color      = tipo==='val' ? '#fff'        : '#555';
   document.getElementById('fin-desc-sufixo').textContent   = tipo==='pct' ? '%'           : 'R$';
   /* limita max só no modo % */
-  document.getElementById('fin-desconto').max = tipo==='pct' ? '100' : '';
+  document.getElementById('fin-desconto').max = tipo==='pct' ? String(MAX_DESC_PCT) : '';
   recalcularTotal();
 }
 
@@ -1918,14 +1925,26 @@ function recalcularTotal(){
   var bruto     = _carrinho.reduce(function(s,it){ return s+it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1); },0);
   var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
 
-  var valorDesc, pct;
+  var valorDesc, pct, excedeu=false;
   if(_tipoDesc==='pct'){
-    pct       = Math.min(100, Math.max(0, descInput));
+    if(descInput > MAX_DESC_PCT){ excedeu=true; descInput=MAX_DESC_PCT; }
+    pct       = Math.min(MAX_DESC_PCT, Math.max(0, descInput));
     valorDesc = bruto * pct / 100;
   }else{
+    /* no modo R$: calcular o equivalente em % e bloquear se passar de 15% */
+    var pctEquiv = bruto>0 ? (descInput/bruto)*100 : 0;
+    if(pctEquiv > MAX_DESC_PCT){ excedeu=true; descInput=bruto*MAX_DESC_PCT/100; }
     valorDesc = Math.min(bruto, Math.max(0, descInput));
     pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
   }
+
+  /* aviso de limite */
+  var aviso = document.getElementById('fin-desc-aviso');
+  if(aviso) aviso.style.display = excedeu ? 'block' : 'none';
+  /* campo fica vermelho se tentou exceder */
+  var inp = document.getElementById('fin-desconto');
+  inp.style.borderColor = excedeu ? '#dc3545' : '';
+  inp.style.background  = excedeu ? '#fff5f5' : '';
 
   var liq = bruto - valorDesc;
 
@@ -2296,11 +2315,16 @@ async function confirmarVenda(){
   var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
   var valorDesc, pct;
   if(_tipoDesc==='pct'){
-    pct       = Math.min(100, Math.max(0, descInput));
+    pct       = Math.min(MAX_DESC_PCT, Math.max(0, descInput));
     valorDesc = bruto * pct / 100;
   }else{
-    valorDesc = Math.min(bruto, Math.max(0, descInput));
+    valorDesc = Math.min(bruto*MAX_DESC_PCT/100, Math.max(0, descInput));
     pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
+  }
+  /* barreira de segurança — nunca grava acima de 15% */
+  if(pct > MAX_DESC_PCT){
+    toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'%','er');
+    return;
   }
   var total   = bruto - valorDesc;
   var desc    = parseFloat(pct.toFixed(2));
