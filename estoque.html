@@ -273,7 +273,7 @@ tbody td{padding:8px 12px}
 <!-- ── MARGEM BAIXA ── -->
 <div id="p-margem" class="painel">
   <div class="barra" style="background:linear-gradient(90deg,#b8860b,#d4a017);flex-wrap:wrap;gap:10px;padding:12px 20px">
-    <span class="btit">💰 Alerta de Margem Baixa — abaixo de 60% de lucro</span>
+    <span class="btit">💰 Alerta de Margem Baixa — abaixo de 40% de lucro</span>
     <div class="busca" style="background:rgba(255,255,255,.25)">
       🔍<input id="bm" placeholder="Pesquisar..." oninput="pesqMargem()">
     </div>
@@ -289,7 +289,7 @@ tbody td{padding:8px 12px}
   <!-- Banner modo preview -->
   <div id="banner-preview" style="display:none;background:#7c3aed;color:#fff;padding:10px 20px;
     font-size:.88rem;font-weight:700;display:none;align-items:center;gap:16px;flex-wrap:wrap">
-    <span>👁 MODO PREVISÃO — preços sugeridos para 60% de margem. Revise e clique em 💾 Salvar Todos para aplicar.</span>
+    <span>👁 MODO PREVISÃO — preços sugeridos para 40% de margem. Revise e clique em 💾 Salvar Todos para aplicar.</span>
     <span id="prev-resumo" style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px"></span>
   </div>
 
@@ -305,18 +305,22 @@ tbody td{padding:8px 12px}
   <!-- Legenda -->
   <div style="background:#fffbeb;border-bottom:1px solid #f9c74f;padding:8px 20px;font-size:.8rem;color:#854d0e;display:flex;gap:20px;flex-wrap:wrap">
     <span>🔴 <strong>Margem negativa</strong> — vendendo no prejuízo</span>
-    <span>🟡 <strong>Margem 1–29%</strong> — crítico</span>
-    <span>🟠 <strong>Margem 30–59%</strong> — abaixo do limite de 60%</span>
-    <span>✅ <strong>Margem ≥ 60%</strong> — dentro do esperado</span>
+    <span>🟡 <strong>Margem 1–19%</strong> — crítico</span>
+    <span>🟠 <strong>Margem 20–39%</strong> — abaixo do limite de 40%</span>
+    <span>✅ <strong>Margem ≥ 40%</strong> — dentro do esperado</span>
+    <span style="margin-left:auto;background:#e8a800;color:#222;padding:2px 10px;border-radius:6px;font-weight:700">💡 Duplo clique em <u>Preço Venda</u> ou <u>Novo Preço</u> para editar</span>
   </div>
 
   <div class="tw" style="margin-top:0">
     <table>
       <thead><tr>
         <th>Alerta</th><th>Código</th><th>Nome</th><th>Marca</th>
-        <th>Custo (Unit.)</th><th>Preço Venda Atual</th><th>Margem %</th>
-        <th id="th-novo-preco" style="background:#7c3aed;color:#fff">Novo Preço (60%)</th>
-        <th>Lucro Unit.</th><th>Ações</th>
+        <th>Custo (Unit.)</th>
+        <th style="background:#e8a800;color:#222" title="Duplo clique para editar">Preço Venda 💡</th>
+        <th>Margem %</th>
+        <th id="th-novo-preco" style="background:#7c3aed;color:#fff" title="Duplo clique para editar">Novo Preço (40%) 💡</th>
+        <th>Lucro Unit.</th>
+        <th style="background:#0f766e;color:#fff">📄 Nota Fiscal</th>
       </tr></thead>
       <tbody id="tm"><tr class="vz"><td colspan="10">Clique na aba para carregar...</td></tr></tbody>
     </table>
@@ -339,6 +343,8 @@ tbody td{padding:8px 12px}
 .prev-novo{background:#f0e6ff !important}
 .prev-cell{color:#7c3aed;font-weight:800;font-size:.92rem}
 .prev-cell.aplicado{color:#28a745}
+.nf-cell{max-width:160px;overflow:hidden}
+.nf-cell:hover{background:#f0fdf4 !important;cursor:default}
 </style>
 
 <!-- ── MODAL NOVO/EDITAR ITEM ── -->
@@ -1253,9 +1259,9 @@ async function carregarItens(termo){
     var badgePv='';
     if(margem===null){badgePv='<br><span class="badge-m sz">sem preço</span>';}
     else if(margem<0){badgePv='<br><span class="badge-m cr">🔴 prejuízo '+margem.toFixed(0)+'%</span>';}
-    else if(margem<30){badgePv='<br><span class="badge-m at">🟡 '+margem.toFixed(0)+'%</span>';}
-    else if(margem<60){badgePv='<br><span class="badge-m bx">🟠 '+margem.toFixed(0)+'%</span>';}
-    var rowStyle=(margem!==null&&margem<60&&custo>0)?'background:#fff9f0':'';
+    else if(margem<20){badgePv='<br><span class="badge-m at">🟡 '+margem.toFixed(0)+'%</span>';}
+    else if(margem<40){badgePv='<br><span class="badge-m bx">🟠 '+margem.toFixed(0)+'%</span>';}
+    var rowStyle=(margem!==null&&margem<40&&custo>0)?'background:#fff9f0':'';
     return '<tr style="'+rowStyle+'">'+
       '<td>'+eh(x.codigo)+'</td>'+
       '<td style="text-align:center">'+
@@ -1392,8 +1398,20 @@ async function carregarHistorico(){
   el.innerHTML=nfs.map(function(n){
     var empresa=n.nome_emitente ? eh(n.nome_emitente)+' ('+eh(n.cnpj_emitente||'')+')' : 'N/A';
     var chaveExib=n.chave_nfe ? n.chave_nfe.substring(0,24)+'…' : 'N/A';
+    var sefazUrlH=n.chave_nfe?'https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nfe='+n.chave_nfe:'';
     return '<tr>'+
-      '<td title="'+eh(n.chave_nfe)+'">'+chaveExib+'</td>'+
+      '<td title="'+eh(n.chave_nfe)+'" style="font-size:.82rem">'+
+        '<span style="font-family:monospace">'+chaveExib+'</span>'+
+        (n.chave_nfe?
+          '<div style="display:flex;gap:4px;margin-top:4px">'+
+            '<button data-chave="'+eh(n.chave_nfe)+'" onclick="copiarChaveNF(this.dataset.chave)" title="Copiar chave completa" '+
+              'style="border:none;background:#0f766e;color:#fff;border-radius:4px;padding:2px 8px;font-size:.72rem;cursor:pointer">'+
+              '📋 Copiar</button>'+
+            (sefazUrlH?'<a href="'+sefazUrlH+'" target="_blank" '+
+              'style="border:none;background:#1d4ed8;color:#fff;border-radius:4px;padding:2px 8px;font-size:.72rem;cursor:pointer;text-decoration:none">'+
+              '🔍 SEFAZ</a>':'')+'</div>'
+        :'')+
+      '</td>'+
       '<td>'+eh(n.arquivo||'N/A')+'</td>'+
       '<td>'+dHora(n.data_importacao)+'</td>'+
       '<td>'+(cnt[n.chave_nfe]||0)+'</td>'+
@@ -2830,15 +2848,15 @@ async function sugerirAplicacaoIAPreview(i){
 ══════════════════════════════════════════ */
 /* ══════════════════════════════════════════
    ALERTA DE MARGEM BAIXA
-   Limite: 60% de margem
+   Limite: 40% de margem
    Fórmula: margem = (pv - custo) / pv * 100
-   Novo preço p/ 60%: pv = custo / (1 - 0.60)  →  custo / 0.40
+   Novo preço p/ 40%: pv = custo / (1 - 0.40)  →  custo / 0.60
 ══════════════════════════════════════════ */
 var _margemTodos=[];
 var _modoPreview=false;
 var _previewMap={};   /* codigo → novo_preco */
 
-var LIMITE_MARGEM=60;
+var LIMITE_MARGEM=40;
 
 function calcMargem(custo,pv){
   if(!pv||pv<=0) return null;
@@ -2860,12 +2878,47 @@ async function carregarMargem(termoBusca){
   document.getElementById('btn-cancelar-prev').style.display='none';
   document.getElementById('banner-preview').style.display='none';
 
+  /* 1 — itens com estoque > 0 */
   var r=await db.from('itens')
     .select('codigo,nome,marca,valor_unitario,preco_venda,estoque')
+    .gt('estoque',0)
     .order('nome');
   if(r.error){el.innerHTML='<tr class="vz"><td colspan="10">❌ '+eh(r.error.message)+'</td></tr>';return;}
+  var itens=r.data||[];
+  if(!itens.length){el.innerHTML='<tr class="vz"><td colspan="10">Nenhum item em estoque.</td></tr>';return;}
 
-  _margemTodos=r.data||[];
+  /* 2 — última movimentação de entrada por item (com chave_nfe) */
+  var codigos=itens.map(function(x){return x.codigo;});
+  var rMov=await db.from('movimentacoes')
+    .select('item_codigo,chave_nfe,data,tipo')
+    .in('item_codigo',codigos)
+    .in('tipo',['CRIACAO','ATUALIZACAO'])
+    .order('data',{ascending:false});
+
+  var ultimaMov={};
+  (rMov.data||[]).forEach(function(m){
+    if(!m.chave_nfe) return;
+    if(!ultimaMov[m.item_codigo]) ultimaMov[m.item_codigo]=m;
+  });
+
+  /* 3 — dados das NF-e únicas */
+  var chavesUnicas=[...new Set(Object.values(ultimaMov).map(function(m){return m.chave_nfe;}))];
+  var nfMap={};
+  if(chavesUnicas.length){
+    var rNf=await db.from('notas_fiscais')
+      .select('chave_nfe,arquivo,nome_emitente,cnpj_emitente,data_importacao')
+      .in('chave_nfe',chavesUnicas);
+    (rNf.data||[]).forEach(function(n){nfMap[n.chave_nfe]=n;});
+  }
+
+  /* 4 — anexa _nf e _movData em cada item */
+  itens.forEach(function(x){
+    var mov=ultimaMov[x.codigo];
+    x._nf  = mov&&nfMap[mov.chave_nfe] ? nfMap[mov.chave_nfe] : null;
+    x._movData = mov ? mov.data : null;
+  });
+
+  _margemTodos=itens;
   renderMargem(termoBusca||'');
 }
 
@@ -2888,7 +2941,7 @@ function renderMargem(filtro){
     var m=calcMargem(x.valor_unitario||0,x.preco_venda||0);
     if(m===null){semPreco++;}
     else if(m<0){critico++;}
-    else if(m<30){atencao++;}
+    else if(m<20){atencao++;}
     else if(m<LIMITE_MARGEM){baixo++;}
     else{ok++;}
   });
@@ -2907,9 +2960,9 @@ function renderMargem(filtro){
 
   /* cards */
   document.getElementById('mc-critico').innerHTML='<strong>'+critico+'</strong>🔴 Prejuízo / negativo';
-  document.getElementById('mc-atencao').innerHTML='<strong>'+atencao+'</strong>🟡 Crítico (1–29%)';
-  document.getElementById('mc-baixo').innerHTML=  '<strong>'+baixo+'</strong>🟠 Baixo (30–59%)';
-  document.getElementById('mc-ok').innerHTML=     '<strong>'+ok+'</strong>✅ Margem ≥ 60%';
+  document.getElementById('mc-atencao').innerHTML='<strong>'+atencao+'</strong>🟡 Crítico (1–19%)';
+  document.getElementById('mc-baixo').innerHTML=  '<strong>'+baixo+'</strong>🟠 Baixo (20–39%)';
+  document.getElementById('mc-ok').innerHTML=     '<strong>'+ok+'</strong>✅ Margem ≥ 40%';
   document.getElementById('mc-sem').innerHTML=    '<strong>'+semPreco+'</strong>⚪ Sem preço';
 
   /* badge na aba */
@@ -2935,7 +2988,7 @@ function renderMargem(filtro){
       badgeHtml='<span class="badge-m sz">⚪ sem preço</span>'; rowStyle='';
     } else if(m<0){
       badgeHtml='<span class="badge-m cr">🔴 PREJUÍZO</span>'; rowStyle='background:#fdecea';
-    } else if(m<30){
+    } else if(m<20){
       badgeHtml='<span class="badge-m at">🟡 CRÍTICO '+m.toFixed(1)+'%</span>'; rowStyle='background:#fffbeb';
     } else if(m<LIMITE_MARGEM){
       badgeHtml='<span class="badge-m bx">🟠 BAIXO '+m.toFixed(1)+'%</span>'; rowStyle='background:#fff5eb';
@@ -2945,34 +2998,78 @@ function renderMargem(filtro){
 
     /* se modo preview: sobrescreve com novo preço do map */
     var pvExibido=pv;
-    var novoCelula='—';
+    var novoCelula, novoCelulaStyle='';
     var rowExtraClass='';
 
     if(_modoPreview&&_previewMap[x.codigo]!==undefined){
       pvExibido=_previewMap[x.codigo];
       novoCelula='<span class="prev-cell">'+brl(pvExibido)+'</span>';
+      novoCelulaStyle='background:#f0e6ff';
       rowExtraClass=' prev-novo';
     } else if(precisaCorrigir&&novoPv){
-      novoCelula='<button class="btn bsm" onclick="previewUm(\''+eq(x.codigo)+'\')"'+
-        ' style="background:#7c3aed;color:#fff;font-size:.76rem">⚡ '+brl(novoPv)+'</button>';
+      /* mostra sugestão; duplo clique abre input */
+      novoCelula='<span style="color:#7c3aed;font-weight:700;cursor:pointer" title="Duplo clique para editar">'+brl(novoPv)+'</span>';
+      novoCelulaStyle='background:#f0e6ff;cursor:pointer';
+    } else {
+      novoCelula='<span style="color:#28a745;font-size:.8rem">✅ ok</span>';
     }
 
     var margemCell=m!==null
-      ?'<td style="font-weight:700;color:'+(m<0?'#dc3545':m<30?'#856404':m<LIMITE_MARGEM?'#d4730a':'#28a745')+'">'+m.toFixed(1)+'%</td>'
+      ?'<td style="font-weight:700;color:'+(m<0?'#dc3545':m<20?'#856404':m<LIMITE_MARGEM?'#d4730a':'#28a745')+'">'+m.toFixed(1)+'%</td>'
       :'<td style="color:#aaa">—</td>';
+
+    /* célula preço venda atual — duplo clique edita inline */
+    var pvCel='<td id="mpv-'+eq(x.codigo)+'" style="font-weight:600;cursor:pointer" '+
+      'ondblclick="editCelMargem(this,\''+eq(x.codigo)+'\')" title="Duplo clique para editar">'+brl(pv)+'</td>';
+
+    /* célula novo preço — duplo clique também edita */
+    var novoCel='<td id="mnovo-'+eq(x.codigo)+'" style="'+novoCelulaStyle+'" '+
+      'ondblclick="editCelMargem(document.getElementById(\'mpv-'+eq(x.codigo)+'\'),\''+eq(x.codigo)+'\')" title="Duplo clique para editar novo preço">'+
+      novoCelula+'</td>';
 
     return '<tr id="mrow-'+eq(x.codigo)+'" style="'+rowStyle+'">'+
       '<td>'+badgeHtml+'</td>'+
-      '<td>'+eh(x.codigo)+'</td>'+
+      '<td style="font-size:.8rem;color:#555">'+eh(x.codigo)+'</td>'+
       '<td>'+eh(x.nome)+'</td>'+
       '<td>'+eh(x.marca||'—')+'</td>'+
       '<td>'+brl(custo)+'</td>'+
-      '<td id="mpv-'+eq(x.codigo)+'" style="font-weight:600">'+brl(pv)+'</td>'+
+      pvCel+
       margemCell+
-      '<td id="mnovo-'+eq(x.codigo)+'">'+novoCelula+'</td>'+
-      '<td style="font-weight:600;color:'+(lucroUnit===null?'#aaa':lucroUnit<0?'#dc3545':'#28a745')+'">'+
+      novoCel+
+      '<td id="mlucro-'+eq(x.codigo)+'" style="font-weight:600;color:'+(lucroUnit===null?'#aaa':lucroUnit<0?'#dc3545':'#28a745')+'">'+
         (lucroUnit===null?'—':brl(lucroUnit))+'</td>'+
-      '<td><button class="btn ba2 bsm" onclick="abrirForm(\''+eq(x.codigo)+'\')">✏️ Editar</button></td>'+
+      (function(){
+        /* célula NF-e */
+        var nf=x._nf;
+        if(!nf) return '<td style="color:#aaa;font-size:.78rem;padding:6px 10px">—<br><span style="font-size:.7rem">sem NF</span></td>';
+        var nome=nf.nome_emitente||nf.arquivo||'NF importada';
+        var nomeExib=nome.length>24?nome.substring(0,24)+'…':nome;
+        var data=nf.data_importacao?dShort(nf.data_importacao):'';
+        var chave=nf.chave_nfe||'';
+        /* monta chave formatada em grupos de 4 para leitura */
+        var chaveFmt=chave.replace(/(.{4})/g,'$1 ').trim();
+        /* link consulta SEFAZ Nacional */
+        var sefazUrl=chave?'https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8=&nfe='+chave:'';
+        var safeCh=eq(chave);
+        return '<td style="font-size:.78rem;line-height:1.5;max-width:180px;padding:6px 8px">'+
+          /* fornecedor */
+          '<div style="font-weight:700;color:#0f766e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px" title="'+eh(nome)+'">📄 '+eh(nomeExib)+'</div>'+
+          /* cnpj + data */
+          '<div style="color:#555;font-size:.7rem">'+
+            (nf.cnpj_emitente?eh(nf.cnpj_emitente):'')+(data?' · '+data:'')+'</div>'+
+          /* chave truncada + botão copiar */
+          (chave?
+            '<div style="display:flex;align-items:center;gap:4px;margin-top:3px">'+
+              '<span style="color:#aaa;font-family:monospace;font-size:.65rem;overflow:hidden;text-overflow:ellipsis;max-width:100px" title="'+eh(chaveFmt)+'">'+chave.substring(0,16)+'…</span>'+
+              '<button data-chave="'+eh(chave)+'" onclick="copiarChaveNF(this.dataset.chave)" title="Copiar chave completa" '+
+                'style="border:none;background:#0f766e;color:#fff;border-radius:4px;padding:1px 6px;font-size:.7rem;cursor:pointer;white-space:nowrap;flex-shrink:0">'+
+                '📋 Copiar</button>'+
+              (sefazUrl?'<a href="'+sefazUrl+'" target="_blank" title="Consultar no SEFAZ" '+
+                'style="border:none;background:#1d4ed8;color:#fff;border-radius:4px;padding:1px 6px;font-size:.7rem;cursor:pointer;text-decoration:none;white-space:nowrap;flex-shrink:0">'+
+                '🔍 SEFAZ</a>':'')+'</div>'
+          :'')+
+        '</td>';
+      })()+
     '</tr>';
   }).join('');
 
@@ -3043,6 +3140,117 @@ function atualizarContSalvar(){
   if(res) res.textContent=cnt+' preços a atualizar';
 }
 
+/* ── Edição inline na tabela de margem (igual editCel da Edição Rápida) ── */
+function editCelMargem(td, codigo){
+  if(!td) return;
+  var orig=td.innerHTML;
+  /* extrai valor numérico atual */
+  var it=_margemTodos.find(function(x){return x.codigo===codigo;});
+  var val=it?(it.preco_venda||0):0;
+
+  var inp=document.createElement('input');
+  inp.className='inp-cel';
+  inp.type='number';
+  inp.step='0.01';
+  inp.min='0';
+  inp.value=val.toFixed(2);
+  inp.style.width='100%';
+  inp.style.minWidth='90px';
+
+  /* aponta sempre para a célula mpv (preço atual) */
+  var pvTd=document.getElementById('mpv-'+eq(codigo));
+  if(!pvTd) return;
+  pvTd.innerHTML=''; pvTd.appendChild(inp); inp.focus(); inp.select();
+
+  var feito=false;
+  async function salvar(){
+    if(feito) return; feito=true;
+    var novo=parseFloat(inp.value)||0;
+    try{
+      var r=await db.from('itens').update({preco_venda:novo}).eq('codigo',codigo);
+      if(r.error) throw new Error(r.error.message);
+
+      /* atualiza no array local */
+      if(it) it.preco_venda=novo;
+
+      /* atualiza célula preço */
+      pvTd.innerHTML=brl(novo);
+      pvTd.ondblclick=function(){ editCelMargem(pvTd,codigo); };
+
+      /* recalcula margem e lucro ao vivo */
+      var custo=it?(it.valor_unitario||0):0;
+      var m=calcMargem(custo,novo);
+      var lucro=novo-custo;
+      var novoPvSug=pvParaMargem(custo,LIMITE_MARGEM);
+
+      /* atualiza célula margem % */
+      var mrow=document.getElementById('mrow-'+eq(codigo));
+      if(mrow){
+        var tds=mrow.querySelectorAll('td');
+        /* td[6] = margem, td[7] = novo preço, td[8] = lucro */
+        if(tds[6]){
+          var cor=m===null?'#aaa':m<0?'#dc3545':m<20?'#856404':m<LIMITE_MARGEM?'#d4730a':'#28a745';
+          tds[6].style.color=cor;
+          tds[6].style.fontWeight='700';
+          tds[6].textContent=m!==null?m.toFixed(1)+'%':'—';
+        }
+        /* atualiza badge da linha */
+        if(tds[0]){
+          var bh;
+          if(m===null) bh='<span class="badge-m sz">⚪ sem preço</span>';
+          else if(m<0) bh='<span class="badge-m cr">🔴 PREJUÍZO</span>';
+          else if(m<20) bh='<span class="badge-m at">🟡 CRÍTICO '+m.toFixed(1)+'%</span>';
+          else if(m<LIMITE_MARGEM) bh='<span class="badge-m bx">🟠 BAIXO '+m.toFixed(1)+'%</span>';
+          else bh='<span class="badge-m ok">✅ '+m.toFixed(1)+'%</span>';
+          tds[0].innerHTML=bh;
+        }
+        /* atualiza row background */
+        if(m===null) mrow.style.background='';
+        else if(m<0) mrow.style.background='#fdecea';
+        else if(m<20) mrow.style.background='#fffbeb';
+        else if(m<LIMITE_MARGEM) mrow.style.background='#fff5eb';
+        else mrow.style.background='';
+      }
+
+      /* atualiza célula novo preço sugerido */
+      var novoCel=document.getElementById('mnovo-'+eq(codigo));
+      if(novoCel){
+        if(m!==null&&m>=LIMITE_MARGEM){
+          novoCel.innerHTML='<span style="color:#28a745;font-size:.8rem">✅ ok</span>';
+          novoCel.style.background='';
+          novoCel.ondblclick=null;
+        } else if(novoPvSug){
+          novoCel.innerHTML='<span style="color:#7c3aed;font-weight:700;cursor:pointer" title="Duplo clique para editar">'+brl(novoPvSug)+'</span>';
+          novoCel.style.background='#f0e6ff';
+          novoCel.ondblclick=function(){ editCelMargem(pvTd,codigo); };
+        }
+      }
+
+      /* atualiza célula lucro */
+      var lucroEl=document.getElementById('mlucro-'+eq(codigo));
+      if(lucroEl){
+        lucroEl.textContent=m!==null?brl(lucro):'—';
+        lucroEl.style.color=m===null?'#aaa':lucro<0?'#dc3545':'#28a745';
+      }
+
+      /* remove do previewMap se existia */
+      delete _previewMap[codigo];
+      atualizarContSalvar();
+
+      toast('✅ Preço atualizado!','ok');
+    }catch(e){
+      toast('❌ '+e.message,'er');
+      pvTd.innerHTML=brl(val);
+      pvTd.ondblclick=function(){ editCelMargem(pvTd,codigo); };
+    }
+  }
+  inp.addEventListener('blur',salvar);
+  inp.addEventListener('keydown',function(e){
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){ feito=true; pvTd.innerHTML=brl(val); pvTd.ondblclick=function(){ editCelMargem(pvTd,codigo); }; }
+  });
+}
+
 /* ── Salvar todos no banco ── */
 async function salvarTodosMargem(){
   var codigos=Object.keys(_previewMap);
@@ -3104,6 +3312,32 @@ async function atualizarBadgeMargem(){
   });
   var badge=document.getElementById('badge-margem');
   if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
+}
+
+/* ── Copiar chave NF-e para área de transferência ── */
+function copiarChaveNF(chave){
+  if(!chave){toast('Chave não disponível','er');return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(chave).then(function(){
+      toast('✅ Chave copiada! ('+chave.substring(0,8)+'…)','ok');
+    }).catch(function(){
+      _copiarFallback(chave);
+    });
+  } else {
+    _copiarFallback(chave);
+  }
+}
+function _copiarFallback(chave){
+  var ta=document.createElement('textarea');
+  ta.value=chave; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{
+    document.execCommand('copy');
+    toast('✅ Chave copiada! ('+chave.substring(0,8)+'…)','ok');
+  }catch(e){
+    toast('❌ Não foi possível copiar automaticamente','er');
+  }
+  document.body.removeChild(ta);
 }
 
 carregarCategorias().then(function(){ carregarTudo(); atualizarBadgeMargem(); });
