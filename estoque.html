@@ -369,10 +369,14 @@ tbody td{padding:8px 12px}
     </div>
     <div class="g2">
       <div class="cmp"><label>Estoque Atual</label><input type="number" id="fe" value="0" min="0"></div>
-      <div class="cmp"><label>Valor Unitário (R$)</label><input type="number" id="fv" value="0.00" step="0.01" min="0"></div>
+      <div class="cmp"><label>Valor Unitário (R$)</label><input type="number" id="fv" value="0.00" step="0.01" min="0" oninput="atualizarBadgeFpv()"></div>
     </div>
     <div class="g2">
-      <div class="cmp"><label>Preço de Venda (R$)</label><input type="number" id="fpv" value="0.00" step="0.01" min="0"></div>
+      <div class="cmp">
+        <label>Preço de Venda (R$) <span id="fpv-margem-badge" style="font-size:.75rem;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:8px;display:none"></span></label>
+        <input type="number" id="fpv" value="0.00" step="0.01" min="0" oninput="atualizarBadgeFpv()" style="transition:border .2s,background .2s">
+        <div id="fpv-hint" style="font-size:.75rem;margin-top:3px;display:none"></div>
+      </div>
       <div class="cmp"><label>Marca da Peça</label><input type="text" id="fmarca" placeholder="Ex: Bosch, NGK..."></div>
     </div>
     <div class="g2">
@@ -1838,6 +1842,30 @@ async function confirmarImportacao(){
   var cnpjEm   = _nfeParsed.cnpjEm;
 
   try{
+    /* ── Validação margem mínima 40% em todos os itens ── */
+    var _errosMargem=[];
+    itens.forEach(function(it){
+      var custo=it.vUnit||0, pv=it.precovenda||0;
+      if(custo<=0) return; /* sem custo não dá pra validar */
+      if(pv<=0){
+        _errosMargem.push(it.nome+' — sem preço de venda (mín: R$ '+(Math.ceil((custo/(1-LIMITE_MARGEM/100))*100)/100).toFixed(2).replace('.',',')+')');
+        return;
+      }
+      var m=(pv-custo)/pv*100;
+      if(m<LIMITE_MARGEM){
+        var pvMin=Math.ceil((custo/(1-LIMITE_MARGEM/100))*100)/100;
+        _errosMargem.push(it.nome+' — margem '+m.toFixed(1)+'% (mín: R$ '+pvMin.toFixed(2).replace('.',',')+')');
+      }
+    });
+    if(_errosMargem.length){
+      toast('❌ '+_errosMargem.length+' item(ns) com margem abaixo de '+LIMITE_MARGEM+'%','er');
+      alert('⚠️ Não é possível importar — os seguintes itens estão abaixo de '+LIMITE_MARGEM+'% de margem:\n\n'+
+        _errosMargem.map(function(e,i){return (i+1)+'. '+e;}).join('\n')+
+        '\n\nCorrija o Preço de Venda na coluna amarela antes de confirmar.');
+      document.getElementById('btn-confirmar').disabled=false;
+      return;
+    }
+
     var totalCompra=0, totalItens=0, novosItens=0;
     var movsBatch=[];
 
@@ -1978,6 +2006,7 @@ async function abrirForm(codigo){
     document.getElementById('fe').value    = d.estoque;
     document.getElementById('fv').value    = Number(d.valor_unitario).toFixed(2);
     document.getElementById('fpv').value   = Number(d.preco_venda||0).toFixed(2);
+    setTimeout(atualizarBadgeFpv,50);
     document.getElementById('fmarca').value= d.marca||'';
     document.getElementById('fapl').value  = d.aplicacao||'';
     document.getElementById('fcat').value  = d.categoria_id||'';
@@ -2118,6 +2147,29 @@ async function salvarItem(){
   var emax   = parseInt(document.getElementById('fmax').value)||1000;
 
   if(!codigo||!nome){ toast('Código e Nome são obrigatórios!','er'); return; }
+
+  /* ── Validação margem mínima 40% ── */
+  if(val>0 && pv>0){
+    var _margem=(pv-val)/pv*100;
+    if(_margem<LIMITE_MARGEM){
+      var _pvMin=Math.ceil((val/(1-LIMITE_MARGEM/100))*100)/100;
+      /* destaca o campo preço de venda */
+      var _fpv=document.getElementById('fpv');
+      _fpv.style.border='2px solid #dc3545';
+      _fpv.style.background='#fff5f5';
+      setTimeout(function(){_fpv.style.border='';_fpv.style.background='';},3000);
+      toast('❌ Margem de lucro '+_margem.toFixed(1)+'% — mínimo é '+LIMITE_MARGEM+'%. Preço mínimo: R$ '+_pvMin.toFixed(2).replace('.',','),'er');
+      return;
+    }
+  } else if(val>0 && pv===0){
+    var _pvMin0=Math.ceil((val/(1-LIMITE_MARGEM/100))*100)/100;
+    var _fpv0=document.getElementById('fpv');
+    _fpv0.style.border='2px solid #dc3545';
+    _fpv0.style.background='#fff5f5';
+    setTimeout(function(){_fpv0.style.border='';_fpv0.style.background='';},3000);
+    toast('❌ Informe o Preço de Venda. Mínimo para 40% de margem: R$ '+_pvMin0.toFixed(2).replace('.',','),'er');
+    return;
+  }
 
   try{
     if(modo==='editar-est'){
@@ -3312,6 +3364,56 @@ async function atualizarBadgeMargem(){
   });
   var badge=document.getElementById('badge-margem');
   if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
+}
+
+/* ── Badge de margem ao vivo no formulário de cadastro ── */
+function atualizarBadgeFpv(){
+  var val=parseFloat(document.getElementById('fv').value)||0;
+  var pv =parseFloat(document.getElementById('fpv').value)||0;
+  var badge=document.getElementById('fpv-margem-badge');
+  var hint =document.getElementById('fpv-hint');
+  var fpvEl=document.getElementById('fpv');
+  if(!badge||!hint||!fpvEl) return;
+
+  if(val<=0){ /* sem custo, não valida */
+    badge.style.display='none'; hint.style.display='none';
+    fpvEl.style.border=''; fpvEl.style.background=''; return;
+  }
+
+  var pvMin=Math.ceil((val/(1-LIMITE_MARGEM/100))*100)/100;
+
+  if(pv<=0){
+    badge.style.display='inline';
+    badge.style.background='#6c757d'; badge.style.color='#fff';
+    badge.textContent='? %';
+    hint.style.display='block'; hint.style.color='#856404';
+    hint.textContent='⚠️ Informe o preço de venda. Mínimo: R$ '+pvMin.toFixed(2).replace('.',',');
+    fpvEl.style.border='2px solid #ffc107'; fpvEl.style.background='#fffbeb';
+    return;
+  }
+
+  var m=(pv-val)/pv*100;
+  badge.style.display='inline';
+  fpvEl.style.border=''; fpvEl.style.background='';
+
+  if(m<0){
+    badge.style.background='#dc3545'; badge.style.color='#fff';
+    badge.textContent='🔴 '+m.toFixed(1)+'%';
+    hint.style.display='block'; hint.style.color='#dc3545';
+    hint.textContent='❌ Prejuízo! Mínimo para 40%: R$ '+pvMin.toFixed(2).replace('.',',');
+    fpvEl.style.border='2px solid #dc3545'; fpvEl.style.background='#fff5f5';
+  } else if(m<LIMITE_MARGEM){
+    badge.style.background='#fd7e14'; badge.style.color='#fff';
+    badge.textContent='🟠 '+m.toFixed(1)+'%';
+    hint.style.display='block'; hint.style.color='#7d3000';
+    hint.textContent='⚠️ Abaixo de '+LIMITE_MARGEM+'%. Mínimo: R$ '+pvMin.toFixed(2).replace('.',',');
+    fpvEl.style.border='2px solid #fd7e14'; fpvEl.style.background='#fff5eb';
+  } else {
+    badge.style.background='#28a745'; badge.style.color='#fff';
+    badge.textContent='✅ '+m.toFixed(1)+'%';
+    hint.style.display='none';
+    fpvEl.style.border='2px solid #28a745'; fpvEl.style.background='#f0fff4';
+  }
 }
 
 /* ── Copiar chave NF-e para área de transferência ── */
