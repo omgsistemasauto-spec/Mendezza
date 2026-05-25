@@ -136,6 +136,7 @@ tbody td{padding:8px 12px}
   <button class="aba"       onclick="aba('edicao')">📝 Edição Rápida</button>
   <button class="aba"       onclick="aba('historico')">📜 Histórico NF-e</button>
   <button class="aba"       onclick="aba('gestao')" style="background:rgba(220,53,69,.25)">🚨 Gestão de Estoque</button>
+  <button class="aba" id="aba-margem" onclick="aba('margem')" style="background:rgba(255,193,7,.3);animation:piscaMargem 2s infinite">💰 Margem Baixa <span id="badge-margem" style="background:#dc3545;color:#fff;border-radius:10px;padding:1px 7px;font-size:.75rem;margin-left:4px;display:none">0</span></button>
 </div>
 
 <!-- ── ITENS ── -->
@@ -160,9 +161,9 @@ tbody td{padding:8px 12px}
       <thead><tr>
         <th>Código</th><th>Foto</th><th>Nome</th><th>Unidade</th><th>Valor Unit.</th>
         <th>Estoque</th><th>Valor Total</th><th>Mín</th><th>Máx</th>
-        <th>Data Criação</th><th>Último Fornecedor</th><th>CNPJ</th><th>Ações</th>
+        <th>Data Criação</th><th>Último Fornecedor</th><th>CNPJ</th><th>Preço Venda / Margem</th><th>Ações</th>
       </tr></thead>
-      <tbody id="ti"><tr class="vz"><td colspan="13">Carregando...</td></tr></tbody>
+      <tbody id="ti"><tr class="vz"><td colspan="14">Carregando...</td></tr></tbody>
     </table>
   </div>
 </div>
@@ -269,9 +270,75 @@ tbody td{padding:8px 12px}
   </div>
 </div>
 
+<!-- ── MARGEM BAIXA ── -->
+<div id="p-margem" class="painel">
+  <div class="barra" style="background:linear-gradient(90deg,#b8860b,#d4a017);flex-wrap:wrap;gap:10px;padding:12px 20px">
+    <span class="btit">💰 Alerta de Margem Baixa — abaixo de 60% de lucro</span>
+    <div class="busca" style="background:rgba(255,255,255,.25)">
+      🔍<input id="bm" placeholder="Pesquisar..." oninput="pesqMargem()">
+    </div>
+    <button class="btn" onclick="carregarMargem()" style="background:rgba(255,255,255,.2);color:#fff">🔄 Atualizar</button>
+    <button id="btn-preview-todos" class="btn" onclick="ativarPreviewTodos()"
+      style="background:#7c3aed;color:#fff;font-weight:700">👁 Preview Todos</button>
+    <button id="btn-salvar-todos" class="btn bv" onclick="salvarTodosMargem()" style="display:none;font-weight:700">
+      💾 Salvar Todos (<span id="cnt-salvar">0</span>)
+    </button>
+    <button id="btn-cancelar-prev" class="btn bc" onclick="cancelarPreview()" style="display:none">✕ Cancelar</button>
+  </div>
+
+  <!-- Banner modo preview -->
+  <div id="banner-preview" style="display:none;background:#7c3aed;color:#fff;padding:10px 20px;
+    font-size:.88rem;font-weight:700;display:none;align-items:center;gap:16px;flex-wrap:wrap">
+    <span>👁 MODO PREVISÃO — preços sugeridos para 60% de margem. Revise e clique em 💾 Salvar Todos para aplicar.</span>
+    <span id="prev-resumo" style="background:rgba(255,255,255,.2);padding:3px 10px;border-radius:6px"></span>
+  </div>
+
+  <!-- Cards resumo -->
+  <div style="display:flex;gap:12px;padding:14px 16px;flex-wrap:wrap">
+    <div id="mc-critico" class="gcard" style="background:#f8d7da;border-left:4px solid #dc3545;color:#721c24"></div>
+    <div id="mc-atencao" class="gcard" style="background:#fff3cd;border-left:4px solid #ffc107;color:#856404"></div>
+    <div id="mc-baixo"   class="gcard" style="background:#ffe5cc;border-left:4px solid #fd7e14;color:#7d3000"></div>
+    <div id="mc-ok"      class="gcard" style="background:#d4edda;border-left:4px solid #28a745;color:#155724"></div>
+    <div id="mc-sem"     class="gcard" style="background:#e2e3e5;border-left:4px solid #6c757d;color:#383d41"></div>
+  </div>
+
+  <!-- Legenda -->
+  <div style="background:#fffbeb;border-bottom:1px solid #f9c74f;padding:8px 20px;font-size:.8rem;color:#854d0e;display:flex;gap:20px;flex-wrap:wrap">
+    <span>🔴 <strong>Margem negativa</strong> — vendendo no prejuízo</span>
+    <span>🟡 <strong>Margem 1–29%</strong> — crítico</span>
+    <span>🟠 <strong>Margem 30–59%</strong> — abaixo do limite de 60%</span>
+    <span>✅ <strong>Margem ≥ 60%</strong> — dentro do esperado</span>
+  </div>
+
+  <div class="tw" style="margin-top:0">
+    <table>
+      <thead><tr>
+        <th>Alerta</th><th>Código</th><th>Nome</th><th>Marca</th>
+        <th>Custo (Unit.)</th><th>Preço Venda Atual</th><th>Margem %</th>
+        <th id="th-novo-preco" style="background:#7c3aed;color:#fff">Novo Preço (60%)</th>
+        <th>Lucro Unit.</th><th>Ações</th>
+      </tr></thead>
+      <tbody id="tm"><tr class="vz"><td colspan="10">Clique na aba para carregar...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
 <style>
 .gcard{border-radius:8px;padding:12px 18px;min-width:160px;flex:1;font-size:.88rem;line-height:1.6}
 .gcard strong{display:block;font-size:1.5rem;font-weight:800}
+@keyframes piscaMargem{0%,100%{background:rgba(255,193,7,.3)}50%{background:rgba(220,53,69,.45)}}
+.margem-critico{background:#f8d7da !important}
+.margem-atencao{background:#fff3cd !important}
+.margem-baixa{background:#fdebd0 !important}
+.badge-m{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.badge-m.cr{background:#dc3545;color:#fff}
+.badge-m.at{background:#ffc107;color:#222}
+.badge-m.bx{background:#fd7e14;color:#fff}
+.badge-m.ok{background:#28a745;color:#fff}
+.badge-m.sz{background:#6c757d;color:#fff}
+.prev-novo{background:#f0e6ff !important}
+.prev-cell{color:#7c3aed;font-weight:800;font-size:.92rem}
+.prev-cell.aplicado{color:#28a745}
 </style>
 
 <!-- ── MODAL NOVO/EDITAR ITEM ── -->
@@ -281,15 +348,6 @@ tbody td{padding:8px 12px}
     <h2 id="mf-titulo">➕ Novo Item</h2>
 
     <div class="cmp"><label>Código *</label><input id="fc" readonly></div>
-    <div class="cmp">
-      <label>Código de Barras (EAN)</label>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="text" id="fean" placeholder="Ex: 7891234567890" style="flex:1"
-          oninput="this.value=this.value.replace(/\D/g,'')">
-        <button type="button" class="btn ba2 bsm" onclick="document.getElementById('fean-scan').click()" title="Usar câmera">📷</button>
-        <input type="file" id="fean-scan" accept="image/*" capture="environment" style="display:none" onchange="scanBarcode(event)">
-      </div>
-    </div>
     <div class="cmp">
       <label>Nome *</label>
       <input id="fn" placeholder="Nome do item" oninput="buscaSug()" onkeydown="tecladoSug(event)">
@@ -1140,7 +1198,7 @@ function toast(msg,tipo){
    ABAS
 ══════════════════════════════════════════ */
 function aba(nome){
-  var ns=['itens','edicao','historico','gestao'];
+  var ns=['itens','edicao','historico','gestao','margem'];
   document.querySelectorAll('.aba').forEach(function(b,i){
     b.classList.toggle('ativa',ns[i]===nome);
   });
@@ -1150,6 +1208,7 @@ function aba(nome){
   if(nome==='edicao')   carregarEdicao('');
   if(nome==='historico') carregarHistorico();
   if(nome==='gestao')   carregarGestao();
+  if(nome==='margem')   carregarMargem();
 }
 
 function carregarTudo(){
@@ -1164,7 +1223,7 @@ function carregarTudo(){
 ══════════════════════════════════════════ */
 async function carregarItens(termo){
   var el=document.getElementById('ti');
-  el.innerHTML='<tr class="vz"><td colspan="12">Carregando...</td></tr>';
+  el.innerHTML='<tr class="vz"><td colspan="14">Carregando...</td></tr>';
 
   /* tenta view primeiro, fallback na tabela direta */
   var q=db.from('vw_itens_detalhados').select('*');
@@ -1178,17 +1237,26 @@ async function carregarItens(termo){
     var q2=db.from('itens').select('codigo,nome,unidade,qtd_por_caixa,valor_unitario,preco_venda,estoque,estoque_min,estoque_max,marca,aplicacao,data_criacao,categoria_id');
     if(termo) q2=q2.or('codigo.ilike.%'+termo+'%,nome.ilike.%'+termo+'%,marca.ilike.%'+termo+'%');
     r=await q2.order('codigo');
-    if(r.error){ el.innerHTML='<tr class="vz"><td colspan="12">❌ '+eh(r.error.message)+'</td></tr>'; return; }
+    if(r.error){ el.innerHTML='<tr class="vz"><td colspan="14">❌ '+eh(r.error.message)+'</td></tr>'; return; }
   }
 
   var rows=r.data||[];
-  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="12">Nenhum item encontrado.</td></tr>'; return; }
+  if(!rows.length){ el.innerHTML='<tr class="vz"><td colspan="14">Nenhum item encontrado.</td></tr>'; return; }
 
   el.innerHTML=rows.map(function(x){
     var cls=x.estoque<(x.estoque_min||0)?'eb':x.estoque>(x.estoque_max||9999)?'ea':'';
     var unid=x.unidade==='CX'&&x.qtd_por_caixa?x.unidade+' ('+x.qtd_por_caixa+' un)':(x.unidade||'');
     var vTotal=(x.valor_total!==undefined)?brl(x.valor_total):brl((x.valor_unitario||0)*(x.estoque||0));
-    return '<tr>'+
+    /* badge de margem na coluna Preço Venda */
+    var custo=x.valor_unitario||0, pv=x.preco_venda||0;
+    var margem= pv>0 ? ((pv-custo)/pv*100) : (pv===0&&custo===0?null:-999);
+    var badgePv='';
+    if(margem===null){badgePv='<br><span class="badge-m sz">sem preço</span>';}
+    else if(margem<0){badgePv='<br><span class="badge-m cr">🔴 prejuízo '+margem.toFixed(0)+'%</span>';}
+    else if(margem<30){badgePv='<br><span class="badge-m at">🟡 '+margem.toFixed(0)+'%</span>';}
+    else if(margem<60){badgePv='<br><span class="badge-m bx">🟠 '+margem.toFixed(0)+'%</span>';}
+    var rowStyle=(margem!==null&&margem<60&&custo>0)?'background:#fff9f0':'';
+    return '<tr style="'+rowStyle+'">'+
       '<td>'+eh(x.codigo)+'</td>'+
       '<td style="text-align:center">'+
         (x.foto_url
@@ -1206,6 +1274,7 @@ async function carregarItens(termo){
       '<td>'+dShort(x.data_criacao)+'</td>'+
       '<td>'+eh(x.ultimo_fornecedor||'—')+'</td>'+
       '<td>'+eh(x.cnpj_fornecedor||'—')+'</td>'+
+      '<td style="white-space:nowrap">'+brl(pv)+badgePv+'</td>'+
       '<td>'+
         '<button class="btn ba2 bsm" onclick="abrirForm(\''+eq(x.codigo)+'\')">✏️ Editar</button> '+
         '<button class="btn br bsm" onclick="excluirItem(\''+eq(x.codigo)+'\')">🗑️</button>'+
@@ -1862,7 +1931,7 @@ async function abrirForm(codigo){
   _formAberto=true;
 
   /* limpa todos os campos */
-  ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax','fean'].forEach(function(id){
+  ['fc','fn','fe','fv','fpv','fmarca','fmin','fmax'].forEach(function(id){
     document.getElementById(id).value='';
   });
   document.getElementById('fqc').value='1';
@@ -1896,7 +1965,6 @@ async function abrirForm(codigo){
     document.getElementById('fcat').value  = d.categoria_id||'';
     document.getElementById('fmin').value  = d.estoque_min;
     document.getElementById('fmax').value  = d.estoque_max;
-    document.getElementById('fean').value  = d.codigo_barras||'';
     mudaUnidade();
   }else{
     document.getElementById('mf-titulo').textContent='➕ Novo Item';
@@ -2030,7 +2098,6 @@ async function salvarItem(){
   var catId  = document.getElementById('fcat').value||null;
   var emin   = parseInt(document.getElementById('fmin').value)||0;
   var emax   = parseInt(document.getElementById('fmax').value)||1000;
-  var ean    = document.getElementById('fean').value.trim()||null;
 
   if(!codigo||!nome){ toast('Código e Nome são obrigatórios!','er'); return; }
 
@@ -2054,8 +2121,7 @@ async function salvarItem(){
         estoque:est,estoque_inicial:est,valor_unitario:val,
         preco_venda:pv,marca:marca,aplicacao:apl,
         categoria_id:catId?parseInt(catId):null,
-        estoque_min:emin,estoque_max:emax,
-        codigo_barras:ean
+        estoque_min:emin,estoque_max:emax
       });
       if(ins.error) throw new Error(ins.error.message);
       await db.from('historico_compras').insert({data:new Date().toISOString(),valor_total:est*val,chave_nfe:null});
@@ -2072,8 +2138,7 @@ async function salvarItem(){
         estoque:est,valor_unitario:val,preco_venda:pv,
         marca:marca,aplicacao:apl,
         categoria_id:catId?parseInt(catId):null,
-        estoque_min:emin,estoque_max:emax,
-        codigo_barras:ean
+        estoque_min:emin,estoque_max:emax
       }).eq('codigo',orig);
       if(upd2.error) throw new Error(upd2.error.message);
       toast('Item atualizado com sucesso!','ok');
@@ -2605,16 +2670,6 @@ function resetTokens(e){
   atualizarBarraTokens();
   toast('Tokens zerados!','ok');
 }
-/* ── SCAN BARCODE (câmera) ── */
-function scanBarcode(e){
-  var file=e.target.files[0];
-  if(!file){ return; }
-  /* apenas informa ao usuário — leitura real de código de barras por câmera
-     requer lib como ZXing; por ora, avisa e deixa digitar manualmente */
-  toast('📷 Imagem capturada — digite o código manualmente abaixo.','av');
-  e.target.value='';
-}
-
 var GEMINI_KEY = 'AIzaSyDTKN8wq1allT2b3HoLVFFE-qVhHxhLylQ';
 
 async function sugerirAplicacaoIA(){
@@ -2773,7 +2828,285 @@ async function sugerirAplicacaoIAPreview(i){
 /* ══════════════════════════════════════════
    BOOT
 ══════════════════════════════════════════ */
-carregarCategorias().then(function(){ carregarTudo(); });
+/* ══════════════════════════════════════════
+   ALERTA DE MARGEM BAIXA
+   Limite: 60% de margem
+   Fórmula: margem = (pv - custo) / pv * 100
+   Novo preço p/ 60%: pv = custo / (1 - 0.60)  →  custo / 0.40
+══════════════════════════════════════════ */
+var _margemTodos=[];
+var _modoPreview=false;
+var _previewMap={};   /* codigo → novo_preco */
+
+var LIMITE_MARGEM=60;
+
+function calcMargem(custo,pv){
+  if(!pv||pv<=0) return null;
+  return (pv-custo)/pv*100;
+}
+
+/* Preço mínimo para atingir LIMITE_MARGEM% de margem */
+function pvParaMargem(custo,limite){
+  if(!custo||custo<=0) return null;
+  return custo/(1-(limite/100));
+}
+
+async function carregarMargem(termoBusca){
+  var el=document.getElementById('tm');
+  el.innerHTML='<tr class="vz"><td colspan="10">Carregando...</td></tr>';
+
+  _modoPreview=false; _previewMap={};
+  document.getElementById('btn-salvar-todos').style.display='none';
+  document.getElementById('btn-cancelar-prev').style.display='none';
+  document.getElementById('banner-preview').style.display='none';
+
+  var r=await db.from('itens')
+    .select('codigo,nome,marca,valor_unitario,preco_venda,estoque')
+    .order('nome');
+  if(r.error){el.innerHTML='<tr class="vz"><td colspan="10">❌ '+eh(r.error.message)+'</td></tr>';return;}
+
+  _margemTodos=r.data||[];
+  renderMargem(termoBusca||'');
+}
+
+function renderMargem(filtro){
+  var el=document.getElementById('tm');
+  var rows=_margemTodos;
+
+  if(filtro){
+    var fl=filtro.toLowerCase();
+    rows=rows.filter(function(x){
+      return (x.codigo&&x.codigo.toLowerCase().includes(fl))
+        ||(x.nome&&x.nome.toLowerCase().includes(fl))
+        ||(x.marca&&x.marca.toLowerCase().includes(fl));
+    });
+  }
+
+  /* contadores */
+  var critico=0,atencao=0,baixo=0,ok=0,semPreco=0;
+  rows.forEach(function(x){
+    var m=calcMargem(x.valor_unitario||0,x.preco_venda||0);
+    if(m===null){semPreco++;}
+    else if(m<0){critico++;}
+    else if(m<30){atencao++;}
+    else if(m<LIMITE_MARGEM){baixo++;}
+    else{ok++;}
+  });
+
+  var totalAlerta=critico+atencao+baixo;
+
+  /* ordena: piores primeiro, ok por último */
+  var sorted=[].concat(rows).sort(function(a,b){
+    var ma=calcMargem(a.valor_unitario||0,a.preco_venda||0);
+    var mb=calcMargem(b.valor_unitario||0,b.preco_venda||0);
+    if(ma===null&&mb===null) return 0;
+    if(ma===null) return 1;
+    if(mb===null) return -1;
+    return ma-mb;
+  });
+
+  /* cards */
+  document.getElementById('mc-critico').innerHTML='<strong>'+critico+'</strong>🔴 Prejuízo / negativo';
+  document.getElementById('mc-atencao').innerHTML='<strong>'+atencao+'</strong>🟡 Crítico (1–29%)';
+  document.getElementById('mc-baixo').innerHTML=  '<strong>'+baixo+'</strong>🟠 Baixo (30–59%)';
+  document.getElementById('mc-ok').innerHTML=     '<strong>'+ok+'</strong>✅ Margem ≥ 60%';
+  document.getElementById('mc-sem').innerHTML=    '<strong>'+semPreco+'</strong>⚪ Sem preço';
+
+  /* badge na aba */
+  var badge=document.getElementById('badge-margem');
+  badge.textContent=totalAlerta;
+  badge.style.display=totalAlerta>0?'inline':'none';
+
+  if(!sorted.length){
+    el.innerHTML='<tr class="vz"><td colspan="10">Nenhum item encontrado.</td></tr>';
+    return;
+  }
+
+  el.innerHTML=sorted.map(function(x){
+    var custo=x.valor_unitario||0, pv=x.preco_venda||0;
+    var m=calcMargem(custo,pv);
+    var lucroUnit=m!==null?(pv-custo):null;
+    var novoPv=pvParaMargem(custo,LIMITE_MARGEM);
+    var precisaCorrigir=(m===null||m<LIMITE_MARGEM)&&custo>0;
+
+    /* badge de situação */
+    var badgeHtml, rowStyle;
+    if(m===null){
+      badgeHtml='<span class="badge-m sz">⚪ sem preço</span>'; rowStyle='';
+    } else if(m<0){
+      badgeHtml='<span class="badge-m cr">🔴 PREJUÍZO</span>'; rowStyle='background:#fdecea';
+    } else if(m<30){
+      badgeHtml='<span class="badge-m at">🟡 CRÍTICO '+m.toFixed(1)+'%</span>'; rowStyle='background:#fffbeb';
+    } else if(m<LIMITE_MARGEM){
+      badgeHtml='<span class="badge-m bx">🟠 BAIXO '+m.toFixed(1)+'%</span>'; rowStyle='background:#fff5eb';
+    } else {
+      badgeHtml='<span class="badge-m ok">✅ '+m.toFixed(1)+'%</span>'; rowStyle='';
+    }
+
+    /* se modo preview: sobrescreve com novo preço do map */
+    var pvExibido=pv;
+    var novoCelula='—';
+    var rowExtraClass='';
+
+    if(_modoPreview&&_previewMap[x.codigo]!==undefined){
+      pvExibido=_previewMap[x.codigo];
+      novoCelula='<span class="prev-cell">'+brl(pvExibido)+'</span>';
+      rowExtraClass=' prev-novo';
+    } else if(precisaCorrigir&&novoPv){
+      novoCelula='<button class="btn bsm" onclick="previewUm(\''+eq(x.codigo)+'\')"'+
+        ' style="background:#7c3aed;color:#fff;font-size:.76rem">⚡ '+brl(novoPv)+'</button>';
+    }
+
+    var margemCell=m!==null
+      ?'<td style="font-weight:700;color:'+(m<0?'#dc3545':m<30?'#856404':m<LIMITE_MARGEM?'#d4730a':'#28a745')+'">'+m.toFixed(1)+'%</td>'
+      :'<td style="color:#aaa">—</td>';
+
+    return '<tr id="mrow-'+eq(x.codigo)+'" style="'+rowStyle+'">'+
+      '<td>'+badgeHtml+'</td>'+
+      '<td>'+eh(x.codigo)+'</td>'+
+      '<td>'+eh(x.nome)+'</td>'+
+      '<td>'+eh(x.marca||'—')+'</td>'+
+      '<td>'+brl(custo)+'</td>'+
+      '<td id="mpv-'+eq(x.codigo)+'" style="font-weight:600">'+brl(pv)+'</td>'+
+      margemCell+
+      '<td id="mnovo-'+eq(x.codigo)+'">'+novoCelula+'</td>'+
+      '<td style="font-weight:600;color:'+(lucroUnit===null?'#aaa':lucroUnit<0?'#dc3545':'#28a745')+'">'+
+        (lucroUnit===null?'—':brl(lucroUnit))+'</td>'+
+      '<td><button class="btn ba2 bsm" onclick="abrirForm(\''+eq(x.codigo)+'\')">✏️ Editar</button></td>'+
+    '</tr>';
+  }).join('');
+
+  /* atualiza contador botão salvar */
+  atualizarContSalvar();
+}
+
+/* ── Preview de um item só ── */
+function previewUm(codigo){
+  var it=_margemTodos.find(function(x){return x.codigo===codigo;});
+  if(!it) return;
+  var novoPv=pvParaMargem(it.valor_unitario||0,LIMITE_MARGEM);
+  if(!novoPv) return;
+  _previewMap[codigo]=Math.round(novoPv*100)/100;
+
+  /* atualiza só a célula sem re-renderizar tudo */
+  var cel=document.getElementById('mnovo-'+eq(codigo));
+  if(cel) cel.innerHTML='<span class="prev-cell">'+brl(_previewMap[codigo])+'</span>';
+  var row=document.getElementById('mrow-'+eq(codigo));
+  if(row) row.style.background='#f0e6ff';
+
+  atualizarContSalvar();
+  /* mostra botões se ao menos 1 preview ativo */
+  if(Object.keys(_previewMap).length>0){
+    document.getElementById('btn-salvar-todos').style.display='';
+    document.getElementById('btn-cancelar-prev').style.display='';
+  }
+}
+
+/* ── Preview de TODOS abaixo do limite ── */
+function ativarPreviewTodos(){
+  _modoPreview=true; _previewMap={};
+
+  _margemTodos.forEach(function(x){
+    var custo=x.valor_unitario||0, pv=x.preco_venda||0;
+    var m=calcMargem(custo,pv);
+    var precisaCorrigir=(m===null||m<LIMITE_MARGEM)&&custo>0;
+    if(precisaCorrigir){
+      var novoPv=pvParaMargem(custo,LIMITE_MARGEM);
+      if(novoPv) _previewMap[x.codigo]=Math.round(novoPv*100)/100;
+    }
+  });
+
+  /* re-renderiza com preview aplicado */
+  renderMargem(document.getElementById('bm').value.trim());
+
+  /* exibe banner e botões */
+  var ban=document.getElementById('banner-preview');
+  ban.style.display='flex';
+  document.getElementById('btn-salvar-todos').style.display='';
+  document.getElementById('btn-cancelar-prev').style.display='';
+  atualizarContSalvar();
+}
+
+/* ── Cancelar preview ── */
+function cancelarPreview(){
+  _modoPreview=false; _previewMap={};
+  document.getElementById('banner-preview').style.display='none';
+  document.getElementById('btn-salvar-todos').style.display='none';
+  document.getElementById('btn-cancelar-prev').style.display='none';
+  renderMargem(document.getElementById('bm').value.trim());
+}
+
+function atualizarContSalvar(){
+  var cnt=Object.keys(_previewMap).length;
+  document.getElementById('cnt-salvar').textContent=cnt;
+  var res=document.getElementById('prev-resumo');
+  if(res) res.textContent=cnt+' preços a atualizar';
+}
+
+/* ── Salvar todos no banco ── */
+async function salvarTodosMargem(){
+  var codigos=Object.keys(_previewMap);
+  if(!codigos.length){toast('Nenhum item no preview!','er');return;}
+
+  if(!confirm('Atualizar preço de venda de '+codigos.length+' produto(s) para margem de '+LIMITE_MARGEM+'%?')) return;
+
+  var btnSalvar=document.getElementById('btn-salvar-todos');
+  btnSalvar.textContent='⏳ Salvando...'; btnSalvar.disabled=true;
+
+  var ok=0, erros=0;
+  for(var i=0;i<codigos.length;i++){
+    var cod=codigos[i];
+    var novoPv=_previewMap[cod];
+    var r=await db.from('itens').update({preco_venda:novoPv}).eq('codigo',cod);
+    if(r.error){erros++;}
+    else{
+      ok++;
+      /* atualiza no array local */
+      var it=_margemTodos.find(function(x){return x.codigo===cod;});
+      if(it) it.preco_venda=novoPv;
+      /* visual: célula preço atual */
+      var celPv=document.getElementById('mpv-'+eq(cod));
+      if(celPv) celPv.textContent=brl(novoPv);
+      /* célula novo preço: marca como aplicado */
+      var celNovo=document.getElementById('mnovo-'+eq(cod));
+      if(celNovo) celNovo.innerHTML='<span class="prev-cell aplicado">✅ aplicado</span>';
+    }
+  }
+
+  btnSalvar.textContent='💾 Salvar Todos ('+document.getElementById('cnt-salvar').textContent+')';
+  btnSalvar.disabled=false;
+
+  if(erros===0){
+    toast('✅ '+ok+' preços atualizados!','ok');
+  } else {
+    toast('⚠️ '+ok+' ok, '+erros+' erros','av');
+  }
+
+  /* limpa preview e recarrega */
+  _modoPreview=false; _previewMap={};
+  document.getElementById('banner-preview').style.display='none';
+  document.getElementById('btn-salvar-todos').style.display='none';
+  document.getElementById('btn-cancelar-prev').style.display='none';
+  await carregarMargem();
+  atualizarBadgeMargem();
+}
+
+function pesqMargem(){ renderMargem(document.getElementById('bm').value.trim()); }
+
+/* ── atualiza badge da aba ao carregar itens ── */
+async function atualizarBadgeMargem(){
+  var r=await db.from('itens').select('valor_unitario,preco_venda');
+  if(r.error) return;
+  var cnt=0;
+  (r.data||[]).forEach(function(x){
+    var m=calcMargem(x.valor_unitario||0,x.preco_venda||0);
+    if(m!==null&&m<LIMITE_MARGEM) cnt++;
+  });
+  var badge=document.getElementById('badge-margem');
+  if(badge){ badge.textContent=cnt; badge.style.display=cnt>0?'inline':'none'; }
+}
+
+carregarCategorias().then(function(){ carregarTudo(); atualizarBadgeMargem(); });
 atualizarBarraTokens();
 </script>
 <script src="sidebar.js"></script>
