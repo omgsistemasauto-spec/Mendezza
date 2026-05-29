@@ -273,7 +273,7 @@ tbody td{padding:8px 12px}
 <!-- ── MARGEM BAIXA ── -->
 <div id="p-margem" class="painel">
   <div class="barra" style="background:linear-gradient(90deg,#b8860b,#d4a017);flex-wrap:wrap;gap:10px;padding:12px 20px">
-    <span class="btit">💰 Alerta de Margem Baixa — abaixo de 40% de lucro</span>
+    <span class="btit">💰 Alerta de Markup Baixo — abaixo de 40% sobre custo</span>
     <div class="busca" style="background:rgba(255,255,255,.25)">
       🔍<input id="bm" placeholder="Pesquisar..." oninput="pesqMargem()">
     </div>
@@ -304,10 +304,10 @@ tbody td{padding:8px 12px}
 
   <!-- Legenda -->
   <div style="background:#fffbeb;border-bottom:1px solid #f9c74f;padding:8px 20px;font-size:.8rem;color:#854d0e;display:flex;gap:20px;flex-wrap:wrap">
-    <span>🔴 <strong>Margem negativa</strong> — vendendo no prejuízo</span>
-    <span>🟡 <strong>Margem 1–19%</strong> — crítico</span>
-    <span>🟠 <strong>Margem 20–39%</strong> — abaixo do limite de 40%</span>
-    <span>✅ <strong>Margem ≥ 40%</strong> — dentro do esperado</span>
+    <span>🔴 <strong>Markup negativo</strong> — vendendo no prejuízo</span>
+    <span>🟡 <strong>Markup 1–19%</strong> — crítico</span>
+    <span>🟠 <strong>Markup 20–39%</strong> — abaixo do limite de 40%</span>
+    <span>✅ <strong>Markup ≥ 40%</strong> — dentro do esperado</span>
     <span style="margin-left:auto;background:#e8a800;color:#222;padding:2px 10px;border-radius:6px;font-weight:700">💡 Duplo clique em <u>Preço Venda</u> ou <u>Novo Preço</u> para editar</span>
   </div>
 
@@ -346,6 +346,29 @@ tbody td{padding:8px 12px}
 .nf-cell{max-width:160px;overflow:hidden}
 .nf-cell:hover{background:#f0fdf4 !important;cursor:default}
 </style>
+
+<!-- ── MODAL CONFIRMAÇÃO MARGEM BAIXA ── -->
+<div class="bd" id="modal-margem-confirm">
+  <div class="modal" style="width:520px;padding:0;overflow:hidden">
+    <!-- header -->
+    <div style="background:#dc3545;color:#fff;padding:18px 24px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:1.6rem">⚠️</span>
+      <div>
+        <div style="font-size:1rem;font-weight:800">Margem abaixo de 40%</div>
+        <div style="font-size:.78rem;opacity:.85" id="mmc-subtitulo">Confirme item por item para prosseguir</div>
+      </div>
+    </div>
+    <!-- lista de itens -->
+    <div style="padding:16px 20px;max-height:340px;overflow-y:auto" id="mmc-lista"></div>
+    <!-- rodapé -->
+    <div style="padding:14px 20px;background:#f8f9fa;border-top:1px solid #dee2e6;display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn bc" onclick="mmcCancelar()">✕ Cancelar</button>
+      <button class="btn" id="mmc-btn-ok"
+        style="background:#dc3545;color:#fff"
+        onclick="mmcConfirmar()">✅ Confirmar todos e salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── MODAL NOVO/EDITAR ITEM ── -->
 <div class="bd" id="mf">
@@ -566,51 +589,55 @@ tbody td{padding:8px 12px}
 
 <script>
 /* ══════════════════════════════════════════
-   GERAR IMAGENS COM IA — Gemini
+   BUSCAR IMAGENS — só itens SEM foto
+   Salva automaticamente produto a produto
 ══════════════════════════════════════════ */
-/* ── IMAGENS ── */
-var _imgItens=[], _imgLinks={}, _gerandoImgs=false;
-
+var _imgItens=[], _gerandoImgs=false;
 
 async function abrirModalGerarImagens(){
   document.getElementById('modal-imgs').classList.add('ab');
   document.getElementById('imgs-prog-bar').style.width='0%';
-  document.getElementById('imgs-prog-txt').textContent='';
-  document.getElementById('btn-salvar-imgs').disabled=true;
-  document.getElementById('btn-salvar-imgs').style.opacity='.35';
-  if(!SERPER_KEY) document.getElementById('serper-aviso').style.display='block';
+  document.getElementById('imgs-prog-txt').textContent='Carregando itens sem foto...';
+  document.getElementById('btn-gerar-imgs').disabled=false;
+  document.getElementById('btn-gerar-imgs').textContent='🚀 Buscar Imagens';
+  document.getElementById('btn-salvar-imgs').style.display='none';
+  if(!SERPER_KEY){ document.getElementById('serper-aviso').style.display='block'; return; }
 
-  /* Carrega TODOS os itens — paginação 1000 por vez */
-  _imgItens=[]; _imgLinks={};
+  /* Carrega SOMENTE itens sem foto_url */
+  _imgItens=[];
   var pagina=0, tamPag=1000;
   while(true){
-    var r=await db.from('itens').select('codigo,nome,marca,foto_url').order('nome')
+    var r=await db.from('itens')
+      .select('codigo,nome,marca,foto_url')
+      .is('foto_url',null)
+      .order('nome')
       .range(pagina*tamPag,(pagina+1)*tamPag-1);
     if(!r.data||!r.data.length) break;
     _imgItens=_imgItens.concat(r.data);
     if(r.data.length<tamPag) break;
     pagina++;
   }
-  _imgItens.forEach(function(it){ if(it.foto_url) _imgLinks[it.codigo]=it.foto_url; });
 
-  /* Renderiza todos os cards de uma vez */
   var g=document.getElementById('imgs-grid');
-  var comFoto=Object.keys(_imgLinks).length;
-  var semFoto=_imgItens.length-comFoto;
-  var mins=Math.ceil(semFoto*1.5/60);
-  document.getElementById('imgs-prog-txt').textContent=
-    _imgItens.length+' itens · '+comFoto+' com foto · '+semFoto+' sem foto · ~'+mins+' min';
+  if(!_imgItens.length){
+    g.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#6b7280;padding:48px;font-size:.95rem">✅ Todos os itens já têm foto!</div>';
+    document.getElementById('imgs-prog-txt').textContent='Nenhum item sem foto';
+    return;
+  }
 
+  var mins=Math.ceil(_imgItens.length*1.5/60);
+  document.getElementById('imgs-prog-txt').textContent=
+    _imgItens.length+' itens sem foto · ~'+mins+' min';
+
+  /* Renderiza grid só com itens sem foto */
   g.innerHTML=_imgItens.map(function(it){
-    var url=_imgLinks[it.codigo]||'';
     var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
-    return '<div class="ic'+(url?' ok':'')+'" id="ic-'+k+'">'+
-      '<div class="ic-foto" id="icf-'+k+'">'+
-        (url?'<img src="'+url+'" onload="this.classList.add(&quot;loaded&quot;)" onerror="this.classList.add(&quot;loaded&quot;)">':'📦')+
-      '</div>'+
+    return '<div class="ic" id="ic-'+k+'">'+
+      '<div class="ic-foto" id="icf-'+k+'">📦</div>'+
       '<div class="ic-info">'+
-        '<div class="ic-nome">'+eh(it.nome)+'</div>'+
+        '<div class="ic-nome" id="icn-'+k+'">'+eh(it.nome)+'</div>'+
         '<div class="ic-cod">'+eh(it.codigo)+'</div>'+
+        '<div class="ic-status" id="ics-'+k+'" style="font-size:.58rem;margin-top:2px;color:#6b7280"></div>'+
       '</div>'+
     '</div>';
   }).join('');
@@ -627,7 +654,7 @@ async function buscarImagem(nome,marca){
   var r=await fetch('https://google.serper.dev/images',{
     method:'POST',
     headers:{'X-API-KEY':SERPER_KEY,'Content-Type':'application/json'},
-    body:JSON.stringify({q:nome+(marca?' '+marca:'')+' peça automotiva',gl:'br',hl:'pt',num:3})
+    body:JSON.stringify({q:nome+(marca?' '+marca:'')+' peça automotiva',gl:'br',hl:'pt',num:5})
   });
   if(!r.ok) throw new Error('Serper '+r.status);
   var d=await r.json();
@@ -641,11 +668,11 @@ async function buscarImagem(nome,marca){
 async function gerarTodasImagens(){
   if(!SERPER_KEY){document.getElementById('serper-aviso').style.display='block';return;}
   if(_gerandoImgs) return;
-  if(!confirm('Buscar imagens para '+_imgItens.length+' itens (~'+Math.ceil(_imgItens.length*1.5/60)+' min)?')) return;
+  if(!_imgItens.length){toast('Nenhum item sem foto!','av');return;}
 
   _gerandoImgs=true;
   document.getElementById('btn-gerar-imgs').disabled=true;
-  document.getElementById('btn-gerar-imgs').textContent='⏳';
+  document.getElementById('btn-gerar-imgs').textContent='⏳ Buscando...';
 
   var total=_imgItens.length, ok=0, erro=0;
 
@@ -653,71 +680,64 @@ async function gerarTodasImagens(){
     if(!_gerandoImgs) break;
     var it=_imgItens[i];
     var k=it.codigo.replace(/[^a-zA-Z0-9]/g,'_');
-    var card=document.getElementById('ic-'+k);
+    var card   =document.getElementById('ic-'+k);
     var fotoDiv=document.getElementById('icf-'+k);
+    var statusEl=document.getElementById('ics-'+k);
 
-    /* Marca como buscando */
-    if(card) card.className='ic buscando';
+    /* Destaca o card atual — scroll até ele */
+    if(card){
+      card.className='ic buscando';
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+    if(statusEl) statusEl.textContent='🔍 buscando...';
 
-    /* Progresso */
+    /* Atualiza barra de progresso */
     document.getElementById('imgs-prog-bar').style.width=Math.round(i/total*100)+'%';
     document.getElementById('imgs-prog-txt').textContent=
-      (i+1)+'/'+total+' · ✅'+ok+' · ❌'+erro;
+      '🔍 '+eh(it.nome)+' ('+( i+1)+'/'+total+') · ✅'+ok+' · ❌'+erro;
 
     try{
       var url=await buscarImagem(it.nome,it.marca);
       if(url){
-        _imgLinks[it.codigo]=url;
+        /* Salva imediatamente no banco */
+        var rs=await db.from('itens').update({foto_url:url}).eq('codigo',it.codigo);
+        if(rs.error) throw new Error(rs.error.message);
+
         if(card) card.className='ic ok';
+        if(statusEl) statusEl.textContent='✅ salva';
         if(fotoDiv){
           fotoDiv.innerHTML='';
           var img=document.createElement('img');
           img.src=url;
           img.onload=function(){this.classList.add('loaded');};
-          img.onerror=function(){this.classList.add('loaded');this.style.opacity='.2';};
+          img.onerror=function(){this.classList.add('loaded');this.style.opacity='.3';};
           fotoDiv.appendChild(img);
         }
         ok++;
-      } else {
+      }else{
         if(card) card.className='ic erro';
+        if(statusEl) statusEl.textContent='❌ não encontrada';
         erro++;
       }
     }catch(e){
       if(card) card.className='ic erro';
+      if(statusEl) statusEl.textContent='❌ '+e.message;
       erro++;
     }
-    await new Promise(function(r){setTimeout(r,1500);});
+    await new Promise(function(res){setTimeout(res,1200);});
   }
 
   document.getElementById('imgs-prog-bar').style.width='100%';
-  document.getElementById('imgs-prog-txt').textContent='✅ Concluído · '+ok+' encontradas · '+erro+' não encontradas';
+  document.getElementById('imgs-prog-txt').textContent=
+    '✅ Concluído — '+ok+' salvas · '+erro+' não encontradas';
   _gerandoImgs=false;
   document.getElementById('btn-gerar-imgs').disabled=false;
-  document.getElementById('btn-gerar-imgs').textContent='🔄 Gerar';
-  if(ok>0){
-    document.getElementById('btn-salvar-imgs').disabled=false;
-    document.getElementById('btn-salvar-imgs').style.opacity='1';
-    toast('🖼️ '+ok+' imagens prontas! Clique em Salvar Todos.','ok');
-  }
+  document.getElementById('btn-gerar-imgs').textContent='🔄 Buscar novamente';
+  if(ok>0){ toast('🖼️ '+ok+' imagens salvas!','ok'); carregarTudo(); }
 }
 
-async function salvarTodasImagens(){
-  var codigos=Object.keys(_imgLinks);
-  if(!codigos.length){toast('Nenhuma imagem para salvar!','er');return;}
-  var btn=document.getElementById('btn-salvar-imgs');
-  btn.textContent='⏳ Salvando...'; btn.disabled=true;
-  var salvos=0,erros=0;
-  for(var i=0;i<codigos.length;i++){
-    var u=_imgLinks[codigos[i]];
-    if(!u) continue;
-    var r=await db.from('itens').update({foto_url:u}).eq('codigo',codigos[i]);
-    if(r.error) erros++; else salvos++;
-  }
-  btn.textContent='💾 Salvar Todos'; btn.disabled=false;
-  toast('✅ '+salvos+' fotos salvas!','ok');
-  fecharModalImgs();
-  carregarTudo();
-}
+/* mantida por compatibilidade mas não é mais usada */
+async function salvarTodasImagens(){ toast('Imagens já salvas automaticamente!','ok'); }
 </script>
 
 <!-- ══ MODAL GERAR IMAGENS — TELA CHEIA ══ -->
@@ -738,14 +758,9 @@ async function salvarTodasImagens(){
     <button id="btn-gerar-imgs" onclick="gerarTodasImagens()"
       style="background:#fff;color:#7c3aed;border:none;border-radius:8px;
       padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;flex-shrink:0">
-      🚀 Gerar
+      🚀 Buscar Imagens
     </button>
-    <button id="btn-salvar-imgs" onclick="salvarTodasImagens()" disabled
-      style="background:#22c55e;color:#fff;border:none;border-radius:8px;
-      padding:7px 18px;font-weight:800;cursor:pointer;font-size:.82rem;
-      flex-shrink:0;opacity:.35">
-      💾 Salvar Todos
-    </button>
+    <button id="btn-salvar-imgs" style="display:none"></button>
     <button onclick="fecharModalImgs()"
       style="background:rgba(255,255,255,.15);border:none;color:#fff;
       border-radius:8px;padding:7px 12px;cursor:pointer;font-size:1rem;flex-shrink:0">✕</button>
@@ -786,9 +801,9 @@ async function salvarTodasImagens(){
   overflow:hidden;display:flex;flex-direction:column;
   transition:border-color .25s
 }
-.ic.buscando{border-color:#3b82f6}
+.ic.buscando{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.4);transform:scale(1.04);z-index:2;position:relative}
 .ic.ok{border-color:#22c55e}
-.ic.erro{border-color:#374151;opacity:.5}
+.ic.erro{border-color:#374151;opacity:.45}
 
 /* Área da foto */
 .ic-foto{
@@ -1259,13 +1274,13 @@ async function carregarItens(termo){
     var vTotal=(x.valor_total!==undefined)?brl(x.valor_total):brl((x.valor_unitario||0)*(x.estoque||0));
     /* badge de margem na coluna Preço Venda */
     var custo=x.valor_unitario||0, pv=x.preco_venda||0;
-    var margem= pv>0 ? ((pv-custo)/pv*100) : (pv===0&&custo===0?null:-999);
+    var margem= custo>0 ? ((pv-custo)/custo*100) : (pv===0&&custo===0?null:null);
     var badgePv='';
     if(margem===null){badgePv='<br><span class="badge-m sz">sem preço</span>';}
     else if(margem<0){badgePv='<br><span class="badge-m cr">🔴 prejuízo '+margem.toFixed(0)+'%</span>';}
     else if(margem<20){badgePv='<br><span class="badge-m at">🟡 '+margem.toFixed(0)+'%</span>';}
     else if(margem<40){badgePv='<br><span class="badge-m bx">🟠 '+margem.toFixed(0)+'%</span>';}
-    var rowStyle=(margem!==null&&margem<40&&custo>0)?'background:#fff9f0':'';
+    var rowStyle=(margem!==null&&margem<LIMITE_MARGEM&&custo>0)?'background:#fff9f0':'';
     return '<tr style="'+rowStyle+'">'+
       '<td>'+eh(x.codigo)+'</td>'+
       '<td style="text-align:center">'+
@@ -1841,34 +1856,34 @@ async function confirmarImportacao(){
   var nomeEm   = _nfeParsed.nomeEm;
   var cnpjEm   = _nfeParsed.cnpjEm;
 
-  try{
-    /* ── Validação margem mínima 40% em todos os itens ── */
-    var _errosMargem=[];
-    itens.forEach(function(it){
-      var custo=it.vUnit||0, pv=it.precovenda||0;
-      if(custo<=0) return; /* sem custo não dá pra validar */
-      if(pv<=0){
-        _errosMargem.push(it.nome+' — sem preço de venda (mín: R$ '+(Math.ceil((custo/(1-LIMITE_MARGEM/100))*100)/100).toFixed(2).replace('.',',')+')');
-        return;
-      }
-      var m=(pv-custo)/pv*100;
-      if(m<LIMITE_MARGEM){
-        var pvMin=Math.ceil((custo/(1-LIMITE_MARGEM/100))*100)/100;
-        _errosMargem.push(it.nome+' — margem '+m.toFixed(1)+'% (mín: R$ '+pvMin.toFixed(2).replace('.',',')+')');
-      }
-    });
-    if(_errosMargem.length){
-      toast('❌ '+_errosMargem.length+' item(ns) com margem abaixo de '+LIMITE_MARGEM+'%','er');
-      alert('⚠️ Não é possível importar — os seguintes itens estão abaixo de '+LIMITE_MARGEM+'% de margem:\n\n'+
-        _errosMargem.map(function(e,i){return (i+1)+'. '+e;}).join('\n')+
-        '\n\nCorrija o Preço de Venda na coluna amarela antes de confirmar.');
-      document.getElementById('btn-confirmar').disabled=false;
-      return;
+  /* ── Validação markup mínimo 40% sobre custo ──
+     Usa o mesmo vUnitFinal que vai para o banco:
+     CX → vUnit / qtdCx   |   UN → vUnit                ── */
+  var _erros=[];
+  itens.forEach(function(it){
+    var qtdCx  = Math.max(1, parseInt(it.qtdCx)||1);
+    var custo  = it.tipo==='CX' ? (it.vUnit||0)/qtdCx : (it.vUnit||0);
+    var pv     = it.precovenda||0;
+    if(custo<=0||pv<=0) return;
+    var m=(pv-custo)/custo*100;
+    if(m<LIMITE_MARGEM){
+      var pvMin=(custo*(1+LIMITE_MARGEM/100)).toFixed(2).replace('.',',');
+      _erros.push('• '+it.nome+' — markup '+m.toFixed(1)+'% (mín R$ '+pvMin+')');
     }
+  });
+  if(_erros.length){
+    document.getElementById('btn-confirmar').disabled=false;
+    alert('❌ Itens com markup abaixo de '+LIMITE_MARGEM+'%:\n\n'+_erros.join('\n')+'\n\nCorrija o Preço de Venda na coluna amarela antes de importar.');
+    return;
+  }
 
+  _executarConfirmarImportacao(itens,chaveNfe,nomeEm,cnpjEm);
+}
+
+async function _executarConfirmarImportacao(itens,chaveNfe,nomeEm,cnpjEm){
+  try{
     var totalCompra=0, totalItens=0, novosItens=0;
     var movsBatch=[];
-
     for(var i=0;i<itens.length;i++){
       var it=itens[i];
       var qtdCx     = Math.max(1,parseInt(it.qtdCx)||1);
@@ -1883,7 +1898,7 @@ async function confirmarImportacao(){
       }
       totalCompra += it.qtdNf * it.vUnit;
 
-      var unidSalvar = it.tipo;        /* UN ou CX */
+      var unidSalvar = it.tipo;
       var qtdCxSalvar= it.tipo==='CX' ? qtdCx : 1;
       var tipoMov;
 
@@ -1910,7 +1925,6 @@ async function confirmarImportacao(){
         var upd=await db.from('itens').update(campos).eq('codigo',it.cod);
         if(upd.error) throw new Error('Atualizar '+it.cod+': '+upd.error.message);
 
-        /* verificar_limites */
         var rl=await db.from('itens').select('estoque_min,estoque_max').eq('codigo',it.cod).single();
         if(rl.data){
           if(novoEst<rl.data.estoque_min) toast('⚠️ Estoque BAIXO: '+it.cod,'av');
@@ -1926,7 +1940,6 @@ async function confirmarImportacao(){
       totalItens++;
     }
 
-    /* INSERT notas_fiscais PRIMEIRO (FK) */
     var iNf=await db.from('notas_fiscais').insert({
       chave_nfe:chaveNfe, arquivo:_nfeNome,
       data_importacao:new Date().toISOString(),
@@ -1934,34 +1947,22 @@ async function confirmarImportacao(){
     });
     if(iNf.error) throw new Error('notas_fiscais: '+iNf.error.message);
 
-    /* INSERT historico_compras */
     var iHc=await db.from('historico_compras').insert({
       data:new Date().toISOString(), valor_total:totalCompra, chave_nfe:chaveNfe
     });
     if(iHc.error) throw new Error('HistoricoCompras: '+iHc.error.message);
 
-    /* INSERT movimentacoes em lote */
     var iMov=await db.from('movimentacoes').insert(movsBatch);
     if(iMov.error) throw new Error('Movimentações: '+iMov.error.message);
 
     fecharPreview();
-    toast(
-      '✅ NF-e importada! Empresa: '+nomeEm+
-      ' | Itens: '+totalItens+' | Novos: '+novosItens+
-      ' | Total: '+brl(totalCompra),
-      'ok'
-    );
-    alert(
-      'NF-e '+chaveNfe+' importada com sucesso!\n\n'+
-      'Empresa: '+nomeEm+'\nCNPJ: '+cnpjEm+'\n'+
-      'Itens processados: '+totalItens+'\nNovos itens: '+novosItens+'\n'+
-      'Valor total: '+brl(totalCompra)
-    );
+    toast('✅ NF-e importada! Empresa: '+nomeEm+' | Itens: '+totalItens+' | Novos: '+novosItens+' | Total: '+brl(totalCompra),'ok');
+    alert('NF-e '+chaveNfe+' importada com sucesso!\n\nEmpresa: '+nomeEm+'\nCNPJ: '+cnpjEm+'\nItens processados: '+totalItens+'\nNovos itens: '+novosItens+'\nValor total: '+brl(totalCompra));
     carregarTudo();
 
   }catch(e){
     toast('❌ Falha: '+e.message,'er');
-    console.error('[confirmarImportacao]',e);
+    console.error('[_executarConfirmarImportacao]',e);
     document.getElementById('btn-confirmar').disabled=false;
   }
 }
@@ -2148,29 +2149,31 @@ async function salvarItem(){
 
   if(!codigo||!nome){ toast('Código e Nome são obrigatórios!','er'); return; }
 
-  /* ── Validação margem mínima 40% ── */
+  /* ── Validação markup mínimo 40% sobre custo ──
+     Só bloqueia se custo > 0 E pv > 0 E markup < LIMITE_MARGEM ── */
   if(val>0 && pv>0){
-    var _margem=(pv-val)/pv*100;
-    if(_margem<LIMITE_MARGEM){
-      var _pvMin=Math.ceil((val/(1-LIMITE_MARGEM/100))*100)/100;
-      /* destaca o campo preço de venda */
+    var _margem=(pv-val)/val*100;
+    if(_margem < LIMITE_MARGEM){
+      var _pvMin = Math.ceil((val*(1+LIMITE_MARGEM/100))*100)/100;
       var _fpv=document.getElementById('fpv');
       _fpv.style.border='2px solid #dc3545';
       _fpv.style.background='#fff5f5';
-      setTimeout(function(){_fpv.style.border='';_fpv.style.background='';},3000);
-      toast('❌ Margem de lucro '+_margem.toFixed(1)+'% — mínimo é '+LIMITE_MARGEM+'%. Preço mínimo: R$ '+_pvMin.toFixed(2).replace('.',','),'er');
+      setTimeout(function(){_fpv.style.border='';_fpv.style.background='';},4000);
+      var _itens=[{
+        nome: nome||codigo, custo: val, pvAtual: pv,
+        margem: _margem, pvMin: _pvMin
+      }];
+      _mmcCallback = function(){ _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax); };
+      mmcAbrir(_itens,'1 item com markup abaixo de '+LIMITE_MARGEM+'%');
       return;
     }
-  } else if(val>0 && pv===0){
-    var _pvMin0=Math.ceil((val/(1-LIMITE_MARGEM/100))*100)/100;
-    var _fpv0=document.getElementById('fpv');
-    _fpv0.style.border='2px solid #dc3545';
-    _fpv0.style.background='#fff5f5';
-    setTimeout(function(){_fpv0.style.border='';_fpv0.style.background='';},3000);
-    toast('❌ Informe o Preço de Venda. Mínimo para 40% de margem: R$ '+_pvMin0.toFixed(2).replace('.',','),'er');
-    return;
   }
 
+  /* passou na validação — executa direto */
+  _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax);
+}
+
+async function _executarSalvarItem(modo,orig,codigo,nome,unid,qtdCx,est,val,pv,marca,apl,catId,emin,emax){
   try{
     if(modo==='editar-est'){
       var ri=await db.from('itens').select('estoque,valor_unitario').eq('codigo',codigo).single();
@@ -2910,15 +2913,18 @@ var _previewMap={};   /* codigo → novo_preco */
 
 var LIMITE_MARGEM=40;
 
+/* Markup sobre custo: lucro% = (pv - custo) / custo * 100
+   Mínimo: pv >= custo * (1 + limite/100)  → custo * 1.40 para 40% */
 function calcMargem(custo,pv){
-  if(!pv||pv<=0) return null;
-  return (pv-custo)/pv*100;
+  if(!custo||custo<=0) return null; /* sem custo não tem como calcular */
+  if(!pv||pv<=0) return -999;       /* preço zero = prejuízo total */
+  return (pv-custo)/custo*100;
 }
 
-/* Preço mínimo para atingir LIMITE_MARGEM% de margem */
+/* Preço mínimo para markup LIMITE_MARGEM% sobre custo */
 function pvParaMargem(custo,limite){
   if(!custo||custo<=0) return null;
-  return custo/(1-(limite/100));
+  return custo*(1+limite/100);      /* custo * 1.40 para 40% */
 }
 
 async function carregarMargem(termoBusca){
@@ -3380,7 +3386,7 @@ function atualizarBadgeFpv(){
     fpvEl.style.border=''; fpvEl.style.background=''; return;
   }
 
-  var pvMin=Math.ceil((val/(1-LIMITE_MARGEM/100))*100)/100;
+  var pvMin=Math.ceil((val*(1+LIMITE_MARGEM/100))*100)/100;
 
   if(pv<=0){
     badge.style.display='inline';
@@ -3392,7 +3398,7 @@ function atualizarBadgeFpv(){
     return;
   }
 
-  var m=(pv-val)/pv*100;
+  var m=(pv-val)/val*100;
   badge.style.display='inline';
   fpvEl.style.border=''; fpvEl.style.background='';
 
@@ -3400,13 +3406,13 @@ function atualizarBadgeFpv(){
     badge.style.background='#dc3545'; badge.style.color='#fff';
     badge.textContent='🔴 '+m.toFixed(1)+'%';
     hint.style.display='block'; hint.style.color='#dc3545';
-    hint.textContent='❌ Prejuízo! Mínimo para 40%: R$ '+pvMin.toFixed(2).replace('.',',');
+    hint.textContent='❌ Prejuízo! Mínimo (40% sobre custo): R$ '+pvMin.toFixed(2).replace('.',',');
     fpvEl.style.border='2px solid #dc3545'; fpvEl.style.background='#fff5f5';
   } else if(m<LIMITE_MARGEM){
     badge.style.background='#fd7e14'; badge.style.color='#fff';
     badge.textContent='🟠 '+m.toFixed(1)+'%';
     hint.style.display='block'; hint.style.color='#7d3000';
-    hint.textContent='⚠️ Abaixo de '+LIMITE_MARGEM+'%. Mínimo: R$ '+pvMin.toFixed(2).replace('.',',');
+    hint.textContent='⚠️ Abaixo de '+LIMITE_MARGEM+'% markup. Mínimo: R$ '+pvMin.toFixed(2).replace('.',',');
     fpvEl.style.border='2px solid #fd7e14'; fpvEl.style.background='#fff5eb';
   } else {
     badge.style.background='#28a745'; badge.style.color='#fff';
@@ -3440,6 +3446,92 @@ function _copiarFallback(chave){
     toast('❌ Não foi possível copiar automaticamente','er');
   }
   document.body.removeChild(ta);
+}
+
+/* ══════════════════════════════════════════
+   MODAL CONFIRMAÇÃO MARGEM BAIXA (mmcAbrir / mmcCancelar / mmcConfirmar)
+   Exibe lista de itens com margem < LIMITE_MARGEM com checkbox item a item.
+   Só libera "Confirmar" quando TODOS estão marcados.
+══════════════════════════════════════════ */
+var _mmcCallback  = null;   /* função a chamar após confirmação */
+var _mmcItens     = [];     /* itens que precisam de confirmação */
+
+function brlMmc(v){ return 'R$ '+(v||0).toFixed(2).replace('.',','); }
+
+function mmcAbrir(itens, subtitulo){
+  _mmcItens = itens;
+  document.getElementById('mmc-subtitulo').textContent = subtitulo||'Confirme item por item para prosseguir';
+
+  var lista = document.getElementById('mmc-lista');
+  lista.innerHTML = itens.map(function(it, i){
+    var pvMin = it.pvMin || 0;
+    var mStr  = it.margem!=null ? it.margem.toFixed(1)+'%' : 'sem preço';
+    var mCor  = it.margem==null||it.margem<0 ? '#dc3545' : '#e67e22';
+    var pvAtualStr = it.pvAtual>0 ? brlMmc(it.pvAtual) : '—';
+
+    return '<div id="mmc-row-'+i+'" style="border:2px solid #dee2e6;border-radius:8px;padding:12px 14px;margin-bottom:10px;transition:.2s" data-idx="'+i+'">'+
+      '<div style="display:flex;align-items:flex-start;gap:12px">'+
+        '<input type="checkbox" id="mmc-chk-'+i+'" onchange="mmcToggle('+i+')" '+
+          'style="width:20px;height:20px;margin-top:3px;cursor:pointer;accent-color:#28a745;flex-shrink:0">'+
+        '<div style="flex:1">'+
+          '<div style="font-weight:700;font-size:.92rem;color:#2c3e50;margin-bottom:6px">'+
+            (it.nome||'—')+'</div>'+
+          '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem">'+
+            '<span>💰 Custo: <b>'+brlMmc(it.custo)+'</b></span>'+
+            '<span>🏷️ Preço atual: <b>'+pvAtualStr+'</b></span>'+
+            '<span style="color:'+mCor+'">📉 Margem: <b>'+mStr+'</b></span>'+
+            '<span style="color:#1a7a4a">✅ Mínimo 40%: <b>'+brlMmc(pvMin)+'</b></span>'+
+          '</div>'+
+          '<div id="mmc-conf-'+i+'" style="display:none;margin-top:8px;font-size:.77rem;'+
+            'color:#28a745;background:#f0fff4;border-radius:5px;padding:4px 8px">'+
+            '✔ Confirmado — será cadastrado com margem abaixo de 40%'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  /* botão começa desabilitado */
+  document.getElementById('mmc-btn-ok').disabled = true;
+  document.getElementById('mmc-btn-ok').style.opacity = '.45';
+  document.getElementById('modal-margem-confirm').classList.add('ab');
+}
+
+function mmcToggle(idx){
+  var chk = document.getElementById('mmc-chk-'+idx);
+  var row = document.getElementById('mmc-row-'+idx);
+  var conf= document.getElementById('mmc-conf-'+idx);
+  if(chk.checked){
+    row.style.borderColor='#28a745';
+    row.style.background='#f8fff9';
+    conf.style.display='block';
+  }else{
+    row.style.borderColor='#dee2e6';
+    row.style.background='';
+    conf.style.display='none';
+  }
+  /* habilita o botão só quando TODOS marcados */
+  var todos = _mmcItens.every(function(_,i){
+    var c=document.getElementById('mmc-chk-'+i);
+    return c && c.checked;
+  });
+  var btn = document.getElementById('mmc-btn-ok');
+  btn.disabled = !todos;
+  btn.style.opacity = todos ? '1' : '.45';
+}
+
+function mmcCancelar(){
+  document.getElementById('modal-margem-confirm').classList.remove('ab');
+  _mmcCallback = null;
+  _mmcItens    = [];
+}
+
+function mmcConfirmar(){
+  document.getElementById('modal-margem-confirm').classList.remove('ab');
+  var cb = _mmcCallback;
+  _mmcCallback = null;
+  _mmcItens    = [];
+  if(cb) cb();
 }
 
 carregarCategorias().then(function(){ carregarTudo(); atualizarBadgeMargem(); });
