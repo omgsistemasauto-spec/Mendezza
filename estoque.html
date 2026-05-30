@@ -1237,6 +1237,8 @@ function aba(nome){
 }
 
 function carregarTudo(){
+  var bi=document.getElementById('bi');
+  if(bi) bi.value='';
   carregarItens('');
   carregarEdicao('');
   carregarHistorico();
@@ -3386,33 +3388,38 @@ function atualizarBadgeFpv(){
     fpvEl.style.border=''; fpvEl.style.background=''; return;
   }
 
-  var pvMin=Math.ceil((val*(1+LIMITE_MARGEM/100))*100)/100;
+  /* pvMin = custo * 1.40  — arredonda pra cima no centavo */
+  var pvMinExato = val * (1 + LIMITE_MARGEM / 100);
+  var pvMin = Math.ceil(pvMinExato * 100) / 100;
 
-  if(pv<=0){
-    badge.style.display='inline';
+  /* markup real entre pv e custo */
+  var m = pv > 0 ? (pv - val) / val * 100 : null;
+
+  /* exibe badge e hint */
+  badge.style.display = 'inline';
+
+  if(pv <= 0){
     badge.style.background='#6c757d'; badge.style.color='#fff';
-    badge.textContent='? %';
+    badge.textContent='— %';
     hint.style.display='block'; hint.style.color='#856404';
-    hint.textContent='⚠️ Informe o preço de venda. Mínimo: R$ '+pvMin.toFixed(2).replace('.',',');
+    hint.innerHTML='⚠️ Informe o preço de venda.<br>Mínimo para '+LIMITE_MARGEM+'% markup: <b>R$ '+pvMin.toFixed(2).replace('.',',')+'</b> (custo × '+(1+LIMITE_MARGEM/100).toFixed(2)+')';
     fpvEl.style.border='2px solid #ffc107'; fpvEl.style.background='#fffbeb';
     return;
   }
 
-  var m=(pv-val)/val*100;
-  badge.style.display='inline';
   fpvEl.style.border=''; fpvEl.style.background='';
 
-  if(m<0){
+  if(m < 0){
     badge.style.background='#dc3545'; badge.style.color='#fff';
     badge.textContent='🔴 '+m.toFixed(1)+'%';
     hint.style.display='block'; hint.style.color='#dc3545';
-    hint.textContent='❌ Prejuízo! Mínimo (40% sobre custo): R$ '+pvMin.toFixed(2).replace('.',',');
+    hint.innerHTML='❌ Prejuízo! Preço abaixo do custo.<br>Mínimo para '+LIMITE_MARGEM+'% markup: <b>R$ '+pvMin.toFixed(2).replace('.',',')+'</b>';
     fpvEl.style.border='2px solid #dc3545'; fpvEl.style.background='#fff5f5';
-  } else if(m<LIMITE_MARGEM){
+  } else if(m < LIMITE_MARGEM){
     badge.style.background='#fd7e14'; badge.style.color='#fff';
     badge.textContent='🟠 '+m.toFixed(1)+'%';
     hint.style.display='block'; hint.style.color='#7d3000';
-    hint.textContent='⚠️ Abaixo de '+LIMITE_MARGEM+'% markup. Mínimo: R$ '+pvMin.toFixed(2).replace('.',',');
+    hint.innerHTML='⚠️ Markup '+m.toFixed(1)+'% — abaixo de '+LIMITE_MARGEM+'%.<br>Mínimo: <b>R$ '+pvMin.toFixed(2).replace('.',',')+'</b> (custo × '+(1+LIMITE_MARGEM/100).toFixed(2)+')';
     fpvEl.style.border='2px solid #fd7e14'; fpvEl.style.background='#fff5eb';
   } else {
     badge.style.background='#28a745'; badge.style.color='#fff';
