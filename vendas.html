@@ -651,6 +651,37 @@ tbody td{padding:8px 12px}
           text-align:right;font-size:.95rem;font-weight:700;outline:none"
           oninput="recalcularTotal()">
         <span id="fin-desc-sufixo" style="font-size:.88rem;color:#666;white-space:nowrap">%</span>
+        <button id="btn-desc-lock" onclick="abrirLockDesconto()"
+          title="Desbloquear desconto livre"
+          style="background:none;border:2px solid #dc3545;border-radius:8px;padding:4px 8px;
+          cursor:pointer;font-size:1rem;line-height:1;flex-shrink:0;transition:.2s"
+          >🔒</button>
+      </div>
+
+      <!-- Modal senha desconto livre -->
+      <div id="modal-lock-desc" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);
+        z-index:9999;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:14px;padding:28px 24px;width:300px;
+          box-shadow:0 8px 32px rgba(0,0,0,.25);text-align:center">
+          <div style="font-size:1.5rem;margin-bottom:6px">🔒</div>
+          <div style="font-weight:800;font-size:1rem;margin-bottom:4px">Desconto Livre</div>
+          <div style="font-size:.82rem;color:#666;margin-bottom:16px">Digite a senha gerencial</div>
+          <input id="inp-senha-lock" type="password" placeholder="Senha"
+            style="width:100%;padding:10px 14px;border:2px solid #e2e8f0;border-radius:8px;
+            font-size:1rem;text-align:center;outline:none;box-sizing:border-box;letter-spacing:4px"
+            onkeydown="if(event.key==='Enter')confirmarLockDesconto();if(event.key==='Escape')fecharLockDesconto()">
+          <div id="lock-erro" style="color:#dc3545;font-size:.78rem;margin-top:8px;display:none">
+            ❌ Senha incorreta
+          </div>
+          <div style="display:flex;gap:10px;margin-top:18px">
+            <button onclick="fecharLockDesconto()"
+              style="flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:8px;
+              background:#f8f9fa;cursor:pointer;font-weight:700">Cancelar</button>
+            <button onclick="confirmarLockDesconto()"
+              style="flex:1;padding:10px;border:none;border-radius:8px;
+              background:#7c3aed;color:#fff;cursor:pointer;font-weight:700">Confirmar</button>
+          </div>
+        </div>
       </div>
 
       <!-- Linha do desconto em reais -->
@@ -1888,6 +1919,10 @@ var _clienteFinSel = null;
 function abrirModalFinalizar(){
   if(!_carrinho.length){ toast('Carrinho vazio!','av'); return; }
   limparClienteFin();
+  _descontoLivre=false;
+  document.getElementById('btn-desc-lock').textContent='🔒';
+  document.getElementById('btn-desc-lock').style.borderColor='#dc3545';
+  document.getElementById('btn-desc-lock').style.background='none';
   document.getElementById('fin-desconto').value='0';
   document.getElementById('fin-metodo').value='';
   document.getElementById('fin-obs').value='';
@@ -1906,7 +1941,73 @@ function abrirModalFinalizar(){
 
 /* tipo de desconto: 'pct' = porcentagem, 'val' = valor fixo em R$ */
 var _tipoDesc = 'pct';
-var MAX_DESC_PCT = 15; /* máximo 15% de desconto */
+var MAX_DESC_PCT = 15;   /* máximo 15% de desconto */
+var SENHA_DESC_LIVRE = 'gu16ma16';
+var _descontoLivre = false; /* true quando gerente desbloqueou */
+
+function abrirLockDesconto(){
+  if(_descontoLivre){
+    /* já desbloqueado — clicou de novo = rebloquear */
+    _descontoLivre = false;
+    var inp = document.getElementById('fin-desconto');
+    inp.max = _tipoDesc==='pct' ? String(MAX_DESC_PCT) : '';
+    inp.removeAttribute('data-livre');
+    document.getElementById('btn-desc-lock').textContent = '🔒';
+    document.getElementById('btn-desc-lock').style.borderColor = '#dc3545';
+    document.getElementById('btn-desc-lock').style.background = 'none';
+    recalcularTotal();
+    return;
+  }
+  document.getElementById('inp-senha-lock').value = '';
+  document.getElementById('lock-erro').style.display = 'none';
+  document.getElementById('modal-lock-desc').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('inp-senha-lock').focus(); }, 80);
+}
+
+function fecharLockDesconto(){
+  document.getElementById('modal-lock-desc').style.display = 'none';
+}
+
+var TG_TOKEN   = '7521363709:AAEET3ipeNTzLEFyyOnk0Xn1lrwLeR5X7Ng';
+var TG_CHAT_ID = '-4945366437';
+
+function notificarTelegram(msg){
+  fetch('https://api.telegram.org/bot'+TG_TOKEN+'/sendMessage',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({chat_id:TG_CHAT_ID, text:msg, parse_mode:'HTML'})
+  }).catch(function(){/* silencioso se falhar */});
+}
+
+function confirmarLockDesconto(){
+  var senha = document.getElementById('inp-senha-lock').value;
+  if(senha !== SENHA_DESC_LIVRE){
+    document.getElementById('lock-erro').style.display = 'block';
+    document.getElementById('inp-senha-lock').value = '';
+    document.getElementById('inp-senha-lock').focus();
+    return;
+  }
+  fecharLockDesconto();
+  _descontoLivre = true;
+  var inp = document.getElementById('fin-desconto');
+  inp.max = '100';
+  inp.setAttribute('data-livre','1');
+  /* visual: cadeado aberto verde */
+  document.getElementById('btn-desc-lock').textContent = '🔓';
+  document.getElementById('btn-desc-lock').style.borderColor = '#28a745';
+  document.getElementById('btn-desc-lock').style.background = '#f0fff4';
+  document.getElementById('fin-desc-aviso').style.display = 'none';
+  document.getElementById('fin-desconto').focus();
+
+  /* notifica Telegram */
+  var agora = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  notificarTelegram(
+    '🔓 <b>DESCONTO LIVRE DESBLOQUEADO</b>\n\n' +
+    '👤 Operador: <b>' + USERNAME + '</b>\n' +
+    '🕐 Horário: <b>' + agora + '</b>\n\n' +
+    '⚠️ Desconto acima de 15% liberado para a próxima venda.'
+  );
+}
 
 function setTipoDesc(tipo){
   _tipoDesc = tipo;
@@ -1927,24 +2028,22 @@ function recalcularTotal(){
 
   var valorDesc, pct, excedeu=false;
   if(_tipoDesc==='pct'){
-    if(descInput > MAX_DESC_PCT){ excedeu=true; descInput=MAX_DESC_PCT; }
-    pct       = Math.min(MAX_DESC_PCT, Math.max(0, descInput));
+    if(!_descontoLivre && descInput > MAX_DESC_PCT){ excedeu=true; descInput=MAX_DESC_PCT; }
+    pct       = Math.min(_descontoLivre?100:MAX_DESC_PCT, Math.max(0, descInput));
     valorDesc = bruto * pct / 100;
   }else{
-    /* no modo R$: calcular o equivalente em % e bloquear se passar de 15% */
     var pctEquiv = bruto>0 ? (descInput/bruto)*100 : 0;
-    if(pctEquiv > MAX_DESC_PCT){ excedeu=true; descInput=bruto*MAX_DESC_PCT/100; }
+    if(!_descontoLivre && pctEquiv > MAX_DESC_PCT){ excedeu=true; descInput=bruto*MAX_DESC_PCT/100; }
     valorDesc = Math.min(bruto, Math.max(0, descInput));
     pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
   }
 
-  /* aviso de limite */
+  /* aviso de limite — só quando bloqueado */
   var aviso = document.getElementById('fin-desc-aviso');
-  if(aviso) aviso.style.display = excedeu ? 'block' : 'none';
-  /* campo fica vermelho se tentou exceder */
+  if(aviso) aviso.style.display = (!_descontoLivre && excedeu) ? 'block' : 'none';
   var inp = document.getElementById('fin-desconto');
-  inp.style.borderColor = excedeu ? '#dc3545' : '';
-  inp.style.background  = excedeu ? '#fff5f5' : '';
+  inp.style.borderColor = (!_descontoLivre && excedeu) ? '#dc3545' : '';
+  inp.style.background  = (!_descontoLivre && excedeu) ? '#fff5f5' : '';
 
   var liq = bruto - valorDesc;
 
@@ -2321,14 +2420,32 @@ async function confirmarVenda(){
     valorDesc = Math.min(bruto*MAX_DESC_PCT/100, Math.max(0, descInput));
     pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
   }
-  /* barreira de segurança — nunca grava acima de 15% */
-  if(pct > MAX_DESC_PCT){
-    toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'%','er');
+  /* barreira de segurança — só bloqueia se não tiver senha gerencial */
+  if(!_descontoLivre && pct > MAX_DESC_PCT){
+    toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'% (use 🔒 para desconto livre)','er');
     return;
   }
   var total   = bruto - valorDesc;
   var desc    = parseFloat(pct.toFixed(2));
   var cliNome = _clienteFinSel ? _clienteFinSel.nome : 'Consumidor Final';
+
+  /* notifica Telegram se desconto livre foi usado acima do limite */
+  if(_descontoLivre && pct > MAX_DESC_PCT){
+    var agora2 = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+    var itensList = _carrinho.map(function(it){
+      return '  • ' + it.nome + (it.qtd > 1 ? ' (x' + it.qtd + ')' : '');
+    }).join('\n');
+    notificarTelegram(
+      '💸 <b>DESCONTO ACIMA DO LIMITE APLICADO</b>\n\n' +
+      '👤 Operador: <b>' + USERNAME + '</b>\n' +
+      '🕐 Horário: <b>' + agora2 + '</b>\n' +
+      '👥 Cliente: <b>' + cliNome + '</b>\n\n' +
+      '💰 Subtotal: <b>' + brl(bruto) + '</b>\n' +
+      '🔻 Desconto: <b>' + pct.toFixed(1) + '% (- ' + brl(valorDesc) + ')</b>\n' +
+      '✅ Total final: <b>' + brl(total) + '</b>\n\n' +
+      '🛒 Itens:\n' + itensList
+    );
+  }
   var cliId   = _clienteFinSel ? _clienteFinSel.id   : null;
 
   /* valida soma no modo dividido */
