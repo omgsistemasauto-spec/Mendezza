@@ -506,6 +506,7 @@ function aba(n){
 
 /* ── CLIENTE ── */
 var _clienteSel=null;
+var _veiculosCache=[];
 async function buscarCliente(){
   var t=document.getElementById('busca-cli').value.trim();
   var drop=document.getElementById('drop-cli');
@@ -546,11 +547,14 @@ async function carregarVeiculosCliente(cid){
   var chips=document.getElementById('vei-chips');
   if(!r.data||!r.data.length){lista.style.display='none';return;}
   lista.style.display='block';
-  chips.innerHTML=r.data.map(function(v){
-    return '<span class="chip" onclick="selecionarVei('+JSON.stringify(v)+')">'+(v.marca||'')+(v.modelo?' '+v.modelo:'')+(v.placa?' ('+v.placa+')':'')+'</span>';
+  _veiculosCache=r.data;
+  chips.innerHTML=r.data.map(function(v,i){
+    return '<span class="chip" onclick="selecionarVei('+i+')">'+(v.marca||'')+(v.modelo?' '+v.modelo:'')+(v.placa?' ('+v.placa+')':'')+'</span>';
   }).join('');
 }
-function selecionarVei(v){
+function selecionarVei(i){
+  var v=_veiculosCache[i];
+  if(!v)return;
   document.getElementById('vei-marca').value=v.marca||'';
   document.getElementById('vei-modelo').value=v.modelo||'';
   document.getElementById('vei-placa').value=v.placa||'';
