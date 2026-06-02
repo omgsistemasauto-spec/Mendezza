@@ -357,7 +357,7 @@ tbody td{padding:8px 12px}
     <div class="painel-produtos">
       <div class="busca-bar">
         <span>🔍</span>
-        <input id="inp-busca" placeholder="Buscar por código, nome, marca ou aplicação..." oninput="filtrarProdutos()">
+        <input id="inp-busca" placeholder="Buscar por código, nome, marca ou aplicação..." oninput="filtrarProdutos()" autocomplete="off">
         <select id="fil-cat" onchange="filtrarProdutos()"
           style="padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
           font-size:.86rem;outline:none;min-width:160px;cursor:pointer;background:#fff">
@@ -2414,16 +2414,21 @@ async function confirmarVenda(){
   var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
   var valorDesc, pct;
   if(_tipoDesc==='pct'){
-    pct       = Math.min(MAX_DESC_PCT, Math.max(0, descInput));
+    /* se desconto livre, aceita qualquer valor; senão limita a MAX_DESC_PCT */
+    if(!_descontoLivre && descInput > MAX_DESC_PCT){
+      toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'% (use 🔒 para desconto livre)','er');
+      return;
+    }
+    pct       = Math.min(_descontoLivre ? 100 : MAX_DESC_PCT, Math.max(0, descInput));
     valorDesc = bruto * pct / 100;
   }else{
-    valorDesc = Math.min(bruto*MAX_DESC_PCT/100, Math.max(0, descInput));
+    var pctEquiv = bruto>0 ? (descInput/bruto)*100 : 0;
+    if(!_descontoLivre && pctEquiv > MAX_DESC_PCT){
+      toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'% (use 🔒 para desconto livre)','er');
+      return;
+    }
+    valorDesc = Math.min(bruto, Math.max(0, descInput));
     pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
-  }
-  /* barreira de segurança — só bloqueia se não tiver senha gerencial */
-  if(!_descontoLivre && pct > MAX_DESC_PCT){
-    toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'% (use 🔒 para desconto livre)','er');
-    return;
   }
   var total   = bruto - valorDesc;
   var desc    = parseFloat(pct.toFixed(2));
@@ -3498,6 +3503,13 @@ async function selecionarOS(osId){
 async function mudarStatusOS(osId,status){
   if(!status) return;
   await db.from('ordens_servico').update({status}).eq('id',osId);
+  /* ── Sincroniza check-in vinculado ── */
+  if(status==='cancelada'){
+    var ros=await db.from('ordens_servico').select('numero').eq('id',osId).single();
+    if(ros.data&&ros.data.numero){
+      await db.from('checkins').update({status:'cancelado'}).eq('numero_os',ros.data.numero);
+    }
+  }
   toast('Status atualizado!','ok');
   carregarOrdens();
 }
@@ -3674,6 +3686,10 @@ confirmarVenda = async function(){
       data_conclusao: new Date().toISOString(),
       venda_id: rv.data ? rv.data.id : null
     }).eq('id',osLocal.id);
+    /* ── Marca check-in vinculado como concluído ── */
+    if(osLocal.numero){
+      await db.from('checkins').update({status:'concluido'}).eq('numero_os',osLocal.numero);
+    }
     limparOS();
   }
 };
@@ -4542,6 +4558,8 @@ async function consultarStatusNFe(ref){
 
 carregarProdutos();
 
+/* Garante campo de busca sempre limpo (evita autocomplete do browser) */
+document.getElementById('inp-busca').value = '';
 /* Verifica se veio com OS pendente do check-in */
 (async function(){
   var osPend = localStorage.getItem('os_pendente');
