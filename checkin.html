@@ -494,6 +494,20 @@ var _tt;
 function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='vis '+(t||'ok');clearTimeout(_tt);_tt=setTimeout(function(){e.className=''},4000);}
 function fechar(id){document.getElementById(id).classList.remove('ab');}
 
+function abrirWhatsApp(tel,msg){
+  var url='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
+  /* Tenta intent Android primeiro (funciona em WebView) */
+  var intent='intent://send/'+tel+'?text='+encodeURIComponent(msg)+'#Intent;scheme=whatsapp;package=com.whatsapp;end';
+  /* Detecta se é Android WebView */
+  var isAndroid=/Android/i.test(navigator.userAgent);
+  var isWebView=isAndroid&&!/Chrome/i.test(navigator.userAgent)||/wv\)/i.test(navigator.userAgent);
+  if(isWebView){
+    window.location.href=intent;
+  }else{
+    window.open(url,'_blank')||( window.location.href=url );
+  }
+}
+
 /* ── ABAS ── */
 function aba(n){
   ['novo','lista','clientes'].forEach(function(x,i){
@@ -717,7 +731,7 @@ async function _salvar(zap){
       msg+='\n\n✅ Veículo recebido! Check-in #'+ciId;
       var tel=cliTel.replace(/\D/g,'');
       if(tel.length===11)tel='55'+tel;
-      setTimeout(function(){window.location.href='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);},500);
+      setTimeout(function(){abrirWhatsApp(tel,msg);},500);
     }
 
     limparForm();
@@ -827,7 +841,7 @@ async function mudaStModal(st){
           toast('✅ Concluído! Abrindo WhatsApp...','ok');
           fechar('modal-status');
           carregarCheckins();
-          setTimeout(function(){window.location.href='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);},600);
+          setTimeout(function(){abrirWhatsApp(tel,msg);},600);
           return;
         }
       }
@@ -849,7 +863,7 @@ async function zapCi(id){
   if(ft.length)msg+='\n\n📸 Fotos:\n'+ft.map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');
   var tel=(cli.telefone||'').replace(/\D/g,'');
   if(tel.length===11)tel='55'+tel;
-  window.location.href='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
+  abrirWhatsApp(tel,msg);
 }
 
 /* ── CLIENTES ── */
@@ -872,7 +886,7 @@ async function carregarClientes(){
       '</div>'+
       '<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'+
         '<button class="btn-sm ba" onclick="abrirModalCliente('+c.id+')">✏️</button>'+
-        (c.telefone?'<button class="btn-sm" style="background:var(--wp);color:#fff" onclick="window.location.href=\'https://wa.me/55'+c.telefone.replace(/\D/g,'')+'\'">📲</button>':'')+
+        (c.telefone?'<button class="btn-sm" style="background:var(--wp);color:#fff" onclick="abrirWhatsApp(\'55\'+this.dataset.tel,\'\')" data-tel="'+c.telefone.replace(/\D/g,'')+'">📲</button>':'')+
       '</div>'+
     '</div>';
   }).join('');
