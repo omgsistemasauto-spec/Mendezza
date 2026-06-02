@@ -507,6 +507,8 @@ function aba(n){
 /* ── CLIENTE ── */
 var _clienteSel=null;
 var _veiculosCache=[];
+var _checkinsCache=[];
+var _ciAtual=null;
 async function buscarCliente(){
   var t=document.getElementById('busca-cli').value.trim();
   var drop=document.getElementById('drop-cli');
@@ -663,12 +665,17 @@ async function _salvar(zap){
     var num='OS-'+Date.now().toString().slice(-6);
 
     /* Insert check-in */
-    var rci=await db.from('checkins').insert({
-      cliente_id:_clienteSel.id,veiculo_id:veiId,
-      servicos,km_entrada:km,observacoes:obs,
-      status:'aguardando',numero_os:num
-    }).select('id').single();
-    if(rci.error)throw rci.error;
+    /* INSERT sem numero_os primeiro (coluna pode não existir ainda) */
+    var _ciPayload={cliente_id:_clienteSel.id,veiculo_id:veiId,servicos,km_entrada:km,observacoes:obs,status:'aguardando'};
+    /* tenta com numero_os */
+    var rci=await db.from('checkins').insert(Object.assign({},_ciPayload,{numero_os:num})).select('id').single();
+    if(rci.error){
+      /* se falhou por coluna inexistente, tenta sem numero_os */
+      if(rci.error.code==='PGRST204'||rci.error.message.indexOf('numero_os')>=0||rci.error.message.indexOf('column')>=0){
+        rci=await db.from('checkins').insert(_ciPayload).select('id').single();
+      }
+      if(rci.error)throw rci.error;
+    }
     var ciId=rci.data.id;
 
     /* Cria OS vinculada em ordens_servico com mesmo número */
@@ -710,7 +717,7 @@ async function _salvar(zap){
       msg+='\n\n✅ Veículo recebido! Check-in #'+ciId;
       var tel=cliTel.replace(/\D/g,'');
       if(tel.length===11)tel='55'+tel;
-      setTimeout(function(){window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');},500);
+      setTimeout(function(){window.location.href='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);},500);
     }
 
     limparForm();
@@ -732,10 +739,11 @@ async function carregarCheckins(){
   if(st)q=q.eq('status',st);
   var r=await q.limit(60);
   if(!r.data||!r.data.length){lista.innerHTML='<div style="text-align:center;padding:28px;color:var(--sub)">Nenhum check-in encontrado.</div>';return;}
+  _checkinsCache=r.data;
   document.getElementById('hist-count').textContent=r.data.length+' registro(s)';
   var lbl={aguardando:'⏳ Aguardando',em_servico:'🔧 Em serviço',concluido:'✅ Concluído',entregue:'🏁 Entregue',cancelado:'❌ Cancelado'};
   var bcl={aguardando:'b-ag',em_servico:'b-em',concluido:'b-co',entregue:'b-en',cancelado:'b-can'};
-  lista.innerHTML=r.data.map(function(ci){
+  lista.innerHTML=r.data.map(function(ci,i){
     var cli=ci.clientes||{},vei=ci.veiculos||{},nf=(ci.checkin_fotos||[]).length;
     return '<div class="ci-card">'+
       '<div class="ci-card-top">'+
@@ -753,7 +761,7 @@ async function carregarCheckins(){
       '</div>'+
       '<div class="ci-card-srv">🔧 '+eh((ci.servicos||'').substring(0,70))+'</div>'+
       '<div class="ci-card-actions">'+
-        '<button class="btn-sm ba" onclick="abrirModalStatus('+ci.id+',\''+bcl[ci.status]+'\',\''+eh(cli.nome||'')+'\',\''+eh([vei.marca,vei.modelo].join(' '))+'\')">🔄 Status</button>'+
+        '<button class="btn-sm ba" onclick="abrirModalStatus('+i+')">🔄 Status</button>'+
         (cli.telefone?'<button class="btn-sm bwp" onclick="zapCi('+ci.id+')" style="background:var(--wp);color:#fff">📲 Zap</button>':'')+
         '<button class="btn-sm" onclick="aba(\'novo\')" style="background:#f1f5f9;color:var(--sub)">➕ Novo</button>'+
       '</div>'+
@@ -762,22 +770,70 @@ async function carregarCheckins(){
 }
 
 /* ── MODAL STATUS ── */
-function abrirModalStatus(id,badge,cli,vei){
-  document.getElementById('st-ci-id').value=id;
+function abrirModalStatus(i){
+  _ciAtual=_checkinsCache[i];
+  if(!_ciAtual)return;
+  var cli=_ciAtual.clientes||{},vei=_ciAtual.veiculos||{};
+  document.getElementById('st-ci-id').value=_ciAtual.id;
   document.getElementById('st-info').innerHTML=
-    '<b>#'+id+'</b> — '+eh(cli)+'<br>🚗 '+eh(vei);
+    '<b>#'+_ciAtual.id+'</b> — '+eh(cli.nome||'')+'<br>🚗 '+eh([vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' '));
   document.getElementById('modal-status').classList.add('ab');
 }
 async function mudaStModal(st){
   var id=document.getElementById('st-ci-id').value;
-  await db.from('checkins').update({status:st}).eq('id',id);
-  /* ── Sincroniza OS vinculada ── */
+  if(!id){toast('Erro: ID não encontrado','er');return;}
+
+  /* UPDATE status */
+  var ru=await db.from('checkins').update({status:st}).eq('id',id);
+  if(ru.error){toast('❌ '+ru.error.message,'er');return;}
+
+  /* ── Sincroniza OS vinculada (só se coluna numero_os existir) ── */
   if(st==='cancelado'){
-    var rci=await db.from('checkins').select('numero_os').eq('id',id).single();
-    if(rci.data&&rci.data.numero_os){
-      await db.from('ordens_servico').update({status:'cancelada'}).eq('numero',rci.data.numero_os);
-    }
+    try{
+      var rci=await db.from('checkins').select('numero_os').eq('id',id).single();
+      if(!rci.error&&rci.data&&rci.data.numero_os){
+        await db.from('ordens_servico').update({status:'cancelada'}).eq('numero',rci.data.numero_os);
+      }
+    }catch(e){console.warn('sync OS cancelada:',e);}
   }
+
+  /* ── Ao concluir: WhatsApp com msg de conclusão + fotos ── */
+  if(st==='concluido'){
+    try{
+      var rd=await db.from('checkins')
+        .select('servicos,km_entrada,clientes(nome,telefone),veiculos(marca,modelo,placa),checkin_fotos(url)')
+        .eq('id',id).single();
+      /* tenta pegar numero_os separado para não quebrar se coluna não existir */
+      var numOs='';
+      try{
+        var rno=await db.from('checkins').select('numero_os').eq('id',id).single();
+        if(!rno.error&&rno.data)numOs=rno.data.numero_os||'';
+      }catch(e){}
+
+      if(!rd.error&&rd.data){
+        var ci=rd.data,cli=ci.clientes||{},vei=ci.veiculos||{},ft=ci.checkin_fotos||[];
+        var tel=(cli.telefone||'').replace(/\D/g,'');
+        if(tel){
+          if(tel.length===11)tel='55'+tel;
+          var msg='✅ *Mendezza Auto Peças*\n\n';
+          msg+='Olá, *'+(cli.nome||'cliente')+'*! 😊\n\n';
+          msg+='Seu veículo está *pronto para retirada*! 🎉\n\n';
+          msg+='🚗 *Veículo:* '+[vei.marca,vei.modelo,vei.placa].filter(Boolean).join(' ')+'\n';
+          msg+='🔧 *Serviços:* '+ci.servicos;
+          if(ci.km_entrada)msg+='\n🔢 *KM:* '+ci.km_entrada;
+          if(numOs)msg+='\n📋 *OS:* '+numOs;
+          if(ft.length)msg+='\n\n📸 *Fotos:*\n'+ft.map(function(f,ii){return 'Foto '+(ii+1)+': '+f.url;}).join('\n');
+          msg+='\n\nAguardamos sua visita! 🙏';
+          toast('✅ Concluído! Abrindo WhatsApp...','ok');
+          fechar('modal-status');
+          carregarCheckins();
+          setTimeout(function(){window.location.href='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);},600);
+          return;
+        }
+      }
+    }catch(e){console.warn('zap conclusao:',e);}
+  }
+
   toast('✅ Status atualizado!','ok');
   fechar('modal-status');
   carregarCheckins();
@@ -793,7 +849,7 @@ async function zapCi(id){
   if(ft.length)msg+='\n\n📸 Fotos:\n'+ft.map(function(f,i){return 'Foto '+(i+1)+': '+f.url;}).join('\n');
   var tel=(cli.telefone||'').replace(/\D/g,'');
   if(tel.length===11)tel='55'+tel;
-  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
+  window.location.href='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
 }
 
 /* ── CLIENTES ── */
@@ -816,7 +872,7 @@ async function carregarClientes(){
       '</div>'+
       '<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">'+
         '<button class="btn-sm ba" onclick="abrirModalCliente('+c.id+')">✏️</button>'+
-        (c.telefone?'<button class="btn-sm" style="background:var(--wp);color:#fff" onclick="window.open(\'https://wa.me/55'+c.telefone.replace(/\D/g,'')+'\',\'_blank\')">📲</button>':'')+
+        (c.telefone?'<button class="btn-sm" style="background:var(--wp);color:#fff" onclick="window.location.href=\'https://wa.me/55'+c.telefone.replace(/\D/g,'')+'\'">📲</button>':'')+
       '</div>'+
     '</div>';
   }).join('');
