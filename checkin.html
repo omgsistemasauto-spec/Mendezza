@@ -541,7 +541,7 @@ function limparCliente(){
   atualizarResumo();
 }
 async function carregarVeiculosCliente(cid){
-  var r=await db.from('veiculos').select('id,marca,modelo,placa').eq('cliente_id',cid).limit(10);
+  var r=await db.from('veiculos').select('id,marca,modelo,placa,motor,ano,cor').eq('cliente_id',cid).limit(10);
   var lista=document.getElementById('vei-lista');
   var chips=document.getElementById('vei-chips');
   if(!r.data||!r.data.length){lista.style.display='none';return;}
@@ -554,6 +554,9 @@ function selecionarVei(v){
   document.getElementById('vei-marca').value=v.marca||'';
   document.getElementById('vei-modelo').value=v.modelo||'';
   document.getElementById('vei-placa').value=v.placa||'';
+  document.getElementById('vei-motor').value=v.motor||'';
+  document.getElementById('vei-ano').value=v.ano||'';
+  document.getElementById('vei-cor').value=v.cor||'';
   document.getElementById('ci-veiculo-id').value=v.id;
   document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('sel');});
   event.target.classList.add('sel');
