@@ -495,17 +495,12 @@ function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.cla
 function fechar(id){document.getElementById(id).classList.remove('ab');}
 
 function abrirWhatsApp(tel,msg){
-  var url='https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
-  /* Tenta intent Android primeiro (funciona em WebView) */
-  var intent='intent://send/'+tel+'?text='+encodeURIComponent(msg)+'#Intent;scheme=whatsapp;package=com.whatsapp;end';
-  /* Detecta se é Android WebView */
-  var isAndroid=/Android/i.test(navigator.userAgent);
-  var isWebView=isAndroid&&!/Chrome/i.test(navigator.userAgent)||/wv\)/i.test(navigator.userAgent);
-  if(isWebView){
-    window.location.href=intent;
-  }else{
-    window.open(url,'_blank')||( window.location.href=url );
-  }
+  /* Garante formato 5538999... sem caracteres extras */
+  tel=String(tel).replace(/\D/g,'');
+  if(tel.length===11)tel='55'+tel;
+  /* api.whatsapp.com/send funciona em WebView, browser e app */
+  var url='https://api.whatsapp.com/send?phone='+tel+(msg?'&text='+encodeURIComponent(msg):'');
+  window.location.href=url;
 }
 
 /* ── ABAS ── */
