@@ -345,6 +345,7 @@ tbody td{padding:8px 12px}
   <button class="aba ativa" onclick="aba('venda')">🛒 Nova Venda</button>
   <button class="aba"       onclick="aba('historico')">📜 Histórico de Vendas</button>
   <button class="aba"       onclick="aba('fiado')" style="color:#e74c3c">💳 Pendentes (Fiado)</button>
+  <button class="aba"       onclick="aba('garantia')" style="color:#27ae60">🛡️ Garantia</button>
 </div>
 
 <!-- ══════════════════════════════════
@@ -357,7 +358,7 @@ tbody td{padding:8px 12px}
     <div class="painel-produtos">
       <div class="busca-bar">
         <span>🔍</span>
-        <input id="inp-busca" placeholder="Buscar por código, nome, marca ou aplicação..." oninput="filtrarProdutos()" autocomplete="off">
+        <input id="inp-busca" placeholder="Buscar por código, nome, marca ou aplicação..." oninput="filtrarProdutos()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="busca_prod_x9z">
         <select id="fil-cat" onchange="filtrarProdutos()"
           style="padding:8px 12px;border:1px solid var(--borda);border-radius:8px;
           font-size:.86rem;outline:none;min-width:160px;cursor:pointer;background:#fff">
@@ -1129,7 +1130,53 @@ tbody td{padding:8px 12px}
   <div id="fiad-lista"></div>
 </div>
 
-<!-- MODAL: NOVO FIADO -->
+<!-- ══════════════════════════════════
+     ABA GARANTIA
+══════════════════════════════════ -->
+<div id="p-garantia" class="painel" style="padding:16px;overflow-y:auto;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:2px solid #4caf50;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:1.8rem">🛡️</span>
+      <div>
+        <div style="font-weight:800;font-size:.95rem;color:#1b5e20">Garantia de Produtos</div>
+        <div style="font-size:.75rem;color:#388e3c">90 dias a partir da data de venda</div>
+      </div>
+    </div>
+    <span id="gar-resumo" style="font-size:.82rem;color:#888;margin-left:auto"></span>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <input type="date" id="gar-de" style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none">
+    <input type="date" id="gar-ate" style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none">
+    <input id="gar-busca" placeholder="Buscar por cliente ou produto..."
+      style="min-width:240px;padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none"
+      onkeydown="if(event.key==='Enter') carregarGarantia()">
+    <select id="gar-status" style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none;background:#fff;cursor:pointer">
+      <option value="">Todas</option>
+      <option value="vigente">✅ Vigente</option>
+      <option value="expirada">⌛ Expirada</option>
+    </select>
+    <button class="btn ba" onclick="carregarGarantia()">🔄 Filtrar</button>
+  </div>
+  <div style="overflow-x:auto;background:#fff;border-radius:10px;box-shadow:var(--sombra)">
+    <table style="width:100%;border-collapse:collapse;font-size:.84rem;min-width:820px">
+      <thead>
+        <tr style="background:var(--azul);color:#fff;position:sticky;top:0;z-index:5">
+          <th style="padding:10px 12px;text-align:left">#Venda</th>
+          <th style="padding:10px 12px;text-align:left">Data</th>
+          <th style="padding:10px 12px;text-align:left">Cliente</th>
+          <th style="padding:10px 12px;text-align:left">Produto / Serviço</th>
+          <th style="padding:10px 12px;text-align:center">Qtd</th>
+          <th style="padding:10px 12px;text-align:right">Valor</th>
+          <th style="padding:10px 12px;text-align:center">Venc. Garantia</th>
+          <th style="padding:10px 12px;text-align:center">Status</th>
+        </tr>
+      </thead>
+      <tbody id="gar-tbody">
+        <tr><td colspan="8" style="text-align:center;padding:32px;color:#bbb">Use os filtros acima e clique em Filtrar.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 <div class="bd" id="modal-fiado">
   <div class="modal" style="width:520px">
     <button class="mf" onclick="fecharModalFiado()">✕</button>
@@ -1165,7 +1212,19 @@ tbody td{padding:8px 12px}
         width:100%;cursor:pointer;font-size:.84rem;color:#666">+ Adicionar item</button>
     </div>
 
-    <!-- Total + vencimento -->
+    <!-- Total + desconto + entrada + vencimento -->
+    <div class="g2">
+      <div class="cmp">
+        <label>Desconto (R$)</label>
+        <input type="number" id="fiad-desconto" min="0" step="0.01" value="0" placeholder="0,00"
+          oninput="recalcFiado()">
+      </div>
+      <div class="cmp">
+        <label>Entrada recebida (R$)</label>
+        <input type="number" id="fiad-entrada" min="0" step="0.01" value="0" placeholder="0,00"
+          oninput="recalcFiado()">
+      </div>
+    </div>
     <div class="g2">
       <div class="cmp">
         <label>Vencimento (opcional)</label>
@@ -1173,7 +1232,8 @@ tbody td{padding:8px 12px}
       </div>
       <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:13px">
         <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;text-align:right">
-          <div style="font-size:.82rem;color:#666">Total:</div>
+          <div style="font-size:.78rem;color:#aaa;text-decoration:line-through" id="fiad-bruto-exib"></div>
+          <div style="font-size:.74rem;color:#888">Total a prazo:</div>
           <div id="fiad-total-exib" style="font-size:1.3rem;font-weight:800;color:#e74c3c">R$ 0,00</div>
         </div>
       </div>
@@ -1335,14 +1395,15 @@ function toast(msg,tipo){
    ABAS
 ══════════════════════════════════════════ */
 function aba(nome){
-  ['venda','historico','fiado'].forEach(function(n){
+  ['venda','historico','fiado','garantia'].forEach(function(n){
     document.getElementById('p-'+n).classList.toggle('ativo',n===nome);
-    document.querySelectorAll('.aba').forEach(function(b,i){
-      b.classList.toggle('ativa',['venda','historico','fiado'][i]===nome);
-    });
+  });
+  document.querySelectorAll('.aba').forEach(function(b,i){
+    b.classList.toggle('ativa',['venda','historico','fiado','garantia'][i]===nome);
   });
   if(nome==='historico') carregarHistorico();
   if(nome==='fiado')     carregarFiados();
+  if(nome==='garantia')  carregarGarantia();
 }
 
 /* ══════════════════════════════════════════
@@ -2414,21 +2475,16 @@ async function confirmarVenda(){
   var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
   var valorDesc, pct;
   if(_tipoDesc==='pct'){
-    /* se desconto livre, aceita qualquer valor; senão limita a MAX_DESC_PCT */
-    if(!_descontoLivre && descInput > MAX_DESC_PCT){
-      toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'% (use 🔒 para desconto livre)','er');
-      return;
-    }
-    pct       = Math.min(_descontoLivre ? 100 : MAX_DESC_PCT, Math.max(0, descInput));
+    pct       = Math.min(MAX_DESC_PCT, Math.max(0, descInput));
     valorDesc = bruto * pct / 100;
   }else{
-    var pctEquiv = bruto>0 ? (descInput/bruto)*100 : 0;
-    if(!_descontoLivre && pctEquiv > MAX_DESC_PCT){
-      toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'% (use 🔒 para desconto livre)','er');
-      return;
-    }
-    valorDesc = Math.min(bruto, Math.max(0, descInput));
+    valorDesc = Math.min(bruto*MAX_DESC_PCT/100, Math.max(0, descInput));
     pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
+  }
+  /* barreira de segurança — só bloqueia se não tiver senha gerencial */
+  if(!_descontoLivre && pct > MAX_DESC_PCT){
+    toast('❌ Desconto máximo permitido: '+MAX_DESC_PCT+'% (use 🔒 para desconto livre)','er');
+    return;
   }
   var total   = bruto - valorDesc;
   var desc    = parseFloat(pct.toFixed(2));
@@ -3886,7 +3942,12 @@ function abrirNovoFiado(){
 
 function fecharModalFiado(){
   document.getElementById('modal-fiado').classList.remove('ab');
+  document.getElementById('fiad-desconto').value='0';
+  document.getElementById('fiad-entrada').value='0';
+  document.getElementById('fiad-bruto-exib').textContent='';
 }
+
+function recalcFiado(){ recalcularTotalFiado(); }
 
 /* ── Busca cliente no modal fiado ── */
 async function buscarClienteFiado(){
@@ -3948,8 +4009,13 @@ function atualizarLinhaFiado(i,campo,val){
 }
 
 function recalcularTotalFiado(){
-  var total = _fiadoLinhas.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
-  document.getElementById('fiad-total-exib').textContent = brl(total);
+  var bruto    = _fiadoLinhas.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
+  var desconto = parseFloat(document.getElementById("fiad-desconto").value)||0;
+  var entrada  = parseFloat(document.getElementById("fiad-entrada").value)||0;
+  var liquido  = Math.max(0, bruto - desconto - entrada);
+  var brutoEl  = document.getElementById("fiad-bruto-exib");
+  if(desconto>0||entrada>0){ brutoEl.textContent="Bruto: "+brl(bruto); } else { brutoEl.textContent=""; }
+  document.getElementById("fiad-total-exib").textContent = brl(liquido);
 }
 
 function renderLinhasFiado(){
@@ -3991,27 +4057,31 @@ async function salvarFiado(){
   var cliTel  = _fiadoCliSel ? (_fiadoCliSel.telefone||'') : '';
   var venc    = document.getElementById('fiad-venc').value||null;
   var obs     = document.getElementById('fiad-obs').value.trim()||null;
+  var desconto= parseFloat(document.getElementById('fiad-desconto').value)||0;
+  var entrada = parseFloat(document.getElementById('fiad-entrada').value)||0;
 
   if(!cliNome){ toast('Selecione ou informe o cliente!','er'); return; }
 
   var itensFilt = _fiadoLinhas.filter(function(l){ return l.nome.trim(); });
   if(!itensFilt.length){ toast('Adicione ao menos um item!','er'); return; }
 
-  var totalGeral = itensFilt.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
-  if(totalGeral<=0){ toast('O valor total deve ser maior que zero!','er'); return; }
+  var bruto = itensFilt.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
+  if(bruto<=0){ toast('O valor total deve ser maior que zero!','er'); return; }
+
+  var totalComDesconto = Math.max(0, bruto - desconto);
+  var totalAPrazo      = Math.max(0, totalComDesconto - entrada);
 
   var descResumo = itensFilt.map(function(l){ return l.qtd+'x '+l.nome; }).join(', ');
 
   try{
-    /* 1. Insere pagamento pendente */
     var rp = await db.from('pagamentos_pendentes').insert({
       cliente_id:     cliId ? parseInt(cliId) : null,
       cliente_nome:   cliNome,
       cliente_tel:    cliTel||null,
       descricao:      descResumo,
-      valor_total:    parseFloat(totalGeral.toFixed(2)),
+      valor_total:    parseFloat(totalAPrazo.toFixed(2)),
       valor_pago:     0,
-      status:         'pendente',
+      status:         totalAPrazo<=0 ? 'quitado' : 'pendente',
       responsavel:    USERNAME,
       data_vencimento: venc,
       observacoes:    obs
@@ -4019,16 +4089,23 @@ async function salvarFiado(){
     if(rp.error) throw new Error(rp.error.message);
     var ppId = rp.data.id;
 
-    /* 2. Insere itens */
     var itBatch = itensFilt.map(function(l){
       return {pp_id:ppId, nome:l.nome.trim(), quantidade:l.qtd, preco_unitario:l.preco};
     });
     await db.from('pp_itens').insert(itBatch);
 
-    toast('✅ Lançado como pendente! '+cliNome+' deve '+brl(totalGeral),'ok');
+    /* Se teve entrada, registra como primeiro pagamento */
+    if(entrada>0){
+      await db.from('pp_pagamentos').insert({pp_id:ppId, valor:entrada, metodo:'Entrada', observacoes:'Entrada no ato'});
+    }
+
+    var msg = '✅ Lançado! ';
+    if(desconto>0) msg += 'Desconto: '+brl(desconto)+' · ';
+    if(entrada>0)  msg += 'Entrada: '+brl(entrada)+' · ';
+    msg += cliNome+' deve '+brl(totalAPrazo);
+    toast(msg,'ok');
     fecharModalFiado();
 
-    /* Limpa carrinho se foi lançado direto */
     if(_carrinho.length){
       if(confirm('Limpar o carrinho atual?')){
         _carrinho.forEach(function(it){
@@ -4104,7 +4181,9 @@ async function carregarFiados(){
           '<div style="font-size:.72rem;color:#aaa">restante</div>'+
           '<div style="display:flex;gap:5px;margin-top:8px;justify-content:flex-end;flex-wrap:wrap">'+
             (p.status!=='quitado'?
-              '<button class="btn bv" style="padding:4px 10px;font-size:.76rem" onclick="abrirBaixa('+p.id+')">💰 Dar Baixa</button>':'')+ 
+              '<button class="btn bv" style="padding:4px 10px;font-size:.76rem" onclick="abrirPagarParcela('+p.id+')">💳 Pagar Parcela</button>':'')+
+            (p.status!=='quitado'?
+              '<button class="btn ba" style="padding:4px 10px;font-size:.76rem;background:#28a745;color:#fff;border:none" onclick="abrirBaixa('+p.id+')">✅ Quitar Tudo</button>':'')+ 
             '<button class="btn ba" style="padding:4px 10px;font-size:.76rem" onclick="verDetalhesFiado('+p.id+')">👁️ Ver</button>'+
             (p.cliente_tel?
               '<button class="btn bwp" style="padding:4px 10px;font-size:.76rem" onclick="cobrarZap('+p.id+')">📲</button>':'')+
@@ -4253,6 +4332,168 @@ async function cobrarZap(ppId){
   if(tel.length===11) tel='55'+tel;
   window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
 }
+
+/* ══════════════════════════════════════════
+   PAGAR PARCELA — abate valor na dívida
+══════════════════════════════════════════ */
+async function abrirPagarParcela(ppId){
+  var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
+  if(!rp.data) return;
+  var p = rp.data;
+  var restante = p.valor_total - p.valor_pago;
+
+  document.getElementById('baixa-titulo').textContent = '💳 Pagar Parcela — '+p.cliente_nome;
+  document.getElementById('baixa-body').innerHTML =
+    '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.84rem;line-height:1.9">'+
+      '<b>Total da dívida:</b> '+brl(p.valor_total)+'<br>'+
+      '<b>Já pago:</b> '+brl(p.valor_pago)+'<br>'+
+      '<b style="color:#e74c3c">Restante:</b> <b style="font-size:1.1rem;color:#e74c3c">'+brl(restante)+'</b>'+
+    '</div>'+
+    '<div class="cmp"><label>Valor da parcela (R$) *</label>'+
+      '<input type="number" id="parcela-valor" min="0.01" step="0.01" placeholder="0,00"'+
+        ' style="font-size:1.1rem;text-align:right;font-weight:700" oninput="calcRestanteParcela('+restante+')">'+
+    '</div>'+
+    '<div id="parcela-restante-preview" style="text-align:right;font-size:.82rem;color:#888;margin-top:-6px;margin-bottom:10px"></div>'+
+    '<div class="cmp"><label>Método de pagamento</label>'+
+      '<select id="parcela-metodo" style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:7px;font-size:.9rem">'+
+        '<option>Dinheiro</option><option>PIX</option><option>Cartão Crédito</option><option>Cartão Débito</option>'+
+      '</select>'+
+    '</div>'+
+    '<div class="cmp"><label>Observações</label>'+
+      '<input id="parcela-obs" placeholder="Ex: 1ª parcela, ref. mês...">'+
+    '</div>';
+
+  document.getElementById('baixa-acoes').innerHTML =
+    '<button class="btn bc" onclick="document.getElementById(\'modal-baixa\').classList.remove(\'ab\')">Cancelar</button>'+
+    '<button class="btn bv" onclick="confirmarParcela('+ppId+','+restante+')">💳 Registrar Parcela</button>';
+
+  document.getElementById('modal-baixa').classList.add('ab');
+}
+
+function calcRestanteParcela(restante){
+  var v = parseFloat(document.getElementById('parcela-valor').value)||0;
+  var el = document.getElementById('parcela-restante-preview');
+  if(v<=0){ el.textContent=''; return; }
+  var novoRestante = restante - v;
+  el.textContent = novoRestante<=0.01 ? '✅ Quitará a dívida' : 'Restará: '+brl(Math.max(0,novoRestante));
+  el.style.color = novoRestante<=0.01 ? '#28a745' : '#e67e22';
+}
+
+async function confirmarParcela(ppId, restante){
+  var valor  = parseFloat(document.getElementById('parcela-valor').value)||0;
+  var metodo = document.getElementById('parcela-metodo').value;
+  var obs    = document.getElementById('parcela-obs').value.trim()||null;
+
+  if(valor<=0){ toast('Informe o valor da parcela!','er'); return; }
+  if(valor>restante+0.01){ toast('Valor maior que o restante! Máximo: '+brl(restante),'er'); return; }
+
+  var rp = await db.from('pagamentos_pendentes').select('valor_pago,valor_total').eq('id',ppId).single();
+  var novoPago   = parseFloat(((rp.data.valor_pago||0)+valor).toFixed(2));
+  var total      = rp.data.valor_total;
+  var novoStatus = novoPago >= total-0.01 ? 'quitado' : 'parcial';
+
+  await db.from('pp_pagamentos').insert({pp_id:ppId, valor, metodo, observacoes:obs});
+  await db.from('pagamentos_pendentes').update({
+    valor_pago:    novoPago,
+    status:        novoStatus,
+    data_quitacao: novoStatus==='quitado' ? new Date().toISOString() : null
+  }).eq('id',ppId);
+
+  document.getElementById('modal-baixa').classList.remove('ab');
+  var msg = novoStatus==='quitado'
+    ? '✅ Dívida quitada! Recebido: '+brl(valor)
+    : '💳 Parcela registrada! Recebido: '+brl(valor)+' · Restante: '+brl(total-novoPago);
+  toast(msg,'ok');
+  carregarFiados();
+}
+
+/* ══════════════════════════════════════════
+   GARANTIA
+══════════════════════════════════════════ */
+async function carregarGarantia(){
+  var tbody = document.getElementById('gar-tbody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:#bbb">Carregando...</td></tr>';
+
+  var de    = document.getElementById('gar-de').value;
+  var ate   = document.getElementById('gar-ate').value;
+  var busca = document.getElementById('gar-busca').value.trim().toLowerCase();
+  var status= document.getElementById('gar-status').value;
+  var hoje2 = new Date(); hoje2.setHours(0,0,0,0);
+
+  var q = db.from('vendas').select('id,data,cliente_nome,total').neq('status','cancelada');
+  if(de)  q = q.gte('data', de+'T00:00:00');
+  if(ate) q = q.lte('data', ate+'T23:59:59');
+
+  var rv = await q.order('data',{ascending:false}).limit(300);
+  if(rv.error){ tbody.innerHTML='<tr><td colspan="8" style="color:red;padding:20px">❌ '+eh(rv.error.message)+'</td></tr>'; return; }
+
+  var vendas = (rv.data||[]).filter(function(v){
+    return !busca || (v.cliente_nome||'').toLowerCase().includes(busca);
+  });
+  if(!vendas.length){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:32px;color:#bbb">Nenhuma venda encontrada.</td></tr>';
+    document.getElementById('gar-resumo').textContent=''; return;
+  }
+
+  var ids = vendas.map(function(v){ return v.id; });
+  var ri  = await db.from('itens_venda').select('venda_id,nome_produto,quantidade,preco_unitario,tipo').in('venda_id',ids).eq('revertido',false);
+  if(ri.error){ tbody.innerHTML='<tr><td colspan="8" style="color:red;padding:20px">❌ '+eh(ri.error.message)+'</td></tr>'; return; }
+
+  var mapaVenda = {};
+  vendas.forEach(function(v){ mapaVenda[v.id]=v; });
+
+  var itens = (ri.data||[]).filter(function(it){
+    if(!busca) return true;
+    var venda = mapaVenda[it.venda_id];
+    var nomeC = venda ? (venda.cliente_nome||'').toLowerCase() : '';
+    return nomeC.includes(busca) || (it.nome_produto||'').toLowerCase().includes(busca);
+  }).filter(function(it){
+    var venda = mapaVenda[it.venda_id]; if(!venda) return false;
+    var dv = new Date(venda.data); dv.setHours(0,0,0,0);
+    var venc = new Date(dv); venc.setDate(venc.getDate()+90);
+    var vig  = venc >= hoje2;
+    if(status==='vigente'  && !vig) return false;
+    if(status==='expirada' &&  vig) return false;
+    return true;
+  });
+
+  itens.sort(function(a,b){ return new Date(mapaVenda[b.venda_id].data)-new Date(mapaVenda[a.venda_id].data); });
+
+  var vigCount=0, expCount=0;
+  tbody.innerHTML = itens.map(function(it){
+    var venda = mapaVenda[it.venda_id];
+    var dv = new Date(venda.data); dv.setHours(0,0,0,0);
+    var venc = new Date(dv); venc.setDate(venc.getDate()+90);
+    var dias = Math.ceil((venc-hoje2)/(1000*60*60*24));
+    var vig  = venc >= hoje2;
+    if(vig) vigCount++; else expCount++;
+    var badge, rowStyle='border-bottom:1px solid #f0f0f0';
+    if(vig){
+      if(dias<=15){
+        badge='<span style="background:#fff3cd;color:#856404;padding:3px 9px;border-radius:10px;font-size:.73rem;font-weight:700">⚠️ Vence em '+dias+'d</span>';
+        rowStyle='border-bottom:1px solid #f0f0f0;background:#fffdf0';
+      } else {
+        badge='<span style="background:#d4edda;color:#155724;padding:3px 9px;border-radius:10px;font-size:.73rem;font-weight:700">✅ '+dias+'d</span>';
+      }
+    } else {
+      badge='<span style="background:#f8d7da;color:#721c24;padding:3px 9px;border-radius:10px;font-size:.73rem;font-weight:700">⌛ Expirada</span>';
+      rowStyle='border-bottom:1px solid #f0f0f0;opacity:.7';
+    }
+    return '<tr style="'+rowStyle+'">'+
+      '<td style="padding:8px 12px;color:#aaa;font-size:.78rem">#'+venda.id+'</td>'+
+      '<td style="padding:8px 12px;font-size:.8rem;white-space:nowrap">'+dHora(venda.data)+'</td>'+
+      '<td style="padding:8px 12px;font-weight:600">'+eh(venda.cliente_nome||'Consumidor Final')+'</td>'+
+      '<td style="padding:8px 12px">'+(it.tipo==='servico'?'🔧 ':'')+eh(it.nome_produto)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+it.quantidade+'</td>'+
+      '<td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--azul)">'+brl(it.preco_unitario*it.quantidade)+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;font-size:.8rem">'+venc.toLocaleDateString('pt-BR')+'</td>'+
+      '<td style="padding:8px 12px;text-align:center">'+badge+'</td>'+
+    '</tr>';
+  }).join('');
+
+  document.getElementById('gar-resumo').textContent = itens.length+' item(ns) · ✅ '+vigCount+' vigente(s) · ⌛ '+expCount+' expirada(s)';
+}
+
 var hoje = new Date().toISOString().split('T')[0];
 document.getElementById('hist-de').value  = hoje;
 document.getElementById('hist-ate').value = hoje;
@@ -4558,8 +4799,14 @@ async function consultarStatusNFe(ref){
 
 carregarProdutos();
 
-/* Garante campo de busca sempre limpo (evita autocomplete do browser) */
-document.getElementById('inp-busca').value = '';
+/* Garante campo de busca sempre limpo — bloqueia autocomplete do browser */
+(function(){
+  var el = document.getElementById('inp-busca');
+  el.value = '';
+  /* Força limpeza após o browser tentar preencher (acontece assincronamente) */
+  setTimeout(function(){ el.value = ''; }, 100);
+  setTimeout(function(){ el.value = ''; }, 500);
+})();
 /* Verifica se veio com OS pendente do check-in */
 (async function(){
   var osPend = localStorage.getItem('os_pendente');
