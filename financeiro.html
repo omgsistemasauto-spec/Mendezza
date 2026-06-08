@@ -499,9 +499,17 @@ tbody td{padding:9px 12px}
 
     <!-- Despesas do mês -->
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <span style="font-size:.95rem;font-weight:700;color:var(--vermelho)">📉 Contas a Pagar</span>
         <button class="btn br btn-sm" onclick="abrirFormRetirada()">+ Nova</button>
+      </div>
+      <!-- Filtro por data -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <label style="font-size:.75rem;font-weight:700;color:#555;white-space:nowrap">📅 Filtrar:</label>
+        <input type="date" id="filtro-contas-ini" style="padding:5px 8px;border:1px solid var(--borda);border-radius:6px;font-size:.8rem;outline:none;flex:1;min-width:110px" onchange="carregarContas()">
+        <span style="font-size:.75rem;color:#aaa">até</span>
+        <input type="date" id="filtro-contas-fim" style="padding:5px 8px;border:1px solid var(--borda);border-radius:6px;font-size:.8rem;outline:none;flex:1;min-width:110px" onchange="carregarContas()">
+        <button class="btn bc btn-sm" title="Limpar filtro" onclick="limparFiltroContas()" style="padding:5px 10px;font-size:.8rem">✕</button>
       </div>
       <div class="tw" style="max-height:calc(5 * 44px + 42px);overflow-y:auto">
         <table>
@@ -1288,7 +1296,15 @@ async function carregarVendasMes(){
    CONTAS A PAGAR — equivale a carregar_dados / atualizar_contas
 ══════════════════════════════════════════ */
 async function carregarContas(){
-  var r = await db.from('contas_pagar').select('*').order('data_vencimento').limit(100);
+  /* ── Lê filtros ativos ── */
+  var filtroInicio = (document.getElementById('filtro-contas-ini')||{}).value || '';
+  var filtroFim    = (document.getElementById('filtro-contas-fim')||{}).value || '';
+
+  var q = db.from('contas_pagar').select('*').order('data_vencimento', {ascending: false}).limit(200);
+  if(filtroInicio) q = q.gte('data_vencimento', filtroInicio);
+  if(filtroFim)    q = q.lte('data_vencimento', filtroFim);
+
+  var r = await q;
   var tbody = document.getElementById('t-contas');
   if(!r.data||!r.data.length){
     tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px">Nenhuma conta cadastrada.</td></tr>';
@@ -1326,6 +1342,14 @@ async function carregarContas(){
 
   document.getElementById('contas-resumo').textContent =
     'Pendente: '+brl(totalPend)+' · Pago no mês: '+brl(totalPago);
+}
+
+function limparFiltroContas(){
+  var ini = document.getElementById('filtro-contas-ini');
+  var fim = document.getElementById('filtro-contas-fim');
+  if(ini) ini.value = '';
+  if(fim) fim.value = '';
+  carregarContas();
 }
 
 async function togglePago(id, pago){
