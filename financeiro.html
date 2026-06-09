@@ -47,7 +47,7 @@ header h1{font-size:1.05rem;font-weight:700}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
 @media(max-width:1600px){ .grid2{grid-template-columns:1fr} }
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
 
 /* MINI CARDS */
 .mini-card{background:#fff;border-radius:10px;box-shadow:var(--sombra);
@@ -461,6 +461,11 @@ tbody td{padding:9px 12px}
       <div class="val" id="mc-contas-pend" style="color:var(--amarelo)">0</div>
       <div class="lbl">⏳ Contas Pendentes</div>
     </div>
+    <div class="mini-card" style="border-left-color:#7c3aed;cursor:pointer;transition:.15s" onclick="abrirModalProLabore()" title="Ver histórico de pró-labore">
+      <div class="val" id="mc-pro-labore" style="color:#7c3aed">R$ 0,00</div>
+      <div class="lbl">👤 Pró-labore no Mês</div>
+      <div style="font-size:.68rem;color:#c084fc;margin-top:4px">clique para ver histórico</div>
+    </div>
   </div>
 
   <!-- VENDAS + DESPESAS -->
@@ -652,7 +657,7 @@ tbody td{padding:9px 12px}
 
     <!-- OPÇÃO: Retirada em dinheiro do caixa físico -->
     <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;
-      padding:12px 14px;margin-bottom:4px;display:flex;align-items:center;gap:12px">
+      padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px">
       <input type="checkbox" id="ret-retirada-caixa" style="width:20px;height:20px;cursor:pointer;accent-color:var(--vermelho);flex-shrink:0">
       <div>
         <label for="ret-retirada-caixa" style="font-weight:700;cursor:pointer;font-size:.88rem">
@@ -661,6 +666,26 @@ tbody td{padding:9px 12px}
         <div style="font-size:.75rem;color:#856404;margin-top:2px">
           Marque apenas se o dinheiro saiu fisicamente do caixa. Se foi PIX, transferência ou débito — NÃO marque.
         </div>
+      </div>
+    </div>
+
+    <!-- OPÇÃO: Pró-labore -->
+    <div id="box-pro-labore" style="background:#f3e8ff;border:2px solid #c084fc;border-radius:8px;
+      padding:12px 14px;margin-bottom:4px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:.15s"
+      onclick="document.getElementById('ret-pro-labore').click()">
+      <input type="checkbox" id="ret-pro-labore" style="width:20px;height:20px;cursor:pointer;accent-color:#7c3aed;flex-shrink:0"
+        onchange="toggleProLabore(this.checked)" onclick="event.stopPropagation()">
+      <div style="flex:1">
+        <label for="ret-pro-labore" style="font-weight:700;cursor:pointer;font-size:.88rem;color:#5b21b6">
+          👤 Pró-labore (retirada do sócio)
+        </label>
+        <div style="font-size:.75rem;color:#7c3aed;margin-top:2px">
+          Marque se esta despesa é uma retirada de pró-labore do sócio/proprietário.
+        </div>
+      </div>
+      <div id="pl-badge-modal" style="text-align:right;flex-shrink:0;display:none">
+        <div style="font-size:.7rem;color:#7c3aed;white-space:nowrap">Já retirado no mês</div>
+        <div id="pl-badge-val" style="font-weight:800;color:#5b21b6;font-size:.95rem">—</div>
       </div>
     </div>
 
@@ -1073,7 +1098,8 @@ async function carregarTudo(){
     carregarVendasMes(),
     carregarContas(),
     carregarFechamentos(),
-    carregarGraficoAnual()
+    carregarGraficoAnual(),
+    atualizarCardProLabore()
   ]);
   renderizarCalendario();
 }
@@ -1416,6 +1442,8 @@ function abrirFormRetirada(){
   document.getElementById('ret-venc').value = hoje();
   document.getElementById('ret-obs').value = '';
   document.getElementById('ret-retirada-caixa').checked = false;
+  document.getElementById('ret-pro-labore').checked = false;
+  toggleProLabore(false);
   document.getElementById('ret-qtd-parcelas').value = '2';
   document.getElementById('ret-valor-total-est').value = '';
   document.getElementById('lista-parcelas').innerHTML = '<div style="text-align:center;color:#aaa;font-size:.8rem;padding:20px">Clique em "Gerar Parcelas" para editar individualmente</div>';
@@ -1475,11 +1503,13 @@ async function salvarDespesa(){
       if(!venc){ toast('Informe o vencimento!','er'); return; }
       
       var retiradaCaixa = document.getElementById('ret-retirada-caixa').checked;
+      var proLabore = document.getElementById('ret-pro-labore').checked;
 
       batch.push({
         descricao: desc, valor, data_vencimento: venc,
         tipo: 'Único', num_parcelas: 1, parcela_atual: 1,
-        pago: false, status: 'PENDENTE', retirada_caixa: retiradaCaixa
+        pago: false, status: 'PENDENTE', retirada_caixa: retiradaCaixa,
+        categoria: proLabore ? 'pro_labore' : null
       });
     } else {
       var inputsValor = document.querySelectorAll('.parc-valor');
@@ -1501,7 +1531,8 @@ async function salvarDespesa(){
           parcela_atual: i+1,
           pago: false,
           status: 'PENDENTE',
-          retirada_caixa: retiradaCaixa
+          retirada_caixa: retiradaCaixa,
+          categoria: proLabore ? 'pro_labore' : null
         });
       }
     }
@@ -1514,6 +1545,7 @@ async function salvarDespesa(){
     carregarContas();
     atualizarCaixa();
     carregarGraficoAnual();
+    atualizarCardProLabore();
   } catch(e) {
     toast('❌ Erro: ' + e.message, 'er');
   }
@@ -2667,11 +2699,181 @@ function enviarRapido(tipo){
 }
 
 /* ══════════════════════════════════════════
+   PRÓ-LABORE
+══════════════════════════════════════════ */
+var _chartProLabore = null;
+
+/* Chamada quando o checkbox pro-labore muda */
+function toggleProLabore(checked){
+  var box = document.getElementById('box-pro-labore');
+  var badge = document.getElementById('pl-badge-modal');
+  if(checked){
+    box.style.background = '#ede9fe';
+    box.style.borderColor = '#7c3aed';
+    badge.style.display = 'block';
+    /* carrega valor já retirado no mês */
+    carregarProLaboreMes().then(function(total){
+      document.getElementById('pl-badge-val').textContent = brl(total);
+    });
+  } else {
+    box.style.background = '#f3e8ff';
+    box.style.borderColor = '#c084fc';
+    badge.style.display = 'none';
+  }
+}
+
+async function carregarProLaboreMes(){
+  var ini = inicioMesLocal();
+  var fim = fimMesLocal();
+  var r = await db.from('contas_pagar')
+    .select('valor')
+    .eq('categoria','pro_labore')
+    .gte('data_vencimento', ini)
+    .lte('data_vencimento', fim);
+  var total = (r.data||[]).reduce(function(s,c){ return s + Number(c.valor||0); }, 0);
+  return total;
+}
+
+async function atualizarCardProLabore(){
+  var total = await carregarProLaboreMes();
+  var el = document.getElementById('mc-pro-labore');
+  if(el) el.textContent = brl(total);
+}
+
+async function abrirModalProLabore(){
+  document.getElementById('modal-pro-labore').classList.add('ab');
+
+  var anoAtual = new Date().getFullYear();
+  var mesAtual = new Date().getMonth();
+  var nomesMeses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+  document.getElementById('pl-mes-nome').textContent = nomesMeses[mesAtual] + ' ' + anoAtual;
+  document.getElementById('pl-ano-nome').textContent = 'Janeiro — ' + nomesMeses[mesAtual] + ' ' + anoAtual;
+
+  /* Busca tudo do ano */
+  var r = await db.from('contas_pagar')
+    .select('valor,data_vencimento,descricao,pago,status')
+    .eq('categoria','pro_labore')
+    .gte('data_vencimento', anoAtual+'-01-01')
+    .lte('data_vencimento', anoAtual+'-12-31')
+    .order('data_vencimento',{ascending:false});
+
+  var todos = r.data || [];
+
+  /* Totais */
+  var totalAno = todos.reduce(function(s,c){ return s + Number(c.valor||0); }, 0);
+  var iniMes = anoAtual+'-'+String(mesAtual+1).padStart(2,'0')+'-01';
+  var fimMes = anoAtual+'-'+String(mesAtual+1).padStart(2,'0')+'-31';
+  var totalMes = todos.filter(function(c){ return c.data_vencimento >= iniMes && c.data_vencimento <= fimMes; })
+    .reduce(function(s,c){ return s + Number(c.valor||0); }, 0);
+
+  document.getElementById('pl-mes-valor').textContent = brl(totalMes);
+  document.getElementById('pl-ano-valor').textContent = brl(totalAno);
+
+  /* Mini card também */
+  var mcEl = document.getElementById('mc-pro-labore');
+  if(mcEl) mcEl.textContent = brl(totalMes);
+
+  /* Gráfico por mês */
+  var porMes = new Array(12).fill(0);
+  todos.forEach(function(c){
+    if(!c.data_vencimento) return;
+    var m = parseInt(c.data_vencimento.substring(5,7)) - 1;
+    porMes[m] += Number(c.valor||0);
+  });
+
+  var ctx = document.getElementById('chart-pro-labore').getContext('2d');
+  if(_chartProLabore) _chartProLabore.destroy();
+  _chartProLabore = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+      datasets:[{
+        label: 'Pró-labore',
+        data: porMes,
+        backgroundColor: porMes.map(function(_,i){ return i===mesAtual?'#7c3aed':'#c4b5fd'; }),
+        borderRadius: 6
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: function(c){ return 'R$ '+c.raw.toFixed(2).replace('.',','); } } } },
+      scales:{ y:{ beginAtZero:true, ticks:{ callback: function(v){ return brl(v); } } } }
+    }
+  });
+
+  /* Lista */
+  var tbody = document.getElementById('t-pro-labore-lista');
+  if(!todos.length){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#bbb;padding:20px">Nenhuma retirada de pró-labore registrada.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = todos.slice(0,30).map(function(c){
+    var badge = c.pago
+      ? '<span class="badge badge-ok">✅ Pago</span>'
+      : (c.data_vencimento < hoje() ? '<span class="badge badge-venc">❌ Vencida</span>' : '<span class="badge badge-pend">⏳ Pendente</span>');
+    return '<tr>'+
+      '<td>'+eh(c.descricao)+'</td>'+
+      '<td style="font-weight:700;color:#5b21b6">'+brl(c.valor)+'</td>'+
+      '<td>'+dataFmt(c.data_vencimento)+'</td>'+
+      '<td>'+badge+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+/* ══════════════════════════════════════════
    BOOT
 ══════════════════════════════════════════ */
 carregarTudo();
 atualizarBarraTokens();
 </script>
 <script src="sidebar.js"></script>
+
+<!-- MODAL: PRÓ-LABORE -->
+<div class="bd" id="modal-pro-labore">
+  <div class="modal" style="width:600px;max-width:96vw">
+    <button class="mf" onclick="fechar('modal-pro-labore')">✕</button>
+    <h2 style="color:#5b21b6">👤 Pró-labore — Histórico</h2>
+
+    <!-- Card mês atual -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+      <div style="background:#f3e8ff;border:2px solid #c084fc;border-radius:10px;padding:16px;text-align:center">
+        <div style="font-size:.75rem;color:#7c3aed;font-weight:700;margin-bottom:4px">TOTAL NO MÊS ATUAL</div>
+        <div id="pl-mes-valor" style="font-size:2rem;font-weight:900;color:#5b21b6">R$ 0,00</div>
+        <div id="pl-mes-nome" style="font-size:.75rem;color:#a78bfa;margin-top:4px">—</div>
+      </div>
+      <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:16px;text-align:center">
+        <div style="font-size:.75rem;color:#7c3aed;font-weight:700;margin-bottom:4px">TOTAL NO ANO</div>
+        <div id="pl-ano-valor" style="font-size:2rem;font-weight:900;color:#6d28d9">R$ 0,00</div>
+        <div id="pl-ano-nome" style="font-size:.75rem;color:#a78bfa;margin-top:4px">—</div>
+      </div>
+    </div>
+
+    <!-- Gráfico mensal -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:.82rem;font-weight:700;color:#5b21b6;margin-bottom:8px">📊 Pró-labore por mês</div>
+      <div style="height:200px"><canvas id="chart-pro-labore"></canvas></div>
+    </div>
+
+    <!-- Últimas retiradas -->
+    <div style="font-size:.82rem;font-weight:700;color:#5b21b6;margin-bottom:8px">📋 Últimas retiradas</div>
+    <div class="tw" style="max-height:200px;overflow-y:auto">
+      <table>
+        <thead><tr>
+          <th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th>
+        </tr></thead>
+        <tbody id="t-pro-labore-lista">
+          <tr><td colspan="4" style="text-align:center;color:#bbb;padding:16px">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mac" style="margin-top:16px">
+      <button class="btn bc" onclick="fechar('modal-pro-labore')">Fechar</button>
+      <button class="btn" style="background:#7c3aed;color:#fff" onclick="fechar('modal-pro-labore');abrirFormRetirada();setTimeout(()=>{document.getElementById('ret-pro-labore').checked=true;toggleProLabore(true);},80)">+ Nova Retirada</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
