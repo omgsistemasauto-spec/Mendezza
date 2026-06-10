@@ -1122,6 +1122,7 @@ tbody td{padding:8px 12px}
       <option value="pendente,parcial">⏳ Em aberto</option>
       <option value="">Todos</option>
       <option value="quitado">✅ Quitados</option>
+      <option value="cancelado">↩️ Revertidos</option>
     </select>
     <input id="fiad-busca" placeholder="Buscar cliente..." oninput="carregarFiados()"
       style="padding:7px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.86rem;outline:none;min-width:200px">
@@ -1224,6 +1225,15 @@ tbody td{padding:8px 12px}
         <input type="number" id="fiad-entrada" min="0" step="0.01" value="0" placeholder="0,00"
           oninput="recalcFiado()">
       </div>
+    </div>
+    <div class="cmp" id="div-fiad-metodo-entrada" style="display:none">
+      <label>Forma de pagamento da entrada</label>
+      <select id="fiad-metodo-entrada" style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:7px;font-size:.9rem;background:#fff">
+        <option value="Dinheiro">💵 Dinheiro</option>
+        <option value="PIX">📲 PIX</option>
+        <option value="Cartão Crédito">💳 Cartão Crédito</option>
+        <option value="Cartão Débito">💳 Cartão Débito</option>
+      </select>
     </div>
     <div class="g2">
       <div class="cmp">
@@ -3945,9 +3955,15 @@ function fecharModalFiado(){
   document.getElementById('fiad-desconto').value='0';
   document.getElementById('fiad-entrada').value='0';
   document.getElementById('fiad-bruto-exib').textContent='';
+  document.getElementById('div-fiad-metodo-entrada').style.display='none';
+  document.getElementById('fiad-metodo-entrada').value='Dinheiro';
 }
 
-function recalcFiado(){ recalcularTotalFiado(); }
+function recalcFiado(){
+  var entrada = parseFloat(document.getElementById('fiad-entrada').value)||0;
+  document.getElementById('div-fiad-metodo-entrada').style.display = entrada>0 ? '' : 'none';
+  recalcularTotalFiado();
+}
 
 /* ── Busca cliente no modal fiado ── */
 async function buscarClienteFiado(){
@@ -4059,67 +4075,134 @@ async function salvarFiado(){
   var obs     = document.getElementById('fiad-obs').value.trim()||null;
   var desconto= parseFloat(document.getElementById('fiad-desconto').value)||0;
   var entrada = parseFloat(document.getElementById('fiad-entrada').value)||0;
+  var metodoEntrada = document.getElementById('fiad-metodo-entrada').value||'Dinheiro';
+  var metodoEntrada = document.getElementById('fiad-metodo-entrada').value||'Dinheiro';
 
   if(!cliNome){ toast('Selecione ou informe o cliente!','er'); return; }
 
-  var itensFilt = _fiadoLinhas.filter(function(l){ return l.nome.trim(); });
-  if(!itensFilt.length){ toast('Adicione ao menos um item!','er'); return; }
+  /* Usa o carrinho se tiver itens, senão usa as linhas manuais do modal */
+  var fonteItens = _carrinho.length ? _carrinho.map(function(c){
+    return { nome: c.nome, qtd: c.qtd, preco: c.preco, codigo: c.codigo, tipo: c.tipo };
+  }) : _fiadoLinhas.filter(function(l){ return l.nome.trim() && l.preco>0; }).map(function(l){
+    return { nome: l.nome.trim(), qtd: l.qtd, preco: l.preco, codigo: null, tipo: 'produto' };
+  });
 
-  var bruto = itensFilt.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
+  if(!fonteItens.length){ toast('Adicione ao menos um item!','er'); return; }
+
+  var bruto         = fonteItens.reduce(function(s,l){ return s+l.preco*l.qtd; },0);
   if(bruto<=0){ toast('O valor total deve ser maior que zero!','er'); return; }
 
-  var totalComDesconto = Math.max(0, bruto - desconto);
-  var totalAPrazo      = Math.max(0, totalComDesconto - entrada);
-
-  var descResumo = itensFilt.map(function(l){ return l.qtd+'x '+l.nome; }).join(', ');
+  var totalVenda    = parseFloat(Math.max(0, bruto - desconto).toFixed(2));
+  var entradaVal    = parseFloat(Math.min(entrada, totalVenda).toFixed(2));
+  var totalAPrazo   = parseFloat((totalVenda - entradaVal).toFixed(2));
+  var descResumo    = fonteItens.map(function(l){ return l.qtd+'x '+l.nome; }).join(', ');
+  var cliIdInt      = cliId ? parseInt(cliId) : null;
 
   try{
-    var rp = await db.from('pagamentos_pendentes').insert({
-      cliente_id:     cliId ? parseInt(cliId) : null,
-      cliente_nome:   cliNome,
-      cliente_tel:    cliTel||null,
-      descricao:      descResumo,
-      valor_total:    parseFloat(totalAPrazo.toFixed(2)),
-      valor_pago:     0,
-      status:         totalAPrazo<=0 ? 'quitado' : 'pendente',
-      responsavel:    USERNAME,
-      data_vencimento: venc,
-      observacoes:    obs
+    /* ── 1. CRIA A VENDA (total = valor total, entrada = metodo "Fiado + Entrada") ── */
+    var rv = await db.from('vendas').insert({
+      total:            totalVenda,
+      total_bruto:      parseFloat(bruto.toFixed(2)),
+      desconto:         parseFloat(desconto.toFixed(2)),
+      metodo_pagamento: entradaVal>0 ? 'Fiado + '+metodoEntrada+' R$'+entradaVal.toFixed(2) : 'Fiado',
+      cliente_nome:     cliNome,
+      cliente_id:       cliIdInt,
+      responsavel:      USERNAME,
+      observacoes:      (obs||'') + (obs?' | ':'')+
+                        (entradaVal>0 ? 'Entrada: R$'+entradaVal.toFixed(2)+' · ' : '')+
+                        'Restante fiado: R$'+totalAPrazo.toFixed(2)
     }).select('id').single();
-    if(rp.error) throw new Error(rp.error.message);
-    var ppId = rp.data.id;
+    if(rv.error) throw new Error(rv.error.message);
+    var vendaId = rv.data.id;
 
-    var itBatch = itensFilt.map(function(l){
-      return {pp_id:ppId, nome:l.nome.trim(), quantidade:l.qtd, preco_unitario:l.preco};
-    });
-    await db.from('pp_itens').insert(itBatch);
+    /* ── 2. INSERE itens_venda + baixa estoque + movimentações ── */
+    var itensBatch = [];
+    for(var i=0; i<fonteItens.length; i++){
+      var it = fonteItens[i];
+      var valorCompra = (it.codigo && (it.tipo==='produto'||it.tipo==='peca'))
+        ? (await getValorCompra(it.codigo)) : 0;
 
-    /* Se teve entrada, registra como primeiro pagamento */
-    if(entrada>0){
-      await db.from('pp_pagamentos').insert({pp_id:ppId, valor:entrada, metodo:'Entrada', observacoes:'Entrada no ato'});
-    }
+      itensBatch.push({
+        venda_id:       vendaId,
+        produto_codigo: it.codigo||null,
+        nome_produto:   it.nome,
+        quantidade:     it.qtd,
+        preco_unitario: it.preco,
+        valor_compra:   valorCompra,
+        tipo:           it.tipo==='peca' ? 'produto' : (it.tipo||'produto')
+      });
 
-    var msg = '✅ Lançado! ';
-    if(desconto>0) msg += 'Desconto: '+brl(desconto)+' · ';
-    if(entrada>0)  msg += 'Entrada: '+brl(entrada)+' · ';
-    msg += cliNome+' deve '+brl(totalAPrazo);
-    toast(msg,'ok');
-    fecharModalFiado();
-
-    if(_carrinho.length){
-      if(confirm('Limpar o carrinho atual?')){
-        _carrinho.forEach(function(it){
-          if(it.tipo==='produto'||it.tipo==='peca'){
-            var p=_produtos.find(function(x){ return x.codigo===it.codigo; });
-            if(p) atualizarEstoqueVisual(it.codigo,p.estoque+it.qtd);
-          }
+      if(it.codigo && (it.tipo==='produto'||it.tipo==='peca')){
+        var rpc = await db.rpc('decrementar_estoque',{p_codigo:it.codigo, p_qtd:it.qtd});
+        if(rpc.error){
+          var re = await db.from('itens').select('estoque').eq('codigo',it.codigo).single();
+          if(re.data) await db.from('itens').update({estoque: re.data.estoque - it.qtd}).eq('codigo',it.codigo);
+        }
+        await db.from('movimentacoes').insert({
+          item_codigo: it.codigo, tipo:'VENDA',
+          quantidade:  it.qtd,
+          data:        new Date().toISOString(),
+          responsavel: USERNAME
         });
-        _carrinho=[]; renderCarrinho();
+        /* Atualiza cache local */
+        var p2 = _produtos.find(function(x){ return x.codigo===it.codigo; });
+        if(p2){ p2.estoque -= it.qtd; }
       }
     }
+    var ri = await db.from('itens_venda').insert(itensBatch);
+    if(ri.error) throw new Error(ri.error.message);
+
+    /* ── 3. REGISTRA ENTRADA NO FINANCEIRO (se houver) ── */
+    if(entradaVal > 0){
+      await db.from('vendas').insert({
+        total:            entradaVal,
+        total_bruto:      entradaVal,
+        desconto:         0,
+        metodo_pagamento: 'Entrada Recebida — '+metodoEntrada,
+        cliente_nome:     cliNome,
+        cliente_id:       cliIdInt,
+        responsavel:      USERNAME,
+        observacoes:      'Entrada fiado — venda #'+vendaId
+      });
+    }
+
+    /* ── 4. CRIA FIADO com apenas o RESTANTE ── */
+    if(totalAPrazo > 0.01){
+      var rfp = await db.from('pagamentos_pendentes').insert({
+        cliente_id:      cliIdInt,
+        cliente_nome:    cliNome,
+        cliente_tel:     cliTel||null,
+        descricao:       descResumo,
+        valor_total:     totalAPrazo,
+        valor_pago:      0,
+        status:          'pendente',
+        responsavel:     USERNAME,
+        data_vencimento: venc,
+        observacoes:     'Ref. venda #'+vendaId + (obs?' | '+obs:'')
+      }).select('id').single();
+      if(rfp.error) throw new Error(rfp.error.message);
+
+      /* Itens também no pp_itens para referência */
+      await db.from('pp_itens').insert(fonteItens.map(function(l){
+        return {pp_id: rfp.data.id, nome:l.nome, quantidade:l.qtd, preco_unitario:l.preco};
+      }));
+    }
+
+    /* ── 5. LIMPA CARRINHO ── */
+    _carrinho = []; renderCarrinho(); filtrarProdutos();
+    fecharModalFiado();
+
+    var msg = '✅ Venda lançada como fiado! ';
+    if(entradaVal>0) msg += 'Entrada: '+brl(entradaVal)+' · ';
+    if(totalAPrazo>0.01) msg += cliNome+' deve '+brl(totalAPrazo);
+    else msg += 'Dívida já quitada pela entrada!';
+    toast(msg,'ok');
+
     carregarFiados();
+
   }catch(e){
     toast('❌ Erro: '+e.message,'er');
+    console.error('[salvarFiado]',e);
   }
 }
 
@@ -4150,8 +4233,9 @@ async function carregarFiados(){
   document.getElementById('fiad-resumo').textContent =
     dados.length+' registro(s) · Total em aberto: '+brl(totalAberto);
 
-  var corStatus = {pendente:'#e74c3c',parcial:'#e67e22',quitado:'#28a745'};
-  var lblStatus = {pendente:'⏳ Pendente',parcial:'⚡ Parcial',quitado:'✅ Quitado'};
+  var corStatus = {pendente:'#e74c3c',parcial:'#e67e22',quitado:'#28a745',cancelado:'#95a5a6'};
+  var lblStatus = {pendente:'⏳ Pendente',parcial:'⚡ Parcial',quitado:'✅ Quitado',cancelado:'↩️ Revertido'};
+  var filtStatus= {pendente:'⏳ Pendente',parcial:'⚡ Parcial',quitado:'✅ Quitado',cancelado:'↩️ Revertido'};
 
   el.innerHTML = dados.map(function(p){
     var restante = p.valor_total - p.valor_pago;
@@ -4185,6 +4269,7 @@ async function carregarFiados(){
             (p.status!=='quitado'?
               '<button class="btn ba" style="padding:4px 10px;font-size:.76rem;background:#28a745;color:#fff;border:none" onclick="abrirBaixa('+p.id+')">✅ Quitar Tudo</button>':'')+ 
             '<button class="btn ba" style="padding:4px 10px;font-size:.76rem" onclick="verDetalhesFiado('+p.id+')">👁️ Ver</button>'+
+            '<button class="btn br" style="padding:4px 10px;font-size:.76rem" onclick="confirmarReverterFiado('+p.id+')">↩️ Reverter</button>'+
             (p.cliente_tel?
               '<button class="btn bwp" style="padding:4px 10px;font-size:.76rem" onclick="cobrarZap('+p.id+')">📲</button>':'')+
           '</div>'+
@@ -4244,6 +4329,7 @@ async function verDetalhesFiado(ppId){
   document.getElementById('baixa-acoes').innerHTML =
     (p.status!=='quitado'?
       '<button class="btn bv" onclick="abrirBaixa('+ppId+')">💰 Dar Baixa</button>':'')+
+    '<button class="btn br" onclick="confirmarReverterFiado('+ppId+')">↩️ Reverter Fiado</button>'+
     '<button class="btn bc" onclick="document.getElementById(\'modal-baixa\').classList.remove(\'ab\')">Fechar</button>';
 
   document.getElementById('modal-baixa').classList.add('ab');
@@ -4289,23 +4375,39 @@ async function confirmarBaixa(ppId, restante){
   var obs    = document.getElementById('baixa-obs').value.trim()||null;
 
   if(valor<=0){ toast('Informe o valor recebido!','er'); return; }
-  if(valor>restante+0.01){ toast('Valor maior que a dívida! Restante: '+brl(restante),'er'); return; }
+  var restanteNum = parseFloat(parseFloat(restante).toFixed(2));
+  if(valor > restanteNum+0.01){ toast('Valor maior que a dívida! Restante: '+brl(restanteNum),'er'); return; }
 
-  /* Busca valor já pago */
-  var rp = await db.from('pagamentos_pendentes').select('valor_pago,valor_total').eq('id',ppId).single();
-  var novoPago = (rp.data.valor_pago||0) + valor;
-  var total    = rp.data.valor_total;
+  var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
+  if(rp.error || !rp.data){ toast('❌ Erro ao buscar fiado!','er'); return; }
+  var pp = rp.data;
+
+  var novoPago   = parseFloat(((pp.valor_pago||0)+valor).toFixed(2));
+  var total      = pp.valor_total;
   var novoStatus = novoPago >= total-0.01 ? 'quitado' : 'parcial';
+  var valorFmt   = parseFloat(valor.toFixed(2));
 
-  /* Insere pagamento */
-  await db.from('pp_pagamentos').insert({pp_id:ppId, valor, metodo, observacoes:obs});
+  /* 1. Registra pagamento */
+  await db.from('pp_pagamentos').insert({pp_id:ppId, valor:valorFmt, metodo, observacoes:obs});
 
-  /* Atualiza total pago e status */
+  /* 2. Atualiza fiado */
   await db.from('pagamentos_pendentes').update({
-    valor_pago:   parseFloat(novoPago.toFixed(2)),
-    status:       novoStatus,
+    valor_pago:    novoPago,
+    status:        novoStatus,
     data_quitacao: novoStatus==='quitado' ? new Date().toISOString() : null
   }).eq('id',ppId);
+
+  /* 3. Registra no financeiro para entrar no caixa do dia */
+  await db.from('vendas').insert({
+    total:            valorFmt,
+    total_bruto:      valorFmt,
+    desconto:         0,
+    metodo_pagamento: metodo,
+    cliente_nome:     pp.cliente_nome,
+    cliente_id:       pp.cliente_id || null,
+    responsavel:      USERNAME,
+    observacoes:      'Quitação Fiado' + (obs ? ' — '+obs : '') + ' (ref. #'+ppId+')'
+  });
 
   document.getElementById('modal-baixa').classList.remove('ab');
   var msg = novoStatus==='quitado'
@@ -4334,8 +4436,57 @@ async function cobrarZap(ppId){
 }
 
 /* ══════════════════════════════════════════
-   PAGAR PARCELA — abate valor na dívida
+   REVERTER FIADO — estorna tudo
 ══════════════════════════════════════════ */
+async function confirmarReverterFiado(ppId){
+  var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
+  if(!rp.data){ toast('Fiado não encontrado!','er'); return; }
+  var p = rp.data;
+
+  var confirmMsg = '↩️ Reverter fiado de '+p.cliente_nome+'?\n\n'+
+    'Total: '+brl(p.valor_total)+'\n'+
+    'Já pago: '+brl(p.valor_pago)+'\n\n'+
+    'Isso irá cancelar o fiado e estornar todos os pagamentos registrados.\n'+
+    'Essa ação não pode ser desfeita.';
+
+  if(!confirm(confirmMsg)) return;
+
+  try{
+    /* 1. Cancela o fiado */
+    var re = await db.from('pagamentos_pendentes').update({
+      status: 'cancelado',
+      observacoes: (p.observacoes ? p.observacoes+' | ' : '') + 'REVERTIDO por '+USERNAME+' em '+new Date().toLocaleString('pt-BR')
+    }).eq('id', ppId);
+    if(re.error) throw new Error(re.error.message);
+
+    /* 2. Se houve pagamentos registrados no financeiro (vendas), estorna cada um */
+    if(p.valor_pago > 0){
+      /* Busca os registros de "Recebimento Fiado" / "Quitação Fiado" / "Entrada Fiado" inseridos */
+      var rv = await db.from('vendas')
+        .select('id,total')
+        .ilike('observacoes', '%(ref. #'+ppId+')%');
+
+      if(rv.data && rv.data.length){
+        for(var i=0; i<rv.data.length; i++){
+          /* Marca como cancelada no financeiro */
+          await db.from('vendas').update({
+            status: 'cancelada',
+            observacoes: 'ESTORNADO — Reversão fiado #'+ppId
+          }).eq('id', rv.data[i].id);
+        }
+      }
+    }
+
+    /* 3. Fecha modal se aberto */
+    document.getElementById('modal-baixa').classList.remove('ab');
+
+    toast('✅ Fiado #'+ppId+' revertido! Pagamentos estornados do financeiro.','ok');
+    carregarFiados();
+
+  }catch(e){
+    toast('❌ Erro ao reverter: '+e.message,'er');
+  }
+}
 async function abrirPagarParcela(ppId){
   var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
   if(!rp.data) return;
@@ -4385,19 +4536,39 @@ async function confirmarParcela(ppId, restante){
   var obs    = document.getElementById('parcela-obs').value.trim()||null;
 
   if(valor<=0){ toast('Informe o valor da parcela!','er'); return; }
-  if(valor>restante+0.01){ toast('Valor maior que o restante! Máximo: '+brl(restante),'er'); return; }
+  var restanteNum = parseFloat(parseFloat(restante).toFixed(2));
+  if(valor > restanteNum+0.01){ toast('Valor maior que o restante! Máximo: '+brl(restanteNum),'er'); return; }
 
-  var rp = await db.from('pagamentos_pendentes').select('valor_pago,valor_total').eq('id',ppId).single();
-  var novoPago   = parseFloat(((rp.data.valor_pago||0)+valor).toFixed(2));
-  var total      = rp.data.valor_total;
+  /* Busca dados do fiado */
+  var rp = await db.from('pagamentos_pendentes').select('*').eq('id',ppId).single();
+  if(rp.error || !rp.data){ toast('❌ Fiado não encontrado!','er'); return; }
+  var pp = rp.data;
+
+  var novoPago   = parseFloat(((pp.valor_pago||0)+valor).toFixed(2));
+  var total      = pp.valor_total;
   var novoStatus = novoPago >= total-0.01 ? 'quitado' : 'parcial';
 
-  await db.from('pp_pagamentos').insert({pp_id:ppId, valor, metodo, observacoes:obs});
+  /* 1. Registra parcela */
+  await db.from('pp_pagamentos').insert({pp_id:ppId, valor:parseFloat(valor.toFixed(2)), metodo, observacoes:obs});
+
+  /* 2. Atualiza fiado */
   await db.from('pagamentos_pendentes').update({
     valor_pago:    novoPago,
     status:        novoStatus,
     data_quitacao: novoStatus==='quitado' ? new Date().toISOString() : null
   }).eq('id',ppId);
+
+  /* 3. Registra no financeiro (tabela vendas) para entrar no caixa do dia */
+  await db.from('vendas').insert({
+    total:             parseFloat(valor.toFixed(2)),
+    total_bruto:       parseFloat(valor.toFixed(2)),
+    desconto:          0,
+    metodo_pagamento:  metodo,
+    cliente_nome:      pp.cliente_nome,
+    cliente_id:        pp.cliente_id || null,
+    responsavel:       USERNAME,
+    observacoes:       'Recebimento Fiado' + (obs ? ' — '+obs : '') + ' (ref. #'+ppId+')'
+  });
 
   document.getElementById('modal-baixa').classList.remove('ab');
   var msg = novoStatus==='quitado'
