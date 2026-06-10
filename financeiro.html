@@ -1132,9 +1132,10 @@ async function atualizarCaixa(){
       ? Number(rc.data.saldo_inicial)
       : (rfech.data ? Number(rfech.data.saldo_final) : 0);
 
-  /* vendas DO MÊS INTEIRO */
+  /* vendas DO MÊS INTEIRO — exclui lançamentos de Fiado (só entrada entra no caixa) */
   var rv = await db.from('vendas').select('total').gt('total',0)
-    .gte('data', inicio+'T00:00:00').lte('data', fim+'T23:59:59');
+    .gte('data', inicio+'T00:00:00').lte('data', fim+'T23:59:59')
+    .not('metodo_pagamento', 'ilike', 'Fiado%');
   var totalVendasMes = (rv.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
 
   /* contas pagas NO MÊS */
@@ -1147,7 +1148,8 @@ async function atualizarCaixa(){
   /* atualiza caixa de hoje no banco se existir */
   if(rcHoje.data){
     var rvHj = await db.from('vendas').select('total').gt('total',0)
-      .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
+      .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59')
+      .not('metodo_pagamento', 'ilike', 'Fiado%');
     var vendHj = (rvHj.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
     var rcpHj = await db.from('contas_pagar').select('valor,retirada_caixa').eq('pago',true).eq('data_pagamento', hj);
     /* retiradas do caixa: só as marcadas como saída física de dinheiro */
@@ -1174,7 +1176,8 @@ async function atualizarCaixa(){
 
   /* mini cards */
   var rv2 = await db.from('vendas').select('total').gt('total',0)
-    .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59');
+    .gte('data', hj+'T00:00:00').lte('data', hj+'T23:59:59')
+    .not('metodo_pagamento', 'ilike', 'Fiado%');
   var vendasHoje = (rv2.data||[]).reduce(function(s,v){ return s+Number(v.total||0); },0);
 
   document.getElementById('mc-vendas-dia').textContent  = brl(vendasHoje);
@@ -1231,7 +1234,8 @@ async function carregarVendasMes(){
   /* 1. Vendas do mês com seus IDs */
   var rv = await db.from('vendas')
     .select('id,data,total,metodo_pagamento')
-    .gte('data',inicio).lte('data',fim+'T23:59:59').gt('total',0);
+    .gte('data',inicio).lte('data',fim+'T23:59:59').gt('total',0)
+    .not('metodo_pagamento','ilike','Fiado%');
 
   /* 2. Despesas pagas no mês */
   var rd = await db.from('contas_pagar')
@@ -1559,7 +1563,7 @@ var _fcDados = null;
 async function abrirFecharCaixa(){
   /* busca totais do dia */
   var hoje2 = hoje();
-  var rv = await db.from('vendas').select('total,metodo_pagamento').gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59').gt('total',0);
+  var rv = await db.from('vendas').select('total,metodo_pagamento').gte('data',hoje2+'T00:00:00').lte('data',hoje2+'T23:59:59').gt('total',0).not('metodo_pagamento','ilike','Fiado%');
   var vendas = rv.data||[];
 
   var totalVendas=0,din=0,cred=0,deb=0,pix=0;
@@ -1988,7 +1992,7 @@ async function carregarGraficoAnual(){
   
   // Busca vendas e despesas do ano
   var [rv, rd] = await Promise.all([
-    db.from('vendas').select('data,total,metodo_pagamento').gte('data',inicio).lte('data',fim).gt('total',0),
+    db.from('vendas').select('data,total,metodo_pagamento').gte('data',inicio).lte('data',fim).gt('total',0).not('metodo_pagamento','ilike','Fiado%'),
     db.from('contas_pagar').select('data_pagamento,valor').eq('pago',true).gte('data_pagamento',inicio).lte('data_pagamento',ano+'-12-31')
   ]);
   
@@ -2152,6 +2156,7 @@ async function abrirVisaoCaixa(){
   var [rvAll, rdAll, rcAll] = await Promise.all([
     db.from('vendas').select('id,data,total,metodo_pagamento,cliente_nome').gt('total',0)
       .gte('data', inicio+'T00:00:00').lte('data', fim+'T23:59:59')
+      .not('metodo_pagamento','ilike','Fiado%')
       .order('data',{ascending:true}),
     db.from('contas_pagar').select('id,descricao,valor,data_pagamento,data_vencimento,pago')
       .gte('data_vencimento', inicio).lte('data_vencimento', fim)
@@ -2408,8 +2413,8 @@ async function coletarDadosFinanceiros(){
   /* Busca tudo em paralelo */
   var [rvMes, rvAno, rcpMes, rcpAno, rfMes,
        rCli, rVei, rCI, rOS, rFiado, rItens] = await Promise.all([
-    db.from('vendas').select('id,total,metodo_pagamento,data,cliente_nome').gte('data',iniMes+'T00:00:00').lte('data',fimMes+'T23:59:59').order('data',{ascending:false}),
-    db.from('vendas').select('id,total,data').gte('data',iniAno+'T00:00:00').lte('data',fimAno+'T23:59:59'),
+    db.from('vendas').select('id,total,metodo_pagamento,data,cliente_nome').gte('data',iniMes+'T00:00:00').lte('data',fimMes+'T23:59:59').order('data',{ascending:false}).not('metodo_pagamento','ilike','Fiado%'),
+    db.from('vendas').select('id,total,data').gte('data',iniAno+'T00:00:00').lte('data',fimAno+'T23:59:59').not('metodo_pagamento','ilike','Fiado%'),
     /* despesas A PAGAR este mês (vencimento no mês, ainda não pagas) */
     db.from('contas_pagar').select('descricao,valor,data_vencimento').eq('pago',false).gte('data_vencimento',iniMes).lte('data_vencimento',fimMes),
     /* despesas JÁ PAGAS este mês */
