@@ -2047,6 +2047,8 @@ function abrirLockDesconto(){
 
 function fecharLockDesconto(){
   document.getElementById('modal-lock-desc').style.display = 'none';
+  document.getElementById('inp-senha-lock').value = '';
+  document.getElementById('lock-erro').style.display = 'none';
 }
 
 var TG_TOKEN   = '7521363709:AAEET3ipeNTzLEFyyOnk0Xn1lrwLeR5X7Ng';
@@ -2068,7 +2070,7 @@ function confirmarLockDesconto(){
     document.getElementById('inp-senha-lock').focus();
     return;
   }
-  fecharLockDesconto();
+  fecharLockDesconto(); /* já limpa o campo */
   _descontoLivre = true;
   var inp = document.getElementById('fin-desconto');
   inp.max = '100';
