@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mendezza Auto Peças — Acesso</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --azul:     #0f172a;
+  --azul2:    #5271ff;
+  --azul3:    #3b5bdb;
+  --cinza:    #f1f5f9;
+  --txt:      #1e293b;
+  --txt2:     #64748b;
+  --borda:    #e2e8f0;
+  --erro:     #ef4444;
+  --ok:       #22c55e;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--azul);
+  color: var(--txt);
+}
+
+/* FUNDO COM PADRÃO */
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -20%, rgba(82,113,255,.3) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(59,91,219,.25) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+/* GRADE SUTIL */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* CARD */
+.card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 44px 40px 40px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 32px 80px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.08);
+  position: relative;
+  z-index: 1;
+  animation: cardIn .4s cubic-bezier(.16,1,.3,1) both;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(20px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* LOGO */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.logo-icon {
+  width: 52px; height: 52px;
+  background: var(--azul2);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -1px;
+  box-shadow: 0 4px 16px rgba(82,113,255,.4);
+  flex-shrink: 0;
+}
+
+.logo-txt { flex: 1; }
+.logo-txt strong {
+  display: block;
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: var(--txt);
+  letter-spacing: -.3px;
+}
+.logo-txt span {
+  display: block;
+  font-size: .78rem;
+  color: var(--txt2);
+  margin-top: 1px;
+}
+
+/* TÍTULO */
+.card h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--txt);
+  letter-spacing: -.4px;
+  margin-bottom: 6px;
+}
+.card p.sub {
+  font-size: .875rem;
+  color: var(--txt2);
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+/* FORM */
+.campo {
+  margin-bottom: 18px;
+}
+.campo label {
+  display: block;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--txt2);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 7px;
+}
+
+.input-wrap {
+  position: relative;
+}
+.input-wrap .ic {
+  position: absolute;
+  left: 13px; top: 50%; transform: translateY(-50%);
+  font-size: 1rem;
+  pointer-events: none;
+  opacity: .5;
+}
+
+.campo input {
+  width: 100%;
+  padding: 11px 14px 11px 40px;
+  border: 1.5px solid var(--borda);
+  border-radius: 10px;
+  font-size: .92rem;
+  color: var(--txt);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  background: #fafbfc;
+}
+.campo input:focus {
+  border-color: var(--azul2);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(82,113,255,.12);
+}
+.campo input.erro {
+  border-color: var(--erro);
+  box-shadow: 0 0 0 3px rgba(239,68,68,.1);
+}
+
+/* MOSTRAR SENHA */
+.btn-eye {
+  position: absolute;
+  right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  font-size: .95rem; opacity: .4; transition: opacity .15s;
+  padding: 2px;
+}
+.btn-eye:hover { opacity: .8; }
+
+/* BOTÃO ENTRAR */
+.btn-login {
+  width: 100%;
+  padding: 13px;
+  background: var(--azul2);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s, transform .1s, box-shadow .15s;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 14px rgba(82,113,255,.35);
+}
+.btn-login:hover:not(:disabled) {
+  background: var(--azul3);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(82,113,255,.4);
+}
+.btn-login:active:not(:disabled) {
+  transform: translateY(0);
+}
+.btn-login:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+/* SPINNER */
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* MENSAGEM DE ERRO */
+.msg-erro {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: .84rem;
+  color: var(--erro);
+  margin-bottom: 18px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  animation: fadeIn .2s ease;
+}
+.msg-erro.vis { display: flex; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* RODAPÉ DO CARD */
+.card-footer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--borda);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.badge-seguro {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .75rem;
+  color: var(--txt2);
+  background: var(--cinza);
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
+/* VERSÃO */
+.versao {
+  position: fixed;
+  bottom: 16px;
+  right: 20px;
+  font-size: .7rem;
+  color: rgba(255,255,255,.2);
+  z-index: 2;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">M</div>
+    <div class="logo-txt">
+      <strong>Mendezza</strong>
+      <span>Auto Peças</span>
+    </div>
+  </div>
+
+  <h2>Bem-vindo de volta</h2>
+  <p class="sub">Faça login para acessar o sistema de gestão.</p>
+
+  <div class="msg-erro" id="msg-erro">
+    <span>⚠️</span>
+    <span id="msg-erro-txt">Usuário ou senha inválidos.</span>
+  </div>
+
+  <div class="campo">
+    <label for="inp-user">Usuário</label>
+    <div class="input-wrap">
+      <span class="ic">👤</span>
+      <input type="text" id="inp-user" placeholder="Digite seu usuário" autocomplete="username"
+        onkeydown="if(event.key==='Enter') document.getElementById('inp-senha').focus()">
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="inp-senha">Senha</label>
+    <div class="input-wrap">
+      <span class="ic">🔒</span>
+      <input type="password" id="inp-senha" placeholder="Digite sua senha" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') fazerLogin()">
+      <button class="btn-eye" type="button" onclick="toggleSenha()" title="Mostrar/ocultar">👁</button>
+    </div>
+  </div>
+
+  <button class="btn-login" id="btn-login" onclick="fazerLogin()">
+    <div class="spinner" id="spinner"></div>
+    <span id="btn-txt">Entrar</span>
+  </button>
+
+  <div class="card-footer">
+    <div class="badge-seguro">🔐 Acesso seguro e protegido</div>
+  </div>
+</div>
+
+<div class="versao">Mendezza v1.0</div>
+
+<script>
+/* ── CREDENCIAIS FIXAS ──
+   admin  → gu16ma16   → acesso total
+   usuario → 123456    → apenas vendas.html                          */
+var USUARIOS = {
+  'admin':   { senha: 'gu16ma16', role: 'admin',   nome: 'Admin',   cargo: 'Gerente' },
+  'usuario': { senha: '123456',   role: 'usuario',  nome: 'Usuário', cargo: 'Operador' }
+};
+
+/* ── PÁGINAS PERMITIDAS POR ROLE ── */
+var ACESSO = {
+  'admin':   ['vendas.html','checkin.html','estoque.html','financeiro.html',
+              'index.html','vendas.html#fiado','vendas.html#os'],
+  'usuario': ['vendas.html']
+};
+
+/* ── REDIRECIONA SE JÁ LOGADO ── */
+var sess = null;
+try { sess = JSON.parse(sessionStorage.getItem('mnd_session') || localStorage.getItem('mnd_session')); } catch(e){}
+if (sess && sess.role) {
+  window.location.href = sess.role === 'admin' ? 'vendas.html' : 'vendas.html';
+}
+
+function toggleSenha() {
+  var inp = document.getElementById('inp-senha');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function mostrarErro(msg) {
+  var el = document.getElementById('msg-erro');
+  document.getElementById('msg-erro-txt').textContent = msg;
+  el.classList.add('vis');
+  document.getElementById('inp-user').classList.add('erro');
+  document.getElementById('inp-senha').classList.add('erro');
+}
+
+function ocultarErro() {
+  document.getElementById('msg-erro').classList.remove('vis');
+  document.getElementById('inp-user').classList.remove('erro');
+  document.getElementById('inp-senha').classList.remove('erro');
+}
+
+function fazerLogin() {
+  ocultarErro();
+  var user   = document.getElementById('inp-user').value.trim().toLowerCase();
+  var senha  = document.getElementById('inp-senha').value;
+
+  if (!user || !senha) {
+    mostrarErro('Preencha usuário e senha.');
+    return;
+  }
+
+  /* Ativa spinner */
+  var btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('btn-txt').textContent = 'Verificando...';
+
+  /* Simula delay de autenticação (150ms) */
+  setTimeout(function() {
+    var u = USUARIOS[user];
+    if (!u || u.senha !== senha) {
+      mostrarErro('Usuário ou senha inválidos. Verifique e tente novamente.');
+      btn.disabled = false;
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btn-txt').textContent = 'Entrar';
+      document.getElementById('inp-senha').value = '';
+      document.getElementById('inp-senha').focus();
+      return;
+    }
+
+    /* SALVA SESSÃO */
+    var sessao = {
+      user:   user,
+      role:   u.role,
+      nome:   u.nome,
+      cargo:  u.cargo,
+      ts:     Date.now()
+    };
+    localStorage.setItem('mnd_session', JSON.stringify(sessao));
+    sessionStorage.setItem('mnd_session', JSON.stringify(sessao));
+
+    document.getElementById('btn-txt').textContent = '✔ Entrando...';
+
+    /* limpa campos antes de sair */
+    document.getElementById('inp-user').value  = '';
+    document.getElementById('inp-senha').value = '';
+
+    /* REDIRECIONA */
+    setTimeout(function() {
+      window.location.href = 'vendas.html';
+    }, 350);
+  }, 150);
+}
+
+/* FOCA NO CAMPO USUÁRIO AO ABRIR */
+window.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('inp-user').focus();
+});
+</script>
+</body>
+</html>
