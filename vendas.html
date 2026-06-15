@@ -58,7 +58,8 @@ tbody tr{border-bottom:1px solid #f0f0f0;transition:background .1s}
 tbody tr:hover{background:#eef2ff}
 tbody td{padding:8px 12px}
 .td-estoque{text-align:center}
-.td-preco{text-align:right;font-weight:600;color:var(--azul);position:relative;cursor:help}
+.td-preco{text-align:right;font-weight:600;color:var(--azul);position:relative}
+.td-preco.admin-tip{cursor:help}
 .td-preco .tip{
   display:none;position:absolute;right:0;top:calc(100% + 4px);
   background:#2c3e50;color:#fff;border-radius:7px;padding:8px 12px;
@@ -1381,7 +1382,10 @@ tbody td{padding:8px 12px}
 ══════════════════════════════════════════ */
 var SUPA_URL = 'https://xyvsgvzgmwmvxtdxhjiw.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5dnNndnpnbXdtdnh0ZHhoaml3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4ODgxMTQsImV4cCI6MjA5MzQ2NDExNH0.qPJpyKnQmCoC2FhxFA-_6wZxggymMl9RGRzIsfaaVlE';
-var USERNAME = 'Admin';
+var _mndSess = null;
+try { _mndSess = JSON.parse(sessionStorage.getItem('mnd_session') || localStorage.getItem('mnd_session')); } catch(e){}
+var USERNAME  = _mndSess ? _mndSess.nome  : 'Admin';
+var USER_ROLE = _mndSess ? _mndSess.role  : 'admin';
 
 var db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
 
@@ -1513,15 +1517,21 @@ p.codigo.toLowerCase().includes(t) ||
       '<td>'+eh(p.marca||'—')+'</td>'+
       '<td style="font-size:.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--azul2)" title="Clique para ver aplicações" data-aplicacao="'+eh(p.aplicacao||'')+'" onclick="abrirModalAplicacoes(this.getAttribute(\'data-aplicacao\'))" class="td-aplicacao">'+eh((p.aplicacao||'—').substring(0,40))+'</td>'+
       '<td class="td-estoque"><span class="'+cls+'">'+eh(estTxt)+'</span></td>'+
-      '<td class="td-preco">'+brl(p.preco_venda)+
-        '<div class="tip">'+
-          '💰 Venda: <b>'+brl(p.preco_venda)+'</b><br>'+
-          '🏷️ Custo: <b>'+brl(p.valor_unitario)+'</b><br>'+
-          (p.valor_unitario>0
-            ? '📈 Margem: <b style="color:#2ecc71">'+
-              (((p.preco_venda-p.valor_unitario)/p.valor_unitario)*100).toFixed(1)+'%</b>'
-            : '')+
-        '</div>'+
+      '<td class="td-preco'+(function(){ var _s=null; try{_s=JSON.parse(sessionStorage.getItem('mnd_session')||localStorage.getItem('mnd_session'));}catch(e){} return (_s&&_s.role==='admin')?' admin-tip':''; })()+'">'+brl(p.preco_venda)+
+        (function(){
+          var _s = null;
+          try { _s = JSON.parse(sessionStorage.getItem('mnd_session')||localStorage.getItem('mnd_session')); } catch(e){}
+          var _isAdmin = _s && _s.role === 'admin';
+          if (!_isAdmin) return '';
+          return '<div class="tip">'+
+            '💰 Venda: <b>'+brl(p.preco_venda)+'</b><br>'+
+            '🏷️ Custo: <b>'+brl(p.valor_unitario)+'</b><br>'+
+            (p.valor_unitario>0
+              ? '📈 Margem: <b style="color:#2ecc71">'+
+                (((p.preco_venda-p.valor_unitario)/p.valor_unitario)*100).toFixed(1)+'%</b>'
+              : '')+
+            '</div>';
+        })()+
       '</td>'+
       '<td class="td-acao" style="white-space:nowrap">'+
         '<button class="btn-add"'+(disp?'':' disabled')+' onclick="pedirQtd(\''+eq(p.codigo)+'\')">➕ Vender</button> '+
@@ -2856,7 +2866,7 @@ async function carregarHistorico(){
   /* filtro por método: inclui tanto simples quanto divididos que contenham o método */
   if(metodo) q = q.ilike('metodo_pagamento', '%'+metodo+'%');
 
-  var r = await q.order('data',{ascending:false}).limit(200);
+  var r = await q.order('data',{ascending:false}).limit(USER_ROLE === 'admin' ? 200 : 3);
   if(r.error){
     tbody.innerHTML='<tr><td colspan="10" style="color:red;padding:20px">❌ '+eh(r.error.message)+'</td></tr>';
     return;
@@ -2866,6 +2876,21 @@ async function carregarHistorico(){
     if(!busca) return true;
     return (v.cliente_nome||'').toLowerCase().includes(busca);
   });
+
+  /* aviso para usuario comum */
+  if(USER_ROLE !== 'admin' && !de && !ate && !busca && !metodo){
+    var avisoEl = document.getElementById('hist-aviso-limite');
+    if(!avisoEl){
+      avisoEl = document.createElement('div');
+      avisoEl.id = 'hist-aviso-limite';
+      avisoEl.style.cssText = 'background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#7a5c00;margin-bottom:12px;display:flex;align-items:center;gap:8px';
+      avisoEl.innerHTML = '⚠️ Exibindo apenas as <b>3 últimas vendas</b>. Solicite acesso de administrador para ver o histórico completo.';
+      tbody.parentElement.parentElement.insertBefore(avisoEl, tbody.parentElement);
+    }
+  } else {
+    var avisoEl = document.getElementById('hist-aviso-limite');
+    if(avisoEl) avisoEl.remove();
+  }
 
   if(!dados.length){
     tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:#bbb">Nenhuma venda encontrada.</td></tr>';
@@ -3050,6 +3075,15 @@ async function reverterItem(itemId, vendaId){
   if(res && res.cancelada) msg += ' Venda cancelada.';
   toast(msg,'ok');
 
+  /* Notifica Telegram */
+  notificarTelegram(
+    '↩️ <b>REVERSÃO DE ITEM — Venda #'+vendaId+'</b>\n\n'+
+    '👤 Operador: <b>'+USERNAME+'</b>\n'+
+    '🕐 '+new Date().toLocaleString('pt-BR')+'\n'+
+    (res && res.cancelada ? '🚫 Venda <b>cancelada</b> (todos os itens revertidos).' : '📦 Item revertido. Estoque devolvido.')+
+    (res && res.novo_total !== undefined ? '\n💰 Novo total: <b>R$ '+res.novo_total.toFixed(2).replace('.',',')+'</b>' : '')
+  );
+
   /* Atualiza total na tela imediatamente */
   if(res && res.novo_total !== undefined){
     document.getElementById('det-total-val').textContent = brl(res.novo_total);
@@ -3123,6 +3157,19 @@ async function reverterItemManual(itemId, vendaId){
     var msg = '✅ Item revertido! Estoque devolvido. Novo total: '+brl(novoTotal)+valorDesc;
     if(todosRev) msg = '✅ Todos os itens revertidos. Venda cancelada.';
     toast(msg,'ok');
+
+    /* Notifica Telegram */
+    notificarTelegram(
+      '↩️ <b>REVERSÃO DE ITEM — Venda #'+vendaId+'</b>\n\n'+
+      '📦 Produto: <b>'+eh(it.nome_produto||it.tipo||'?')+'</b>\n'+
+      '🔢 Qtd: '+it.quantidade+' un.\n'+
+      '💸 Valor revertido: <b>'+brl(valorItemComDesc)+'</b>'+
+      (desc>0 ? ' (desc '+desc+'%)' : '')+'\n'+
+      '💰 Novo total da venda: <b>'+brl(novoTotal)+'</b>\n'+
+      '👤 Operador: <b>'+USERNAME+'</b>\n'+
+      '🕐 '+new Date().toLocaleString('pt-BR')+
+      (todosRev ? '\n🚫 Venda <b>cancelada</b>.' : '')
+    );
 
     verDetalhesVenda(vendaId);
     carregarHistorico();
@@ -3244,6 +3291,18 @@ async function reverterItemParcial(itemId, qtdReverter, vendaId, desconto, total
     var msg = '✅ '+qtdReverter+' un. revertida(s)! Estoque devolvido. Novo total: '+brl(novoTotal);
     if(todosRevFinal) msg = '✅ Venda cancelada (todos itens revertidos).';
     toast(msg, 'ok');
+
+    /* Notifica Telegram */
+    notificarTelegram(
+      '↩️ <b>REVERSÃO PARCIAL — Venda #'+vendaId+'</b>\n\n'+
+      '🔢 Qtd revertida: <b>'+qtdReverter+' un.</b>\n'+
+      '💸 Valor revertido: <b>'+brl(comDesc)+'</b>'+
+      (desconto>0 ? ' (desc '+desconto+'%)' : '')+'\n'+
+      '💰 Novo total da venda: <b>'+brl(novoTotal)+'</b>\n'+
+      '👤 Operador: <b>'+USERNAME+'</b>\n'+
+      '🕐 '+new Date().toLocaleString('pt-BR')+
+      (todosRevFinal ? '\n🚫 Venda <b>cancelada</b>.' : '')
+    );
     verDetalhesVenda(vendaId);
     carregarHistorico();
   }catch(e){
@@ -5061,6 +5120,7 @@ window.addEventListener('hashchange', function(){
 		  }
 		});
 	</script>
+<script src="auth.js"></script>
 <script src="sidebar.js"></script>
 </body>
 </html>
