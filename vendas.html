@@ -342,11 +342,24 @@ tbody td{padding:8px 12px}
 
 
 <!-- ABAS -->
-<div class="abas">
+<div class="abas" style="display:flex;align-items:center">
   <button class="aba ativa" onclick="aba('venda')">🛒 Nova Venda</button>
   <button class="aba"       onclick="aba('historico')">📜 Histórico de Vendas</button>
   <button class="aba"       onclick="aba('fiado')" style="color:#e74c3c">💳 Pendentes (Fiado)</button>
   <button class="aba"       onclick="aba('garantia')" style="color:#27ae60">🛡️ Garantia</button>
+  <!-- Botões caixa -->
+  <div style="margin-left:auto;display:flex;gap:8px;padding:0 14px">
+    <button onclick="pdvAbrirCaixa()"
+      style="background:#28a745;color:#fff;border:none;border-radius:7px;padding:6px 14px;
+      font-size:.8rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
+      🔓 Abrir Caixa
+    </button>
+    <button onclick="pdvFecharCaixaSimples()"
+      style="background:#c0392b;color:#fff;border:none;border-radius:7px;padding:6px 14px;
+      font-size:.8rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">
+      🔒 Fechar Caixa
+    </button>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════
@@ -610,6 +623,40 @@ tbody td{padding:8px 12px}
   <div class="modal">
     <button class="mf" onclick="document.getElementById('modal-fin').classList.remove('ab')">✕</button>
     <h2>💳 Finalizar Venda</h2>
+
+    <!-- Operador: Vendedor / Administrador -->
+    <div class="cmp" style="margin-bottom:14px">
+      <label>Operador da Venda</label>
+      <div style="display:flex;gap:0;border:2px solid var(--borda);border-radius:10px;overflow:hidden">
+        <button id="btn-op-admin" onclick="setOperadorVenda('admin')"
+          style="flex:1;padding:10px 8px;border:none;cursor:pointer;font-size:.88rem;font-weight:700;
+          background:var(--azul);color:#fff;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px">
+          🛡️ Administrador
+        </button>
+        <button id="btn-op-vendedor" onclick="setOperadorVenda('vendedor')"
+          style="flex:1;padding:10px 8px;border:none;cursor:pointer;font-size:.88rem;font-weight:700;
+          background:#e9ecef;color:#555;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px">
+          👤 Vendedor
+        </button>
+      </div>
+      <!-- Aviso seleção obrigatória -->
+      <div id="fin-op-aviso" style="display:none;margin-top:8px;padding:8px 12px;
+        background:#fff5f5;border:1.5px solid #dc3545;border-radius:7px;
+        font-size:.8rem;font-weight:700;color:#dc3545;text-align:center">
+        ⚠️ Obrigatório: selecione Vendedor ou Administrador para continuar
+      </div>
+
+      <!-- Painel de comissão — aparece só quando Vendedor selecionado -->
+      <div id="fin-comissao-painel" style="display:none;margin-top:10px;background:linear-gradient(135deg,#f0fff4,#e6ffed);
+        border:1.5px solid #28a745;border-radius:8px;padding:10px 14px">
+        <div style="font-size:.78rem;font-weight:800;color:#155724;margin-bottom:6px">💰 Comissão do Vendedor</div>
+        <div id="fin-com-itens" style="font-size:.78rem;color:#155724;margin-bottom:6px;line-height:1.7"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #b7dfc4;padding-top:6px;margin-top:4px">
+          <span style="font-size:.82rem;font-weight:700;color:#155724">Total comissão:</span>
+          <span id="fin-com-total" style="font-size:1.05rem;font-weight:800;color:#155724">R$ 0,00</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Cliente -->
     <div class="cmp">
@@ -1750,6 +1797,8 @@ function renderCarrinho(){
   });
 
   atualizarTotal();
+  /* atualiza painel de comissão se visível */
+  if(_operadorVenda === 'vendedor') atualizarComissao();
 
   /* Mostra card troca de óleo se carrinho tem item */
   if(_carrinho.length > 0){
@@ -1996,10 +2045,96 @@ async function cadastrarEAdicionarServico(){
    MODAL FINALIZAR — finalizar_venda + confirmar_pagamento
 ══════════════════════════════════════════ */
 var _clienteFinSel = null;
+var _operadorVenda = null; /* null | 'admin' | 'vendedor' */
+
+/* ── Regras de comissão do vendedor ──
+   Produtos/peças:   2% sobre o valor de cada item
+   Serviços:        30% sobre o valor, EXCETO "Troca de Óleo" = 0%
+*/
+var COMISSAO_PRODUTO  = 0.02;   /* 2%  */
+var COMISSAO_SERVICO  = 0.30;   /* 30% */
+var SERVICO_SEM_COM   = ['troca de oleo','troca de óleo','troca oleo','troca óleo'];
+
+function isTrocaOleo(nome){
+  var n = String(nome||'').toLowerCase().trim();
+  return SERVICO_SEM_COM.some(function(k){ return n.includes(k); });
+}
+
+function setOperadorVenda(op){
+  _operadorVenda = op;
+  var btnAdmin = document.getElementById('btn-op-admin');
+  var btnVend  = document.getElementById('btn-op-vendedor');
+  /* remove alerta de seleção obrigatória */
+  var aviso = document.getElementById('fin-op-aviso');
+  if(aviso) aviso.style.display = 'none';
+  if(op === 'vendedor'){
+    btnVend.style.background  = '#28a745';
+    btnVend.style.color       = '#fff';
+    btnVend.style.borderColor = '#28a745';
+    btnAdmin.style.background = '#e9ecef';
+    btnAdmin.style.color      = '#555';
+    btnAdmin.style.borderColor = '';
+    atualizarComissao();
+    document.getElementById('fin-comissao-painel').style.display = 'block';
+  } else {
+    btnAdmin.style.background  = 'var(--azul)';
+    btnAdmin.style.color       = '#fff';
+    btnAdmin.style.borderColor = 'var(--azul)';
+    btnVend.style.background   = '#e9ecef';
+    btnVend.style.color        = '#555';
+    btnVend.style.borderColor  = '';
+    document.getElementById('fin-comissao-painel').style.display = 'none';
+  }
+}
+
+function resetOperadorVenda(){
+  _operadorVenda = null;
+  var btnAdmin = document.getElementById('btn-op-admin');
+  var btnVend  = document.getElementById('btn-op-vendedor');
+  btnAdmin.style.background = '#e9ecef';
+  btnAdmin.style.color      = '#555';
+  btnAdmin.style.borderColor = '';
+  btnVend.style.background  = '#e9ecef';
+  btnVend.style.color       = '#555';
+  btnVend.style.borderColor  = '';
+  document.getElementById('fin-comissao-painel').style.display = 'none';
+  var aviso = document.getElementById('fin-op-aviso');
+  if(aviso) aviso.style.display = 'none';
+}
+
+function atualizarComissao(){
+  if(_operadorVenda !== 'vendedor') return;
+  var linhas = [];
+  var totalCom = 0;
+  _carrinho.forEach(function(it){
+    var valor = it.preco * (it.tipo==='produto'||it.tipo==='peca' ? it.qtd : 1);
+    var com = 0;
+    var desc = '';
+    if(it.tipo === 'servico'){
+      if(isTrocaOleo(it.nome)){
+        desc = '🚫 ' + it.nome + ' — sem comissão';
+        com  = 0;
+      } else {
+        com  = valor * COMISSAO_SERVICO;
+        desc = '🔧 ' + it.nome + ' — 30% = <b>'+brl(com)+'</b>';
+      }
+    } else {
+      com  = valor * COMISSAO_PRODUTO;
+      desc = '📦 ' + it.nome + (it.qtd>1?' (x'+it.qtd+')':'') + ' — 2% = <b>'+brl(com)+'</b>';
+    }
+    totalCom += com;
+    linhas.push(desc);
+  });
+  document.getElementById('fin-com-itens').innerHTML = linhas.join('<br>');
+  document.getElementById('fin-com-total').textContent = brl(totalCom);
+  return totalCom;
+}
 
 function abrirModalFinalizar(){
   if(!_carrinho.length){ toast('Carrinho vazio!','av'); return; }
   limparClienteFin();
+  /* reset operador — nenhum pré-selecionado */
+  resetOperadorVenda();
   _descontoLivre=false;
   document.getElementById('btn-desc-lock').textContent='🔒';
   document.getElementById('btn-desc-lock').style.borderColor='#dc3545';
@@ -2047,8 +2182,6 @@ function abrirLockDesconto(){
 
 function fecharLockDesconto(){
   document.getElementById('modal-lock-desc').style.display = 'none';
-  document.getElementById('inp-senha-lock').value = '';
-  document.getElementById('lock-erro').style.display = 'none';
 }
 
 var TG_TOKEN   = '7521363709:AAEET3ipeNTzLEFyyOnk0Xn1lrwLeR5X7Ng';
@@ -2070,7 +2203,7 @@ function confirmarLockDesconto(){
     document.getElementById('inp-senha-lock').focus();
     return;
   }
-  fecharLockDesconto(); /* já limpa o campo */
+  fecharLockDesconto();
   _descontoLivre = true;
   var inp = document.getElementById('fin-desconto');
   inp.max = '100';
@@ -2337,15 +2470,15 @@ function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, met
     '</tbody></table>';
 
   /* ── Rodapé de progresso ── */
-  var faltam = Math.ceil(quantidade/5)*5 - quantidade;
-  var msgProgresso = quantidade % 5 === 0
-    ? '<div style="background:linear-gradient(135deg,#ffc107,#e0a800);border-radius:10px;padding:16px 20px;text-align:center;color:#fff;margin-top:16px">'+
-        '<div style="font-size:1.6rem">🎁</div>'+
-        '<div style="font-size:1.1rem;font-weight:900;margin:4px 0">PARABÉNS! BRINDE DISPONÍVEL!</div>'+
-        '<div style="font-size:.85rem;opacity:.9">Você completou '+quantidade+' trocas de óleo! Fale com a gente.</div>'+
+  var faltam = 10 - (quantidade % 10 === 0 ? 10 : quantidade % 10);
+  var msgProgresso = quantidade % 10 === 0
+    ? '<div style="background:linear-gradient(135deg,#004aad,#5271ff);border-radius:10px;padding:16px 20px;text-align:center;color:#fff;margin-top:16px">'+
+        '<div style="font-size:1.6rem">🏆</div>'+
+        '<div style="font-size:1.1rem;font-weight:900;margin:4px 0">PARABÉNS! TROCA FIDELIDADE DISPONÍVEL!</div>'+
+        '<div style="font-size:.85rem;opacity:.9">Você completou '+quantidade+' trocas de óleo! Fale com a gente para resgatar.</div>'+
       '</div>'
     : '<div style="background:#eef2ff;border-radius:10px;padding:14px 20px;text-align:center;color:#004aad;margin-top:16px">'+
-        '<div style="font-size:.85rem;font-weight:700">Faltam apenas <b style="font-size:1.1rem">'+faltam+'</b> troca'+(faltam===1?'':'s')+' para seu próximo brinde! 🎁</div>'+
+        '<div style="font-size:.85rem;font-weight:700">Faltam apenas <b style="font-size:1.1rem">'+faltam+'</b> troca'+(faltam===1?'':'s')+' para sua troca fidelidade! 🏆</div>'+
       '</div>';
 
   document.getElementById('cupom-oleo-inner').innerHTML =
@@ -2391,7 +2524,7 @@ function gerarCupomOleo(clienteNome, quantidade, vendaId, itensVenda, total, met
   /* ══ RODAPÉ ══ */
   '<div style="padding:28px 40px;text-align:center;color:#aaa">'+
     '<div style="font-size:.82rem;line-height:1.8;color:#666">'+
-      'Guarde este comprovante · A cada <b>5 trocas</b> você ganha um brinde especial!<br>'+
+      'Guarde este comprovante · A cada <b>10 trocas</b> você ganha uma troca fidelidade!<br>'+
       '<b style="color:#004aad;font-size:.9rem">Obrigado pela confiança! 🤝</b>'+
     '</div>'+
     '<div style="margin-top:12px;font-size:.65rem;color:#ccc">OMG Softwares · Sistema Mendezza</div>'+
@@ -2544,7 +2677,29 @@ async function confirmarVenda(){
     ? metodo + ' + ' + metodo2 + ' ('+brl(val1)+' / '+brl(val2)+')'
     : metodo;
 
+  /* bloqueia se operador não foi selecionado */
+  if(!_operadorVenda){
+    var aviso = document.getElementById('fin-op-aviso');
+    if(aviso){ aviso.style.display='block'; aviso.scrollIntoView({behavior:'smooth',block:'center'}); }
+    toast('❌ Selecione Vendedor ou Administrador!','er');
+    return;
+  }
+
   try{
+    /* calcula comissão antes de inserir */
+    var totalComissao = 0;
+    if(_operadorVenda === 'vendedor'){
+      _carrinho.forEach(function(it){
+        var valor = it.preco * (it.tipo==='produto'||it.tipo==='peca' ? it.qtd : 1);
+        if(it.tipo === 'servico'){
+          if(!isTrocaOleo(it.nome)) totalComissao += valor * COMISSAO_SERVICO;
+        } else {
+          totalComissao += valor * COMISSAO_PRODUTO;
+        }
+      });
+      totalComissao = parseFloat(totalComissao.toFixed(2));
+    }
+
     /* 1. Insere venda */
     var rv = await db.from('vendas').insert({
       total:parseFloat(total.toFixed(2)),
@@ -2554,7 +2709,9 @@ async function confirmarVenda(){
       cliente_nome:cliNome,
       cliente_id:cliId||null,
       responsavel:USERNAME,
-      observacoes:obs||null
+      observacoes:obs||null,
+      operador_tipo: _operadorVenda,
+      comissao_vendedor: _operadorVenda === 'vendedor' ? totalComissao : null
     }).select('id').single();
     if(rv.error) throw new Error(rv.error.message);
     var vendaId = rv.data.id;
@@ -2612,6 +2769,28 @@ async function confirmarVenda(){
     }
 
     mostrarCupom(vendaId, cliNome, metodoDB, bruto, total, desc, obs);
+
+    /* notifica Telegram se foi venda de vendedor */
+    if(_operadorVenda === 'vendedor' && totalComissao > 0){
+      var agoraVend = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+      var itensComStr = _carrinho.map(function(it){
+        var valor = it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1);
+        if(it.tipo==='servico'){
+          if(isTrocaOleo(it.nome)) return '  🚫 '+it.nome+' — sem comissão';
+          return '  🔧 '+it.nome+' — 30% = '+brl(valor*COMISSAO_SERVICO);
+        }
+        return '  📦 '+it.nome+(it.qtd>1?' (x'+it.qtd+')':'')+' — 2% = '+brl(valor*COMISSAO_PRODUTO);
+      }).join('\n');
+      notificarTelegram(
+        '💼 <b>VENDA — VENDEDOR</b>\n\n'+
+        '👤 Operador: <b>'+USERNAME+'</b>\n'+
+        '🕐 Horário: <b>'+agoraVend+'</b>\n'+
+        '👥 Cliente: <b>'+cliNome+'</b>\n\n'+
+        '💰 Total venda: <b>'+brl(total)+'</b>\n'+
+        '🏆 Comissão total: <b>'+brl(totalComissao)+'</b>\n\n'+
+        '📋 Detalhes:\n'+itensComStr
+      );
+    }
 
     /* Se houve troca de óleo, mostra cupom fidelidade logo após */
     if(qtdTrocas !== null){
@@ -2823,18 +3002,30 @@ function parsePagamento(v){
   var r = {dinheiro:0, credito:0, debito:0, pix:0};
 
   if(met.includes(' + ')){
-    /* Formato: "MET1 + MET2 (R$ V1 / R$ V2)" */
-    var partes = met.split(' + ');
-    var met1 = partes[0].trim();
-    var resto = partes[1] || '';
-    /* extrai met2 antes do " (" */
-    var met2 = resto.replace(/\s*\(.*\)/, '').trim();
-    /* extrai valores dentro dos parênteses */
-    var mVals = met.match(/\(R\$\s*([\d.,]+)\s*\/\s*R\$\s*([\d.,]+)\)/);
-    var v1 = mVals ? parseFloat(mVals[1].replace('.','').replace(',','.')) : total/2;
-    var v2 = mVals ? parseFloat(mVals[2].replace('.','').replace(',','.')) : total/2;
-    atribuir(r, met1, v1);
-    atribuir(r, met2, v2);
+    /* Formato 1 (pagamento dividido): "MET1 + MET2 (R$ V1 / R$ V2)" */
+    var mVals = met.match(/\(R\$[\s\u00a0]*([\d.,]+)\s*\/\s*R\$[\s\u00a0]*([\d.,]+)\)/);
+    if(mVals){
+      var partes = met.split(' + ');
+      var met1 = partes[0].trim();
+      var resto = (partes[1]||'').replace(/\s*\(.*\)/,'').trim();
+      var v1 = parseFloat(mVals[1].replace(/\./g,'').replace(',','.'));
+      var v2 = parseFloat(mVals[2].replace(/\./g,'').replace(',','.'));
+      atribuir(r, met1, v1);
+      atribuir(r, resto, v2);
+    } else {
+      /* Formato 2 (fiado com entrada): "Fiado + Dinheiro R$130.00"
+         O valor após o método2 é a ENTRADA paga agora               */
+      var partes2 = met.split(' + ');
+      var met1 = partes2[0].trim();                         /* ex: "Fiado" */
+      var resto2 = (partes2[1]||'').trim();                 /* ex: "Dinheiro R$130.00" */
+      /* extrai valor numérico do resto */
+      var mVal = resto2.match(/R\$\s*([\d.,]+)/i);
+      var entrada = mVal ? parseFloat(mVal[1].replace(',','.')) : 0;
+      /* extrai nome do método (antes do R$) */
+      var met2 = resto2.replace(/R\$.*$/i,'').trim();      /* ex: "Dinheiro" */
+      atribuir(r, met2, entrada);
+      /* met1 (Fiado) não gera dinheiro no caixa */
+    }
   } else {
     atribuir(r, met, total);
   }
@@ -5121,8 +5312,518 @@ window.addEventListener('hashchange', function(){
 		    inpBusca.focus();
 		  }
 		});
+
+/* ══════════════════════════════════════════
+   CAIXA PDV — Abrir / Fechar (só dinheiro)
+══════════════════════════════════════════ */
+var _pdvFcDados = null;
+
+function pdvHoje(){
+  var d = new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+
+function pdvFecharModal(id){
+  var el = document.getElementById(id);
+  if(el){ el.style.display='none'; }
+}
+function pdvAbrirModal(id){
+  var el = document.getElementById(id);
+  if(el){ el.style.display='flex'; }
+}
+
+/* ── ABRIR CAIXA ── */
+async function pdvAbrirCaixa(){
+  var hj = new Date().toISOString().split('T')[0];
+  var r = await db.from('caixa').select('id').eq('data', hj).limit(1).maybeSingle();
+  if(r.data){
+    toast('⚠️ Caixa já foi aberto hoje! Feche o caixa atual antes de abrir um novo.','av');
+    return;
+  }
+  document.getElementById('pdv-abrir-data').textContent = new Date().toLocaleDateString('pt-BR');
+  document.getElementById('pdv-abrir-saldo').value = '0.00';
+  pdvAbrirModal('pdv-modal-abrir');
+  setTimeout(function(){
+    var el = document.getElementById('pdv-abrir-saldo');
+    el.focus(); el.select();
+  }, 80);
+}
+
+async function pdvConfirmarAbertura(){
+  var saldo = parseFloat(document.getElementById('pdv-abrir-saldo').value)||0;
+  if(saldo < 0){ toast('Valor não pode ser negativo!','er'); return; }
+
+  var hj = new Date().toISOString().split('T')[0];
+
+  /* apaga registro do dia se já existir, depois insere novo */
+  await db.from('caixa').delete().eq('data', hj);
+  var r = await db.from('caixa').insert({
+    data: hj, saldo_inicial: saldo, total_vendas: 0, retiradas: 0, saldo_atual: saldo
+  });
+  if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+
+  /* busca vendas em dinheiro do dia */
+  var rv = await db.from('vendas')
+    .select('total,metodo_pagamento')
+    .gte('data', hj+'T00:00:00')
+    .lte('data', hj+'T23:59:59')
+    .gt('total', 0);
+
+  var din = 0, totalVendas = 0;
+  (rv.data||[]).forEach(function(v){
+    var met = (v.metodo_pagamento||'');
+    /* exclui tudo que começa com Fiado — igual ao financeiro */
+    if(met.match(/^fiado/i)) return;
+    totalVendas += Number(v.total||0);
+    din += parsePagamento(v).dinheiro;
+  });
+
+  /* retiradas em dinheiro */
+  var rcp = await db.from('contas_pagar')
+    .select('valor,retirada_caixa').eq('pago',true).eq('data_pagamento', hj);
+  var totalRet = 0, totalRetCaixa = 0;
+  (rcp.data||[]).forEach(function(c){
+    totalRet += Number(c.valor||0);
+    if(c.retirada_caixa) totalRetCaixa += Number(c.valor||0);
+  });
+
+  var saldoEsperado = saldo + din - totalRetCaixa;
+  var sf = parseFloat(saldoEsperado.toFixed(2));
+
+  /* grava fechamento */
+  await db.from('fechamento_diario').upsert({
+    data: hj, saldo_inicial: saldo, total_vendas: totalVendas,
+    total_retiradas: totalRet, dinheiro: din,
+    credito: 0, debito: 0, pix: 0, saldo_final: sf, observacoes: null
+  }, {onConflict:'data'});
+
+  /* notifica Telegram */
+  var agora = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  notificarTelegram(
+    '🔒 <b>FECHAMENTO DE CAIXA — PDV</b>\n\n'+
+    '🕐 <b>'+agora+'</b>\n'+
+    '👤 Operador: <b>'+USERNAME+'</b>\n\n'+
+    '💰 Valor do caixa informado: <b>'+brl(saldo)+'</b>\n'+
+    '📈 Vendas em dinheiro: <b>+ '+brl(din)+'</b>\n'+
+    (totalRetCaixa>0?'💸 Retiradas dinheiro: <b>− '+brl(totalRetCaixa)+'</b>\n':'')+
+    '✅ Saldo final: <b>'+brl(sf)+'</b>\n\n'+
+    '📊 Total vendas (todos métodos): <b>'+brl(totalVendas)+'</b>'
+  );
+
+  pdvFecharModal('pdv-modal-abrir');
+  toast('✅ Caixa fechado com sucesso!','ok');
+}
+
+/* ── FECHAR CAIXA — etapa 1: busca totais e abre contagem ── */
+async function pdvAbrirFecharCaixa(){
+  /* usa exatamente o mesmo padrão do carregarHistorico que já funciona */
+  var hj = new Date().toISOString().split('T')[0];
+
+  /* busca TODAS as vendas do dia sem filtrar método — extrai dinheiro de cada uma */
+  var rv = await db.from('vendas')
+    .select('total,metodo_pagamento')
+    .gte('data', hj+'T00:00:00')
+    .lte('data', hj+'T23:59:59')
+    .gt('total', 0);
+
+  var din = 0, totalVendas = 0;
+  (rv.data||[]).forEach(function(v){
+    var met = (v.metodo_pagamento||'');
+    /* exclui tudo que começa com Fiado — igual ao financeiro */
+    if(met.match(/^fiado/i)) return;
+    totalVendas += Number(v.total||0);
+    var pg = parsePagamento(v);
+    din += pg.dinheiro;
+  });
+
+  /* retiradas em dinheiro do caixa */
+  var rcp = await db.from('contas_pagar')
+    .select('valor,retirada_caixa')
+    .eq('pago', true)
+    .eq('data_pagamento', hj);
+
+  var totalRet = 0, totalRetCaixa = 0;
+  (rcp.data||[]).forEach(function(c){
+    var val = Number(c.valor||0);
+    totalRet += val;
+    if(c.retirada_caixa) totalRetCaixa += val;
+  });
+
+  /* saldo inicial do caixa de hoje */
+  var rc = await db.from('caixa').select('saldo_inicial').eq('data', hj).limit(1).maybeSingle();
+  if(!rc.data){
+    rc = await db.from('caixa').select('saldo_inicial').order('data',{ascending:false}).limit(1).maybeSingle();
+  }
+  var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
+  var saldoEsperado = saldoInicial + din - totalRetCaixa;  /* caixa inicial + vendas dinheiro - retiradas dinheiro */
+
+  _pdvFcDados = { hj, saldoInicial, totalVendas, totalRet, totalRetCaixa, din, saldoEsperado };
+
+  document.getElementById('pdv-fc-fisico').value = '0.00';
+  document.getElementById('pdv-fc-contagem-res').style.display = 'none';
+
+  /* preenche painel de esperado */
+  document.getElementById('pdv-fc-esperado').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:center">'+
+      '<span style="color:#555;font-size:.83rem">💰 Caixa inicial (dinheiro):</span>'+
+      '<span style="font-weight:700;text-align:right">'+brl(saldoInicial)+'</span>'+
+      '<span style="color:#555;font-size:.83rem">📈 Vendas em dinheiro hoje:</span>'+
+      '<span style="font-weight:700;color:var(--verde2);text-align:right">+ '+brl(din)+'</span>'+
+      (totalRetCaixa > 0
+        ? '<span style="color:#555;font-size:.83rem">💸 Retiradas em dinheiro:</span>'+
+          '<span style="font-weight:700;color:#e74c3c;text-align:right">− '+brl(totalRetCaixa)+'</span>'
+        : '')+
+      '<span style="color:var(--azul);font-weight:800;font-size:.88rem;border-top:1px solid #c7d2fe;padding-top:6px;margin-top:2px">✅ Esperado no caixa:</span>'+
+      '<span style="font-weight:800;font-size:1.1rem;color:var(--azul);border-top:1px solid #c7d2fe;padding-top:6px;margin-top:2px;text-align:right">'+brl(saldoEsperado)+'</span>'+
+    '</div>';
+
+  pdvAbrirModal('pdv-modal-contar');
+  setTimeout(function(){
+    var el = document.getElementById('pdv-fc-fisico');
+    el.focus(); el.select();
+  }, 80);
+}
+
+function pdvRecalcContagem(){
+  if(!_pdvFcDados) return;
+  var fisico   = parseFloat(document.getElementById('pdv-fc-fisico').value)||0;
+  var esperado = _pdvFcDados.saldoEsperado;
+  var dif      = fisico - esperado;
+  var el       = document.getElementById('pdv-fc-contagem-res');
+  el.style.display = 'block';
+
+  var nota =
+    '<div style="font-size:.77rem;opacity:.85;margin-top:4px;line-height:1.8">'+
+      '💰 Caixa inicial: <b>'+brl(_pdvFcDados.saldoInicial)+'</b>'+
+      ' + 📈 Dinheiro vendas: <b>'+brl(_pdvFcDados.din)+'</b>'+
+      (_pdvFcDados.totalRetCaixa > 0 ? ' − 💸 Retiradas: <b>'+brl(_pdvFcDados.totalRetCaixa)+'</b>' : '')+
+    '</div>';
+
+  if(Math.abs(dif) < 0.01){
+    el.style.cssText = 'display:block;border-radius:8px;padding:12px 15px;background:#d4edda;border:1px solid #c3e6cb;color:#155724;font-size:.87rem;line-height:1.9';
+    el.innerHTML = '<b>Esperado: '+brl(esperado)+'</b>'+nota+'<b>✅ Contado: '+brl(fisico)+'</b> — Caixa confere!';
+  } else if(dif > 0){
+    el.style.cssText = 'display:block;border-radius:8px;padding:12px 15px;background:#fff3cd;border:1px solid #ffe082;color:#856404;font-size:.87rem;line-height:1.9';
+    el.innerHTML = '<b>Esperado: '+brl(esperado)+'</b>'+nota+'<b>⚠️ Contado: '+brl(fisico)+'</b><br><b>Sobra: +'+brl(dif)+'</b>';
+  } else {
+    el.style.cssText = 'display:block;border-radius:8px;padding:12px 15px;background:#f8d7da;border:1px solid #f5c6cb;color:#721c24;font-size:.87rem;line-height:1.9';
+    el.innerHTML = '<b>Esperado: '+brl(esperado)+'</b>'+nota+'<b>❌ Contado: '+brl(fisico)+'</b><br><b>Falta: '+brl(Math.abs(dif))+'</b>';
+  }
+}
+
+/* ── FECHAR CAIXA — etapa 2: resumo e confirmação ── */
+function pdvAvancarFechamento(){
+  if(!_pdvFcDados){ toast('Erro interno','er'); return; }
+  var fisico = parseFloat(document.getElementById('pdv-fc-fisico').value)||0;
+  var dif    = fisico - _pdvFcDados.saldoEsperado;
+  _pdvFcDados.dinhFisico = fisico;
+  _pdvFcDados.diferenca  = dif;
+
+  pdvFecharModal('pdv-modal-contar');
+
+  /* monta resumo — SOMENTE DINHEIRO */
+  document.getElementById('pdv-fechar-resumo').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 18px;line-height:2">'+
+      '<div style="color:#555">📅 Data:</div>'+
+      '<div style="font-weight:700">'+new Date().toLocaleDateString('pt-BR')+'</div>'+
+
+      '<div style="color:#555">💰 Caixa inicial (dinheiro):</div>'+
+      '<div style="font-weight:800;color:var(--azul)">'+brl(_pdvFcDados.saldoInicial)+'</div>'+
+
+      '<div style="color:#555">📈 Vendas em dinheiro hoje:</div>'+
+      '<div style="font-weight:800;color:var(--verde2)">+ '+brl(_pdvFcDados.din)+'</div>'+
+
+      '<div style="color:#555;border-top:1px solid #dee2e6;padding-top:6px;margin-top:2px">✅ Esperado no caixa:</div>'+
+      '<div style="font-weight:800;font-size:1rem;color:var(--azul);border-top:1px solid #dee2e6;padding-top:6px;margin-top:2px">'+brl(_pdvFcDados.saldoEsperado)+'</div>'+
+
+      '<div style="color:#555">🔢 Dinheiro contado:</div>'+
+      '<div style="font-weight:800;font-size:1rem">'+brl(fisico)+'</div>'+
+
+      (_pdvFcDados.totalRetCaixa > 0
+        ? '<div style="color:#555">💸 Retiradas em dinheiro:</div>'+
+          '<div style="font-weight:800;color:#e74c3c">− '+brl(_pdvFcDados.totalRetCaixa)+'</div>'
+        : '')+
+
+      '<div style="color:#888;font-size:.8rem;border-top:1px solid #dee2e6;padding-top:4px;margin-top:2px">📊 Total vendas (todos métodos):</div>'+
+      '<div style="color:#888;font-size:.8rem;border-top:1px solid #dee2e6;padding-top:4px;margin-top:2px">'+brl(_pdvFcDados.totalVendas)+'</div>'+
+    '</div>';
+
+  /* alerta diferença */
+  var alertEl = document.getElementById('pdv-fc-alerta');
+  if(Math.abs(dif) < 0.01){
+    alertEl.style.display = 'none';
+  } else if(dif > 0){
+    alertEl.style.cssText = 'display:block;border-radius:8px;padding:10px 14px;background:#fff3cd;border:1px solid #ffe082;color:#856404;font-size:.85rem;margin-bottom:12px';
+    alertEl.innerHTML = '⚠️ <b>Sobra de '+brl(dif)+'</b> em relação ao esperado no caixa.';
+  } else {
+    alertEl.style.cssText = 'display:block;border-radius:8px;padding:10px 14px;background:#f8d7da;border:1px solid #f5c6cb;color:#721c24;font-size:.85rem;margin-bottom:12px';
+    alertEl.innerHTML = '❌ <b>Falta '+brl(Math.abs(dif))+'</b> em relação ao esperado no caixa.';
+  }
+
+  /* saldo final = saldo inicial + dinheiro vendas - retiradas dinheiro */
+  var sf = _pdvFcDados.saldoInicial + _pdvFcDados.din - _pdvFcDados.totalRetCaixa;
+  var sfEl = document.getElementById('pdv-fc-saldo-final');
+  sfEl.textContent = brl(sf);
+  sfEl.style.color = sf >= 0 ? 'var(--verde2)' : '#e74c3c';
+
+  document.getElementById('pdv-fc-obs').value = '';
+  pdvAbrirModal('pdv-modal-fechar');
+}
+
+async function pdvConfirmarFechamento(){
+  if(!_pdvFcDados){ toast('Erro interno','er'); return; }
+  var obs = document.getElementById('pdv-fc-obs').value.trim() || null;
+  var sf  = parseFloat((_pdvFcDados.saldoInicial + _pdvFcDados.din - _pdvFcDados.totalRetCaixa).toFixed(2));
+
+  /* grava fechamento — cred/deb/pix ficam 0 pois não são mostrados */
+  var r = await db.from('fechamento_diario').upsert({
+    data:            _pdvFcDados.hj,
+    saldo_inicial:   _pdvFcDados.saldoInicial,
+    total_vendas:    _pdvFcDados.totalVendas,
+    total_retiradas: _pdvFcDados.totalRet,
+    dinheiro:        _pdvFcDados.din,
+    credito:         0,
+    debito:          0,
+    pix:             0,
+    saldo_final:     sf,
+    observacoes:     obs
+  }, {onConflict:'data'});
+
+  if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+
+  pdvFecharModal('pdv-modal-fechar');
+  toast('🔒 Caixa fechado! Saldo final: '+brl(sf),'ok');
+
+  /* notifica Telegram com resumo completo */
+  var agora = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  var fisico = _pdvFcDados.dinhFisico || 0;
+  var dif    = _pdvFcDados.diferenca  || 0;
+  var difTxt = Math.abs(dif) < 0.01
+    ? '✅ Caixa conferiu!'
+    : (dif > 0 ? '⚠️ Sobra: +' + brl(dif) : '❌ Falta: ' + brl(Math.abs(dif)));
+
+  notificarTelegram(
+    '🔒 <b>FECHAMENTO DE CAIXA — PDV</b>\n\n' +
+    '🕐 <b>' + agora + '</b>\n' +
+    '👤 Operador: <b>' + USERNAME + '</b>\n\n' +
+    '💰 Caixa inicial: <b>' + brl(_pdvFcDados.saldoInicial) + '</b>\n' +
+    '📈 Vendas em dinheiro: <b>+ ' + brl(_pdvFcDados.din) + '</b>\n' +
+    (_pdvFcDados.totalRetCaixa > 0
+      ? '💸 Retiradas dinheiro: <b>− ' + brl(_pdvFcDados.totalRetCaixa) + '</b>\n'
+      : '') +
+    '✅ Esperado no caixa: <b>' + brl(_pdvFcDados.saldoEsperado) + '</b>\n' +
+    '🔢 Dinheiro contado: <b>' + brl(fisico) + '</b>\n' +
+    difTxt + '\n\n' +
+    '📊 Total vendas (todos métodos): <b>' + brl(_pdvFcDados.totalVendas) + '</b>\n' +
+    '💰 Saldo final registrado: <b>' + brl(sf) + '</b>' +
+    (obs ? '\n\n📝 Obs: ' + obs : '')
+  );
+
+  _pdvFcDados = null;
+}
+
+/* ── FECHAR CAIXA SIMPLES — só pede valor, calcula e manda Telegram ── */
+function pdvFecharCaixaSimples(){
+  document.getElementById('pdv-modal-fc-simples').style.display = 'flex';
+  var inp = document.getElementById('pdv-fcs-valor');
+  inp.value = '0.00';
+  setTimeout(function(){ inp.focus(); inp.select(); }, 80);
+}
+
+async function pdvConfirmarFechamentoSimples(){
+  var saldo = parseFloat(document.getElementById('pdv-fcs-valor').value)||0;
+  if(saldo < 0){ toast('Valor não pode ser negativo!','er'); return; }
+
+  var hj = new Date().toISOString().split('T')[0];
+
+  /* vendas em dinheiro do dia */
+  var rv = await db.from('vendas')
+    .select('total,metodo_pagamento')
+    .gte('data', hj+'T00:00:00')
+    .lte('data', hj+'T23:59:59')
+    .gt('total', 0);
+
+  var din = 0, totalVendas = 0;
+  (rv.data||[]).forEach(function(v){
+    var met = (v.metodo_pagamento||'');
+    /* exclui tudo que começa com Fiado — igual ao financeiro */
+    if(met.match(/^fiado/i)) return;
+    totalVendas += Number(v.total||0);
+    din += parsePagamento(v).dinheiro;
+  });
+
+  /* retiradas em dinheiro */
+  var rcp = await db.from('contas_pagar')
+    .select('valor,retirada_caixa').eq('pago',true).eq('data_pagamento', hj);
+  var totalRet = 0, totalRetCaixa = 0;
+  (rcp.data||[]).forEach(function(c){
+    totalRet += Number(c.valor||0);
+    if(c.retirada_caixa) totalRetCaixa += Number(c.valor||0);
+  });
+
+  /* saldo inicial do caixa de hoje */
+  var rc = await db.from('caixa').select('saldo_inicial').eq('data', hj).limit(1).maybeSingle();
+  var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : saldo;
+
+  var saldoEsperado = saldoInicial + din - totalRetCaixa;
+  var sf = parseFloat(saldoEsperado.toFixed(2));
+
+  /* grava fechamento */
+  await db.from('fechamento_diario').upsert({
+    data: hj, saldo_inicial: saldoInicial, total_vendas: totalVendas,
+    total_retiradas: totalRet, dinheiro: din,
+    credito: 0, debito: 0, pix: 0, saldo_final: sf, observacoes: null
+  }, {onConflict:'data'});
+
+  /* notifica Telegram */
+  var agora = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  var dif   = saldo - saldoEsperado;
+  var difTxt = Math.abs(dif) < 0.01
+    ? '✅ Caixa conferiu!'
+    : (dif > 0 ? '⚠️ Sobra: +'+brl(dif) : '❌ Falta: '+brl(Math.abs(dif)));
+
+  notificarTelegram(
+    '🔒 <b>FECHAMENTO DE CAIXA — PDV</b>\n\n'+
+    '🕐 <b>'+agora+'</b>\n'+
+    '👤 Operador: <b>'+USERNAME+'</b>\n\n'+
+    '💰 Caixa inicial: <b>'+brl(saldoInicial)+'</b>\n'+
+    '📈 Vendas em dinheiro: <b>+ '+brl(din)+'</b>\n'+
+    (totalRetCaixa>0?'💸 Retiradas dinheiro: <b>− '+brl(totalRetCaixa)+'</b>\n':'')+
+    '✅ Esperado no caixa: <b>'+brl(saldoEsperado)+'</b>\n'+
+    '🔢 Dinheiro contado: <b>'+brl(saldo)+'</b>\n'+
+    difTxt+'\n\n'+
+    '📊 Total vendas (todos métodos): <b>'+brl(totalVendas)+'</b>\n'+
+    '💰 Saldo final registrado: <b>'+brl(sf)+'</b>'
+  );
+
+  document.getElementById('pdv-modal-fc-simples').style.display = 'none';
+  toast('✅ Caixa fechado com sucesso!','ok');
+}
+
 	</script>
 <script src="auth.js"></script>
-<script src="sidebar.js"></script>
+<script src="sidebar.js">
+</script>
+
+<!-- ══════════════════════════════════
+     MODAL PDV: ABRIR CAIXA
+══════════════════════════════════ -->
+<div class="bd" id="pdv-modal-abrir" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:380px;max-width:96vw;padding:28px 24px;box-shadow:0 10px 40px rgba(0,0,0,.3);position:relative;animation:pop .2s ease">
+    <button onclick="pdvFecharModal('pdv-modal-abrir')" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#aaa">✕</button>
+    <h2 style="font-size:1.1rem;font-weight:800;color:var(--azul);margin-bottom:16px">🔓 Abrir Caixa</h2>
+    <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.85rem">
+      <b>Data:</b> <span id="pdv-abrir-data"></span>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:.82rem;font-weight:700;color:#555;display:block;margin-bottom:6px">💵 Valor do Caixa (R$)</label>
+      <input type="number" id="pdv-abrir-saldo" min="0" step="0.01" value="0.00"
+        style="width:100%;padding:12px;border:2px solid var(--borda);border-radius:8px;font-size:1.3rem;text-align:right;font-weight:700;outline:none"
+        onkeydown="if(event.key==='Enter') pdvConfirmarAbertura()">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="pdvFecharModal('pdv-modal-abrir')"
+        style="padding:9px 18px;border:1px solid var(--borda);border-radius:8px;background:#f8f9fa;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="pdvConfirmarAbertura()"
+        style="padding:9px 18px;border:none;border-radius:8px;background:#28a745;color:#fff;cursor:pointer;font-weight:700;font-size:1rem">✅ Finalizar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL PDV: FECHAR CAIXA — Etapa 1 (contagem)
+══════════════════════════════════ -->
+<div class="bd" id="pdv-modal-contar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:420px;max-width:96vw;padding:28px 24px;box-shadow:0 10px 40px rgba(0,0,0,.3);position:relative;animation:pop .2s ease">
+    <button onclick="pdvFecharModal('pdv-modal-contar')" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#aaa">✕</button>
+    <h2 style="font-size:1.1rem;font-weight:800;color:var(--azul);margin-bottom:12px">🔒 Fechar Caixa — Contagem</h2>
+
+    <!-- Resumo esperado — preenchido ao abrir -->
+    <div id="pdv-fc-esperado" style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;
+      padding:12px 14px;margin-bottom:14px;font-size:.84rem;line-height:2">
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:.82rem;font-weight:700;color:#555;display:block;margin-bottom:6px">💵 Dinheiro físico contado no caixa (R$)</label>
+      <input type="number" id="pdv-fc-fisico" min="0" step="0.01" value="0.00"
+        style="width:100%;padding:12px;border:2px solid var(--borda);border-radius:8px;font-size:1.3rem;text-align:right;font-weight:700;outline:none"
+        oninput="pdvRecalcContagem()"
+        onkeydown="if(event.key==='Enter') pdvAvancarFechamento()">
+    </div>
+    <div id="pdv-fc-contagem-res" style="display:none;border-radius:8px;padding:12px 15px;margin-bottom:12px;font-size:.87rem;line-height:1.9"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="pdvFecharModal('pdv-modal-contar')"
+        style="padding:9px 18px;border:1px solid var(--borda);border-radius:8px;background:#f8f9fa;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="pdvAvancarFechamento()"
+        style="padding:9px 18px;border:none;border-radius:8px;background:#c0392b;color:#fff;cursor:pointer;font-weight:700">Continuar ➜</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL PDV: FECHAR CAIXA — Etapa 2 (resumo)
+══════════════════════════════════ -->
+<div class="bd" id="pdv-modal-fechar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:500px;max-width:96vw;padding:28px 24px;box-shadow:0 10px 40px rgba(0,0,0,.3);position:relative;animation:pop .2s ease">
+    <button onclick="pdvFecharModal('pdv-modal-fechar')" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#aaa">✕</button>
+    <h2 style="font-size:1.1rem;font-weight:800;color:var(--azul);margin-bottom:14px">🔒 Fechar Caixa — Resumo</h2>
+
+    <!-- Resumo financeiro — SOMENTE DINHEIRO -->
+    <div id="pdv-fechar-resumo" style="background:#f8f9fa;border-radius:10px;padding:16px;margin-bottom:14px;font-size:.86rem"></div>
+
+    <!-- Alerta diferença -->
+    <div id="pdv-fc-alerta" style="display:none;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.85rem"></div>
+
+    <!-- Saldo final destaque -->
+    <div style="background:#eef2ff;border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:.9rem">💰 Saldo Final (Dinheiro):</span>
+      <span id="pdv-fc-saldo-final" style="font-size:1.3rem;font-weight:800;color:var(--verde2)">R$ 0,00</span>
+    </div>
+
+    <!-- Observações -->
+    <div style="margin-bottom:16px">
+      <label style="font-size:.82rem;font-weight:700;color:#555;display:block;margin-bottom:6px">Observações</label>
+      <textarea id="pdv-fc-obs" rows="2" placeholder="Observações do fechamento..."
+        style="width:100%;padding:9px 12px;border:1px solid var(--borda);border-radius:8px;font-size:.85rem;outline:none;resize:vertical"></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="pdvFecharModal('pdv-modal-fechar')"
+        style="padding:9px 18px;border:1px solid var(--borda);border-radius:8px;background:#f8f9fa;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="pdvConfirmarFechamento()"
+        style="padding:9px 18px;border:none;border-radius:8px;background:#28a745;color:#fff;cursor:pointer;font-weight:700">✅ Confirmar Fechamento</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FECHAR CAIXA SIMPLES -->
+<div id="pdv-modal-fc-simples" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:3500;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:360px;max-width:96vw;padding:28px 24px;
+    box-shadow:0 10px 40px rgba(0,0,0,.3);position:relative;animation:pop .2s ease">
+    <button onclick="document.getElementById('pdv-modal-fc-simples').style.display='none'"
+      style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#aaa">✕</button>
+    <h2 style="font-size:1.1rem;font-weight:800;color:#c0392b;margin-bottom:18px">🔒 Fechar Caixa</h2>
+    <div style="margin-bottom:20px">
+      <label style="font-size:.85rem;font-weight:700;color:#555;display:block;margin-bottom:8px">
+        💵 Quanto tem no caixa agora? (R$)
+      </label>
+      <input type="number" id="pdv-fcs-valor" min="0" step="0.01" value="0.00"
+        style="width:100%;padding:14px;border:2px solid var(--borda);border-radius:8px;
+        font-size:1.5rem;text-align:right;font-weight:700;outline:none"
+        onkeydown="if(event.key==='Enter') pdvConfirmarFechamentoSimples()">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="document.getElementById('pdv-modal-fc-simples').style.display='none'"
+        style="padding:10px 20px;border:1px solid var(--borda);border-radius:8px;
+        background:#f8f9fa;cursor:pointer;font-weight:700">Cancelar</button>
+      <button onclick="pdvConfirmarFechamentoSimples()"
+        style="padding:10px 20px;border:none;border-radius:8px;
+        background:#c0392b;color:#fff;cursor:pointer;font-weight:700;font-size:1rem">
+        ✅ Finalizar
+      </button>
+    </div>
+  </div>
+</div>
 </body>
-</html>
+</html> 
