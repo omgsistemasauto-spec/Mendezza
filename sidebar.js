@@ -4,23 +4,14 @@
 
 (function () {
 
-  /* ── RESET MODO ADMIN ELEVADO ao abrir/recarregar página ── */
-  (function resetElevado() {
-    try {
-      var s = JSON.parse(localStorage.getItem('mnd_session'));
-      if (s && s.elevado) {
-        var sessaoUsuario = { user: 'usuario', role: 'usuario', nome: 'Usuário', cargo: 'Operador', ts: Date.now() };
-        localStorage.setItem('mnd_session', JSON.stringify(sessaoUsuario));
-        sessionStorage.setItem('mnd_session', JSON.stringify(sessaoUsuario));
-      }
-    } catch (e) {}
-  })();
-
-  /* ── LÊ SESSÃO ── */
+  /* ── LÊ SESSÃO ──
+     Modo admin elevado vive APENAS no sessionStorage (morre ao fechar a aba).
+     localStorage sempre reflete o estado base (usuario). */
   function getSessao() {
     try {
-      return JSON.parse(sessionStorage.getItem('mnd_session') ||
-                        localStorage.getItem('mnd_session'));
+      var ss = sessionStorage.getItem('mnd_session');
+      if (ss) return JSON.parse(ss);
+      return JSON.parse(localStorage.getItem('mnd_session'));
     } catch (e) { return null; }
   }
 
@@ -232,7 +223,9 @@
       return;
     }
 
-    /* TROCA SESSÃO PARA ADMIN — marca como elevado para poder voltar */
+    /* TROCA SESSÃO PARA ADMIN — salva SOMENTE no sessionStorage.
+       O localStorage permanece como 'usuario', então ao fechar a aba
+       e reabrir o sistema volta automaticamente para usuário. */
     var sessao = {
       user:    'admin',
       role:    'admin',
@@ -241,7 +234,6 @@
       elevado: true,
       ts:      Date.now()
     };
-    localStorage.setItem('mnd_session', JSON.stringify(sessao));
     sessionStorage.setItem('mnd_session', JSON.stringify(sessao));
 
     sbFecharModalAdmin();
@@ -251,6 +243,8 @@
   };
 
   window.sbSairModoAdmin = function() {
+    /* Remove o admin do sessionStorage — localStorage já é usuario */
+    sessionStorage.removeItem('mnd_session');
     var sessao = {
       user:  'usuario',
       role:  'usuario',
@@ -259,7 +253,6 @@
       ts:    Date.now()
     };
     localStorage.setItem('mnd_session', JSON.stringify(sessao));
-    sessionStorage.setItem('mnd_session', JSON.stringify(sessao));
     window.location.href = 'vendas.html';
   };
 
