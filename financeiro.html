@@ -466,6 +466,11 @@ tbody td{padding:9px 12px}
       <div class="lbl">👤 Pró-labore no Mês</div>
       <div style="font-size:.68rem;color:#c084fc;margin-top:4px">clique para ver histórico</div>
     </div>
+    <div class="mini-card" style="border-left-color:#f59e0b;cursor:pointer;transition:.15s" onclick="abrirModalComissoes()" title="Ver comissões do vendedor">
+      <div class="val" id="mc-comissao-mes" style="color:#f59e0b">R$ 0,00</div>
+      <div class="lbl">🏆 Comissão Vendedor/Mês</div>
+      <div style="font-size:.68rem;color:#fbbf24;margin-top:4px">clique para ver detalhes</div>
+    </div>
   </div>
 
   <!-- VENDAS + DESPESAS -->
@@ -484,9 +489,10 @@ tbody td{padding:9px 12px}
             <th>Total</th>
             <th style="color:var(--vermelho)">Despesa</th>
             <th style="color:var(--verde)">Lucro</th>
+            <th style="color:#f59e0b">Comissão</th>
             <th style="width:40px">👁️</th>
           </tr></thead>
-<tbody id="t-vendas"><tr><td colspan="9" style="text-align:center;color:#bbb;padding:20px">Carregando...</td></tr></tbody>
+<tbody id="t-vendas"><tr><td colspan="10" style="text-align:center;color:#bbb;padding:20px">Carregando...</td></tr></tbody>
           <tfoot><tr style="background:#e8f4fd;font-weight:700">
             <td style="padding:8px 12px">TOTAL DO MÊS</td>
             <td id="tf-din"  style="padding:8px 12px"></td>
@@ -496,6 +502,7 @@ tbody td{padding:9px 12px}
             <td id="tf-tot"  style="padding:8px 12px"></td>
             <td id="tf-desp" style="padding:8px 12px;color:var(--vermelho)"></td>
             <td id="tf-lucro" style="padding:8px 12px;color:var(--verde)"></td>
+            <td id="tf-comissao" style="padding:8px 12px;color:#f59e0b"></td>
             <td></td>
           </tr></tfoot>
         </table>
@@ -770,6 +777,131 @@ tbody td{padding:9px 12px}
 </div>
 
 <!-- MODAL: DETALHES DE VENDAS POR DIA (OLHO) -->
+<!-- ══════════════════════════════════
+     MODAL: COMISSÕES DO VENDEDOR
+══════════════════════════════════ -->
+<!-- ══════════════════════════════════════════
+     MODAL COMISSÕES — Vendedor vs Admin por dia
+══════════════════════════════════════════ -->
+<div class="bd" id="modal-comissoes">
+  <div class="modal" style="width:820px;max-width:99vw;padding:24px 22px 20px">
+    <button class="mf" onclick="fechar('modal-comissoes')">✕</button>
+    <h2 style="margin-bottom:16px">🏆 Controle de Comissões</h2>
+
+    <!-- Filtro período -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;
+      background:#f8f9fa;padding:12px 14px;border-radius:10px;border:1px solid var(--borda)">
+      <span style="font-size:.82rem;font-weight:700;color:#555">📅 Período:</span>
+      <input type="date" id="com-ini" style="padding:6px 10px;border:1px solid var(--borda);border-radius:6px;font-size:.82rem;outline:none">
+      <span style="font-size:.8rem;color:#aaa">até</span>
+      <input type="date" id="com-fim" style="padding:6px 10px;border:1px solid var(--borda);border-radius:6px;font-size:.82rem;outline:none">
+      <button class="btn bv btn-sm" onclick="carregarComissoes()">🔍 Buscar</button>
+      <button class="btn bc btn-sm" onclick="filtroComissaoMesAtual()">📅 Mês Atual</button>
+    </div>
+
+    <!-- Cards totais do período -->
+    <div id="com-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px"></div>
+
+    <!-- BLOCO VENDEDOR -->
+    <div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;
+        padding:10px 14px;background:linear-gradient(135deg,#fffbeb,#fef3c7);
+        border:1.5px solid #fcd34d;border-radius:10px">
+        <span style="font-size:1.2rem">👤</span>
+        <div style="flex:1">
+          <div style="font-size:.82rem;font-weight:800;color:#92400e">VENDEDOR — Comissão por Dia</div>
+          <div style="font-size:.75rem;color:#b45309">Produtos: 2% · Serviços: 30% · Troca de Óleo: sem comissão</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.72rem;color:#92400e;font-weight:700">TOTAL MÊS</div>
+          <div id="com-vend-total" style="font-size:1.25rem;font-weight:800;color:#d97706">R$ 0,00</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+          <thead>
+            <tr style="background:#fffbeb">
+              <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #fcd34d;white-space:nowrap">📅 Data</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #fcd34d">Vendas (qtd)</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #fcd34d">Total Vendido</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #fcd34d;color:#d97706">💰 Comissão</th>
+              <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #fcd34d;width:50px">🔍</th>
+            </tr>
+          </thead>
+          <tbody id="t-com-vend">
+            <tr><td colspan="5" style="text-align:center;color:#bbb;padding:16px">Selecione o período e busque.</td></tr>
+          </tbody>
+          <tfoot>
+            <tr style="background:#fffbeb;font-weight:800">
+              <td style="padding:9px 12px;color:#92400e">TOTAL</td>
+              <td id="tf-vend-qtd"    style="padding:9px 12px;text-align:right;color:#555"></td>
+              <td id="tf-vend-vendas" style="padding:9px 12px;text-align:right;color:var(--azul)"></td>
+              <td id="tf-vend-com"    style="padding:9px 12px;text-align:right;color:#d97706;font-size:1rem"></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- BLOCO ADMINISTRADOR -->
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;
+        padding:10px 14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);
+        border:1.5px solid #93c5fd;border-radius:10px">
+        <span style="font-size:1.2rem">🛡️</span>
+        <div style="flex:1">
+          <div style="font-size:.82rem;font-weight:800;color:#1e40af">ADMINISTRADOR — Vendas por Dia</div>
+          <div style="font-size:.75rem;color:#3b82f6">Sem comissão — rastreamento de operações</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.72rem;color:#1e40af;font-weight:700">TOTAL MÊS</div>
+          <div id="com-adm-total" style="font-size:1.25rem;font-weight:800;color:var(--azul)">R$ 0,00</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+          <thead>
+            <tr style="background:#eff6ff">
+              <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #93c5fd;white-space:nowrap">📅 Data</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #93c5fd">Vendas (qtd)</th>
+              <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #93c5fd">Total Vendido</th>
+              <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #93c5fd;width:50px">🔍</th>
+            </tr>
+          </thead>
+          <tbody id="t-com-adm">
+            <tr><td colspan="4" style="text-align:center;color:#bbb;padding:16px">Selecione o período e busque.</td></tr>
+          </tbody>
+          <tfoot>
+            <tr style="background:#eff6ff;font-weight:800">
+              <td style="padding:9px 12px;color:#1e40af">TOTAL</td>
+              <td id="tf-adm-qtd"    style="padding:9px 12px;text-align:right;color:#555"></td>
+              <td id="tf-adm-vendas" style="padding:9px 12px;text-align:right;color:var(--azul)"></td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;text-align:right">
+      <button class="btn bc" onclick="fechar('modal-comissoes')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: vendas do dia que geraram comissão -->
+<div class="bd" id="modal-com-det">
+  <div class="modal" style="width:620px;max-width:99vw">
+    <button class="mf" onclick="fechar('modal-com-det')">✕</button>
+    <h2 id="com-det-titulo">🔍 Vendas do Dia</h2>
+    <div id="com-det-body" style="max-height:70vh;overflow-y:auto"></div>
+    <div class="mac" style="margin-top:12px">
+      <button class="btn bc" onclick="fechar('modal-com-det')">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div class="bd" id="modal-detalhes-vendas-dia">
   <div class="modal" style="width:850px;max-width:95vw">
     <button class="mf" onclick="fechar('modal-detalhes-vendas-dia')">✕</button>
@@ -987,6 +1119,37 @@ tbody td{padding:9px 12px}
 <div id="toast"></div>
 
 <!-- MODAL: CONFIRMAÇÃO CUSTOMIZADA -->
+<!-- ══════════════════════════════════
+     MODAL: DAR BAIXA — Retirada de Caixa?
+══════════════════════════════════ -->
+<div class="bd" id="modal-baixa-caixa">
+  <div class="modal" style="width:380px;text-align:center">
+    <div style="font-size:2.2rem;margin-bottom:8px">💸</div>
+    <h2 style="margin-bottom:8px;font-size:1.05rem">Dar Baixa na Conta</h2>
+    <p style="font-size:.88rem;color:#555;margin-bottom:20px;line-height:1.6">
+      Este pagamento foi retirado em <b>dinheiro do caixa físico</b>?<br>
+      <span style="font-size:.8rem;color:#888">Isso afeta o saldo do caixa no fechamento do dia.</span>
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button onclick="cancelarBaixaConta()"
+        style="padding:10px 18px;border:1px solid var(--borda);border-radius:8px;
+        background:#f8f9fa;cursor:pointer;font-weight:700;font-size:.88rem">
+        ✕ Cancelar
+      </button>
+      <button onclick="confirmarBaixaConta(false)"
+        style="padding:10px 18px;border:none;border-radius:8px;
+        background:var(--azul);color:#fff;cursor:pointer;font-weight:700;font-size:.88rem">
+        💳 Não — Outro método
+      </button>
+      <button onclick="confirmarBaixaConta(true)"
+        style="padding:10px 18px;border:none;border-radius:8px;
+        background:#28a745;color:#fff;cursor:pointer;font-weight:700;font-size:.88rem">
+        💵 Sim — Saiu do Caixa
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="bd" id="modal-confirm">
   <div class="modal" style="width:340px;text-align:center">
     <div style="font-size:2rem;margin-bottom:10px" id="confirm-icon">⚠️</div>
@@ -1231,9 +1394,9 @@ async function carregarVendasMes(){
   var inicio = inicioMesLocal();
   var fim    = fimMesLocal();
 
-  /* 1. Vendas do mês com seus IDs */
+  /* 1. Vendas do mês com operador_tipo e comissao_vendedor */
   var rv = await db.from('vendas')
-    .select('id,data,total,metodo_pagamento')
+    .select('id,data,total,metodo_pagamento,operador_tipo,comissao_vendedor')
     .gte('data',inicio).lte('data',fim+'T23:59:59').gt('total',0)
     .not('metodo_pagamento','ilike','Fiado%');
 
@@ -1244,59 +1407,60 @@ async function carregarVendasMes(){
 
   var tbody = document.getElementById('t-vendas');
   if(!rv.data || !rv.data.length){
-    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:#bbb;padding:16px">Nenhuma venda este mês.</td></tr>';
-    /* zera totais */
-    ['tf-din','tf-cred','tf-deb','tf-pix','tf-tot','tf-desp','tf-lucro'].forEach(function(id){
+    tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:#bbb;padding:16px">Nenhuma venda este mês.</td></tr>';
+    ['tf-din','tf-cred','tf-deb','tf-pix','tf-tot','tf-desp','tf-lucro','tf-comissao'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.textContent='—';
     });
+    document.getElementById('mc-comissao-mes').textContent = brl(0);
     return;
   }
 
-  /* 3. Busca custo (valor_compra × quantidade) dos itens de todas as vendas do mês */
+  /* 3. Busca custo dos itens */
   var ids = rv.data.map(function(v){ return v.id; });
   var rit = await db.from('itens_venda')
     .select('venda_id,valor_compra,quantidade,tipo')
     .in('venda_id', ids);
 
-  /* mapa: venda_id → custo total dos produtos */
   var custoPorVenda = {};
   (rit.data||[]).forEach(function(it){
-    /* só peças têm custo de produto; serviços têm custo zero */
     if(it.tipo === 'servico') return;
     var custo = Number(it.valor_compra||0) * Number(it.quantidade||1);
     custoPorVenda[it.venda_id] = (custoPorVenda[it.venda_id]||0) + custo;
   });
 
-  /* 4. Agrupa por dia */
+  /* 4. Agrupa por dia — agora com comissão */
   var dias = {};
+  var totalComissaoMes = 0;
   rv.data.forEach(function(v){
     var dia = v.data ? v.data.substring(0,10) : '?';
-    if(!dias[dia]) dias[dia]={din:0,cred:0,deb:0,pix:0,total:0,custo:0,desp:0};
+    if(!dias[dia]) dias[dia]={din:0,cred:0,deb:0,pix:0,total:0,custo:0,desp:0,comissao:0};
     var tot = Number(v.total||0);
     var pg  = parsePagamento(v);
-    dias[dia].din  += pg.din;
-    dias[dia].cred += pg.cred;
-    dias[dia].deb  += pg.deb;
-    dias[dia].pix  += pg.pix;
-    dias[dia].total += tot;
-    dias[dia].custo += custoPorVenda[v.id]||0;
+    dias[dia].din     += pg.din;
+    dias[dia].cred    += pg.cred;
+    dias[dia].deb     += pg.deb;
+    dias[dia].pix     += pg.pix;
+    dias[dia].total   += tot;
+    dias[dia].custo   += custoPorVenda[v.id]||0;
+    var com = Number(v.comissao_vendedor||0);
+    dias[dia].comissao += com;
+    totalComissaoMes   += com;
   });
 
   /* 5. Soma despesas pagas por dia */
   (rd.data||[]).forEach(function(d){
     var dia = d.data_pagamento;
     if(dias[dia]) dias[dia].desp += Number(d.valor||0);
-    else dias[dia] = {din:0,cred:0,deb:0,pix:0,total:0,custo:Number(d.valor||0),desp:Number(d.valor||0)};
+    else dias[dia] = {din:0,cred:0,deb:0,pix:0,total:0,custo:Number(d.valor||0),desp:Number(d.valor||0),comissao:0};
   });
 
   /* 6. Renderiza */
-  var totDin=0,totCred=0,totDeb=0,totPix=0,totTot=0,totDesp=0,totLucro=0;
+  var totDin=0,totCred=0,totDeb=0,totPix=0,totTot=0,totDesp=0,totLucro=0,totCom=0;
   tbody.innerHTML = Object.keys(dias).sort().reverse().map(function(dia){
     var d = dias[dia];
-    /* Lucro = total vendas - custo dos produtos vendidos */
     var lucro = d.total - d.custo;
     totDin+=d.din; totCred+=d.cred; totDeb+=d.deb; totPix+=d.pix;
-    totTot+=d.total; totDesp+=d.desp; totLucro+=lucro;
+    totTot+=d.total; totDesp+=d.desp; totLucro+=lucro; totCom+=d.comissao;
     return '<tr>'+
       '<td>'+dataFmt(dia)+'</td>'+
       '<td>'+(d.din>0?brl(d.din):'—')+'</td>'+
@@ -1309,17 +1473,20 @@ async function carregarVendasMes(){
         brl(lucro)+
         (d.custo>0?'<div style="font-size:.7rem;color:#94a3b8;font-weight:400">custo: -'+brl(d.custo)+'</div>':'')+
       '</td>'+
+      '<td style="font-weight:700;color:'+(d.comissao>0?'#f59e0b':'#bbb')+'">'+(d.comissao>0?brl(d.comissao):'—')+'</td>'+
       '<td><button class="btn bc btn-sm" onclick="verDetalhesVendasDia(\''+dia+'\')">👁️</button></td>'+
     '</tr>';
   }).join('');
 
-  document.getElementById('tf-din').textContent   = brl(totDin);
-  document.getElementById('tf-cred').textContent  = brl(totCred);
-  document.getElementById('tf-deb').textContent   = brl(totDeb);
-  document.getElementById('tf-pix').textContent   = brl(totPix);
-  document.getElementById('tf-tot').textContent   = brl(totTot);
-  document.getElementById('tf-desp').textContent  = brl(totDesp);
-  document.getElementById('tf-lucro').textContent = brl(totLucro);
+  document.getElementById('tf-din').textContent      = brl(totDin);
+  document.getElementById('tf-cred').textContent     = brl(totCred);
+  document.getElementById('tf-deb').textContent      = brl(totDeb);
+  document.getElementById('tf-pix').textContent      = brl(totPix);
+  document.getElementById('tf-tot').textContent      = brl(totTot);
+  document.getElementById('tf-desp').textContent     = brl(totDesp);
+  document.getElementById('tf-lucro').textContent    = brl(totLucro);
+  document.getElementById('tf-comissao').textContent = totCom > 0 ? brl(totCom) : '—';
+  document.getElementById('mc-comissao-mes').textContent = brl(totalComissaoMes);
 }
 
 /* ══════════════════════════════════════════
@@ -1383,16 +1550,53 @@ function limparFiltroContas(){
 }
 
 async function togglePago(id, pago){
+  /* ao DESMARCAR: simples, sem perguntas */
+  if(!pago){
+    var upd = await db.from('contas_pagar').update({
+      pago: false, data_pagamento: null, status: 'PENDENTE', retirada_caixa: false
+    }).eq('id', id);
+    if(upd.error){ toast('❌ Erro: '+upd.error.message,'er'); return; }
+    toast('↩️ Desmarcado — conta pendente','ok');
+    atualizarCaixa(); carregarContas(); return;
+  }
+
+  /* ao MARCAR COMO PAGO: pergunta se saiu do caixa em dinheiro */
+  _togglePagoId = id;
+  document.getElementById('modal-baixa-caixa').classList.add('ab');
+}
+
+var _togglePagoId = null;
+
+async function confirmarBaixaConta(retiradaCaixa){
+  fechar('modal-baixa-caixa');
+  var id    = _togglePagoId;
+  _togglePagoId = null;
+  if(id === null){ carregarContas(); return; }
+
   var hoje2 = hoje();
   var upd = await db.from('contas_pagar').update({
-    pago: pago,
-    data_pagamento: pago ? hoje2 : null,
-    status: pago ? 'PAGO' : 'PENDENTE'
-  }).eq('id',id);
+    pago:            true,
+    data_pagamento:  hoje2,
+    status:          'PAGO',
+    retirada_caixa:  retiradaCaixa
+  }).eq('id', id);
+
   if(upd.error){ toast('❌ Erro: '+upd.error.message,'er'); return; }
-  toast(pago?'✅ Conta marcada como paga!':'↩️ Desmarcado — conta pendente','ok');
+
+  toast(retiradaCaixa
+    ? '✅ Pago e registrado como retirada de dinheiro do caixa!'
+    : '✅ Conta marcada como paga (sem saída do caixa físico)!',
+    'ok');
   atualizarCaixa();
   carregarContas();
+  if(_togglePagoOrigemCalendario){ carregarTudo(); _togglePagoOrigemCalendario = false; }
+}
+
+function cancelarBaixaConta(){
+  fechar('modal-baixa-caixa');
+  /* desmarca o checkbox visualmente recarregando a lista */
+  carregarContas();
+  _togglePagoId = null;
 }
 
 async function excluirConta(id){
@@ -1955,17 +2159,14 @@ function verDetalheConta(id){
 }
 
 async function pagarContaCalendario(id){
-  abrirConfirm('Deseja marcar esta conta como paga hoje?', async function(){
-    var r = await db.from('contas_pagar').update({
-      pago: true,
-      data_pagamento: hoje()
-    }).eq('id', id);
-    if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
-    fechar('modal-detalhe-conta');
-    toast('✅ Conta marcada como paga!','ok');
-    carregarTudo();
-  }, '✅', '#4CAF50', 'Marcar como Paga');
+  /* reutiliza o mesmo fluxo do modal de baixa — pergunta sobre caixa */
+  fechar('modal-detalhe-conta');
+  _togglePagoId = id;
+  _togglePagoOrigemCalendario = true;
+  document.getElementById('modal-baixa-caixa').classList.add('ab');
 }
+
+var _togglePagoOrigemCalendario = false;
 
 /* ══════════════════════════════════════════
    GRÁFICO ANUAL — Lógica
@@ -2070,7 +2271,7 @@ async function verDetalhesVendasDia(diaStr){
   document.getElementById('modal-detalhes-vendas-dia').classList.add('ab');
   
   var r = await db.from('vendas')
-    .select('id,data,total,metodo_pagamento,cliente_nome,itens_venda(nome_produto,quantidade,preco_unitario)').gt('total',0)
+    .select('id,data,total,metodo_pagamento,cliente_nome,responsavel,operador_tipo,comissao_vendedor,itens_venda(nome_produto,quantidade,preco_unitario,tipo)').gt('total',0)
     .gte('data',diaStr+'T00:00:00').lte('data',diaStr+'T23:59:59')
     .order('data',{ascending:true});
     
@@ -2082,33 +2283,65 @@ async function verDetalhesVendasDia(diaStr){
   
   var html = '';
   vendas.forEach((v, idx) => {
-    /* Converte para horário local BR antes de formatar */
     var hora = v.data ? (function(s){ var d=new Date(s); return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'}); })(v.data) : '--:--';
+    var isVendedor = v.operador_tipo === 'vendedor';
+    var comissao   = Number(v.comissao_vendedor||0);
+    var badgeOp = isVendedor
+      ? '<span style="background:#fffbeb;color:#92400e;border:1px solid #fcd34d;padding:2px 8px;border-radius:15px;font-size:11px;font-weight:700">👤 Vendedor</span>'
+      : '<span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:2px 8px;border-radius:15px;font-size:11px;font-weight:700">🛡️ Admin</span>';
     html += `
-      <div style="background:#fff;border:1px solid #eee;border-radius:10px;padding:15px;margin-bottom:15px;box-shadow:0 2px 5px rgba(0,0,0,0.05)">
-        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #f0f0f0;padding-bottom:8px;margin-bottom:10px">
-          <span style="font-weight:800;color:var(--azul)">#${idx+1} — Venda às ${hora}</span>
-          <span style="background:#eef2ff;color:var(--azul2);padding:2px 8px;border-radius:15px;font-size:11px;font-weight:700">${eh(v.metodo_pagamento)}</span>
+      <div style="background:#fff;border:1px solid ${isVendedor?'#fcd34d':'#eee'};border-radius:10px;padding:15px;margin-bottom:15px;box-shadow:0 2px 5px rgba(0,0,0,0.05)">
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;border-bottom:1px solid #f0f0f0;padding-bottom:8px;margin-bottom:10px">
+          <span style="font-weight:800;color:var(--azul)">#${idx+1} — ${hora}</span>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            ${badgeOp}
+            <span style="background:#eef2ff;color:var(--azul2);padding:2px 8px;border-radius:15px;font-size:11px;font-weight:700">${eh(v.metodo_pagamento)}</span>
+          </div>
         </div>
-        <div style="font-size:13px;margin-bottom:8px"><b>Cliente:</b> ${eh(v.cliente_nome || 'Consumidor Final')}</div>
+        <div style="font-size:13px;margin-bottom:4px"><b>Cliente:</b> ${eh(v.cliente_nome || 'Consumidor Final')}</div>
+        <div style="font-size:12px;margin-bottom:8px;color:#888"><b>Operador:</b> ${eh(v.responsavel||'—')}</div>
         <table style="width:100%;font-size:12px;border-collapse:collapse">
           <thead style="background:#fafafa;color:#888">
-            <tr><th style="text-align:left;padding:5px">Produto/Serviço</th><th style="text-align:center">Qtd</th><th style="text-align:right">Preço</th><th style="text-align:right">Subtotal</th></tr>
+            <tr>
+              <th style="text-align:left;padding:5px">Produto/Serviço</th>
+              <th style="text-align:center">Qtd</th>
+              <th style="text-align:right">Preço</th>
+              <th style="text-align:right">Subtotal</th>
+              ${isVendedor?'<th style="text-align:right;color:#f59e0b">Comissão</th>':''}
+            </tr>
           </thead>
           <tbody>
-            ${(v.itens_venda||[]).map(it => `
+            ${(v.itens_venda||[]).map(it => {
+              var subtotal = it.quantidade * it.preco_unitario;
+              var comIt = 0;
+              if(isVendedor){
+                if(it.tipo === 'servico'){
+                  var nLow = String(it.nome_produto||'').toLowerCase();
+                  var isTroca = nLow.includes('troca de oleo') || nLow.includes('troca de óleo') || nLow.includes('troca oleo') || nLow.includes('troca óleo');
+                  comIt = isTroca ? 0 : subtotal * 0.30;
+                } else {
+                  comIt = subtotal * 0.02;
+                }
+              }
+              return `
               <tr style="border-bottom:1px solid #f9f9f9">
                 <td style="padding:6px 5px">${eh(it.nome_produto)}</td>
                 <td style="text-align:center">${it.quantidade}</td>
                 <td style="text-align:right">${brl(it.preco_unitario)}</td>
-                <td style="text-align:right;font-weight:600">${brl(it.quantidade * it.preco_unitario)}</td>
-              </tr>
-            `).join('')}
+                <td style="text-align:right;font-weight:600">${brl(subtotal)}</td>
+                ${isVendedor?'<td style="text-align:right;font-weight:700;color:'+(comIt>0?'#f59e0b':'#bbb')+'">'+(comIt>0?brl(comIt):'🚫 sem')+'</td>':''}
+              </tr>`;
+            }).join('')}
           </tbody>
           <tfoot>
-            <tr><td colspan="3" style="text-align:right;padding-top:10px;font-weight:700">TOTAL DA VENDA:</td><td style="text-align:right;padding-top:10px;font-weight:900;color:var(--verde);font-size:14px">${brl(v.total)}</td></tr>
+            <tr>
+              <td colspan="${isVendedor?'3':'3'}" style="text-align:right;padding-top:10px;font-weight:700">TOTAL:</td>
+              <td style="text-align:right;padding-top:10px;font-weight:900;color:var(--verde);font-size:14px">${brl(v.total)}</td>
+              ${isVendedor && comissao > 0 ? '<td style="text-align:right;padding-top:10px;font-weight:900;color:#f59e0b;font-size:14px">'+brl(comissao)+'</td>' : (isVendedor?'<td></td>':'')}
+            </tr>
           </tfoot>
         </table>
+        ${isVendedor && comissao > 0 ? '<div style="margin-top:10px;padding:8px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:12px;font-weight:700;color:#92400e;text-align:right">🏆 Comissão desta venda: '+brl(comissao)+'</div>' : ''}
       </div>
     `;
   });
@@ -2116,6 +2349,279 @@ async function verDetalhesVendasDia(diaStr){
   body.innerHTML = html;
 }
 
+
+/* ══════════════════════════════════════════
+   COMISSÕES — Vendedor vs Admin, agrupado por dia
+══════════════════════════════════════════ */
+function filtroComissaoMesAtual(){
+  var ini = inicioMesLocal().substring(0,10);
+  var fim = fimMesLocal().substring(0,10);
+  document.getElementById('com-ini').value = ini;
+  document.getElementById('com-fim').value = fim;
+  carregarComissoes();
+}
+
+function abrirModalComissoes(){
+  filtroComissaoMesAtual();
+  document.getElementById('modal-comissoes').classList.add('ab');
+}
+
+/* helpers */
+function _horaLocal(s){
+  var d = new Date(s);
+  return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
+}
+function _diaLocal(s){
+  return new Date(s+'T12:00:00').toLocaleDateString('pt-BR');
+}
+function _isTrocaOleo(nome){
+  var n = String(nome||'').toLowerCase();
+  return n.includes('troca de oleo')||n.includes('troca de óleo')||n.includes('troca oleo')||n.includes('troca óleo');
+}
+function _comissaoItem(it){
+  var val = it.quantidade * it.preco_unitario;
+  if(it.tipo === 'servico') return _isTrocaOleo(it.nome_produto) ? 0 : val * 0.30;
+  return val * 0.02;
+}
+
+async function carregarComissoes(){
+  var ini = document.getElementById('com-ini').value;
+  var fim = document.getElementById('com-fim').value;
+  if(!ini || !fim){ toast('Selecione o período!','av'); return; }
+
+  /* loading */
+  document.getElementById('t-com-vend').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa">Carregando...</td></tr>';
+  document.getElementById('t-com-adm').innerHTML  = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa">Carregando...</td></tr>';
+  document.getElementById('com-cards').innerHTML  = '';
+
+  /* busca todas as vendas do período */
+  var r = await db.from('vendas')
+    .select('id,data,total,cliente_nome,responsavel,operador_tipo,comissao_vendedor')
+    .gte('data', ini+'T00:00:00')
+    .lte('data', fim+'T23:59:59')
+    .gt('total', 0)
+    .not('operador_tipo','is','null')
+    .order('data',{ascending:true});
+
+  var todas = r.data || [];
+
+  /* separa vendedor / admin */
+  var vendedorVendas = todas.filter(function(v){ return v.operador_tipo === 'vendedor'; });
+  var adminVendas    = todas.filter(function(v){ return v.operador_tipo === 'admin'; });
+
+  /* agrupa vendedor por dia */
+  var diasVend = {};
+  vendedorVendas.forEach(function(v){
+    var dia = v.data.substring(0,10);
+    if(!diasVend[dia]) diasVend[dia] = {total:0, com:0, qtd:0, ids:[]};
+    diasVend[dia].total += Number(v.total||0);
+    diasVend[dia].com   += Number(v.comissao_vendedor||0);
+    diasVend[dia].qtd++;
+    diasVend[dia].ids.push(v.id);
+  });
+
+  /* agrupa admin por dia */
+  var diasAdm = {};
+  adminVendas.forEach(function(v){
+    var dia = v.data.substring(0,10);
+    if(!diasAdm[dia]) diasAdm[dia] = {total:0, qtd:0, ids:[]};
+    diasAdm[dia].total += Number(v.total||0);
+    diasAdm[dia].qtd++;
+    diasAdm[dia].ids.push(v.id);
+  });
+
+  /* totais gerais */
+  var totVendTotal = vendedorVendas.reduce(function(s,v){ return s+Number(v.total||0);},0);
+  var totVendCom   = vendedorVendas.reduce(function(s,v){ return s+Number(v.comissao_vendedor||0);},0);
+  var totAdmTotal  = adminVendas.reduce(function(s,v){ return s+Number(v.total||0);},0);
+  var totGeral     = totVendTotal + totAdmTotal;
+
+  /* cards resumo */
+  document.getElementById('com-cards').innerHTML =
+    '<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:10px;padding:14px;text-align:center">'+
+      '<div style="font-size:.75rem;font-weight:700;color:#166534;margin-bottom:4px">💰 TOTAL GERAL VENDIDO</div>'+
+      '<div style="font-size:1.4rem;font-weight:800;color:var(--verde)">'+brl(totGeral)+'</div>'+
+      '<div style="font-size:.72rem;color:#4ade80;margin-top:2px">'+todas.length+' vendas no período</div>'+
+    '</div>'+
+    '<div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fcd34d;border-radius:10px;padding:14px;text-align:center">'+
+      '<div style="font-size:.75rem;font-weight:700;color:#92400e;margin-bottom:4px">👤 VENDEDOR — COMISSÃO</div>'+
+      '<div style="font-size:1.4rem;font-weight:800;color:#d97706">'+brl(totVendCom)+'</div>'+
+      '<div style="font-size:.72rem;color:#fbbf24;margin-top:2px">sobre '+brl(totVendTotal)+' vendidos</div>'+
+    '</div>'+
+    '<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:10px;padding:14px;text-align:center">'+
+      '<div style="font-size:.75rem;font-weight:700;color:#1e40af;margin-bottom:4px">🛡️ ADMINISTRADOR — VENDAS</div>'+
+      '<div style="font-size:1.4rem;font-weight:800;color:var(--azul)">'+brl(totAdmTotal)+'</div>'+
+      '<div style="font-size:.72rem;color:#60a5fa;margin-top:2px">'+adminVendas.length+' vendas sem comissão</div>'+
+    '</div>';
+
+  document.getElementById('com-vend-total').textContent = brl(totVendCom);
+  document.getElementById('com-adm-total').textContent  = brl(totAdmTotal);
+
+  /* tabela VENDEDOR por dia */
+  var tbodyVend = document.getElementById('t-com-vend');
+  if(!Object.keys(diasVend).length){
+    tbodyVend.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:#bbb">Nenhuma venda do vendedor no período.</td></tr>';
+    ['tf-vend-qtd','tf-vend-vendas','tf-vend-com'].forEach(function(id){ document.getElementById(id).textContent='—'; });
+  } else {
+    /* usa índice global para evitar problemas de aspas no onclick */
+    window._comDiasVend = Object.keys(diasVend).sort().reverse();
+    tbodyVend.innerHTML = window._comDiasVend.map(function(dia, i){
+      var d = diasVend[dia];
+      return '<tr style="border-bottom:1px solid #fde68a">'+
+        '<td style="padding:9px 12px;font-weight:700">'+_diaLocal(dia)+'</td>'+
+        '<td style="padding:9px 12px;text-align:right;color:#555">'+d.qtd+' venda'+(d.qtd>1?'s':'')+'</td>'+
+        '<td style="padding:9px 12px;text-align:right;font-weight:700;color:var(--azul)">'+brl(d.total)+'</td>'+
+        '<td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706;font-size:.95rem">'+brl(d.com)+'</td>'+
+        '<td style="padding:9px 12px;text-align:center">'+
+          '<button class="btn btn-sm" style="background:#f59e0b;color:#fff;padding:4px 8px" '+
+            'onclick="_abrirComDiaVend('+i+')">🔍</button>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+    /* re-attach hover via delegation */
+    tbodyVend.querySelectorAll('tr').forEach(function(tr){
+      tr.addEventListener('mouseover',function(){ tr.style.background='#fffbeb'; });
+      tr.addEventListener('mouseout', function(){ tr.style.background=''; });
+    });
+    var tqVend = vendedorVendas.length;
+    document.getElementById('tf-vend-qtd').textContent    = tqVend+' venda'+(tqVend!==1?'s':'');
+    document.getElementById('tf-vend-vendas').textContent = brl(totVendTotal);
+    document.getElementById('tf-vend-com').textContent    = brl(totVendCom);
+  }
+
+  /* tabela ADMIN por dia */
+  var tbodyAdm = document.getElementById('t-com-adm');
+  if(!Object.keys(diasAdm).length){
+    tbodyAdm.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:16px;color:#bbb">Nenhuma venda do administrador no período.</td></tr>';
+    ['tf-adm-qtd','tf-adm-vendas'].forEach(function(id){ document.getElementById(id).textContent='—'; });
+  } else {
+    window._comDiasAdm = Object.keys(diasAdm).sort().reverse();
+    tbodyAdm.innerHTML = window._comDiasAdm.map(function(dia, i){
+      var d = diasAdm[dia];
+      return '<tr style="border-bottom:1px solid #bfdbfe">'+
+        '<td style="padding:9px 12px;font-weight:700">'+_diaLocal(dia)+'</td>'+
+        '<td style="padding:9px 12px;text-align:right;color:#555">'+d.qtd+' venda'+(d.qtd>1?'s':'')+'</td>'+
+        '<td style="padding:9px 12px;text-align:right;font-weight:700;color:var(--azul)">'+brl(d.total)+'</td>'+
+        '<td style="padding:9px 12px;text-align:center">'+
+          '<button class="btn btn-sm" style="background:var(--azul);color:#fff;padding:4px 8px" '+
+            'onclick="_abrirComDiaAdm('+i+')">🔍</button>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+    tbodyAdm.querySelectorAll('tr').forEach(function(tr){
+      tr.addEventListener('mouseover',function(){ tr.style.background='#eff6ff'; });
+      tr.addEventListener('mouseout', function(){ tr.style.background=''; });
+    });
+    var tqAdm = adminVendas.length;
+    document.getElementById('tf-adm-qtd').textContent    = tqAdm+' venda'+(tqAdm!==1?'s':'');
+    document.getElementById('tf-adm-vendas').textContent = brl(totAdmTotal);
+  }
+}
+
+/* helpers globais para onclick nas linhas */
+function _abrirComDiaVend(i){ verVendasDiaComissao(window._comDiasVend[i], 'vendedor'); }
+function _abrirComDiaAdm(i){  verVendasDiaComissao(window._comDiasAdm[i],  'admin'); }
+
+/* Abre modal com as vendas do dia do operador selecionado */
+async function verVendasDiaComissao(dia, operador){
+  var isVend = operador === 'vendedor';
+  var label  = _diaLocal(dia);
+  var titulo = (isVend ? '👤 Vendedor' : '🛡️ Admin') + ' — ' + label;
+  document.getElementById('com-det-titulo').textContent = titulo;
+  var body = document.getElementById('com-det-body');
+  body.innerHTML = '<div style="text-align:center;padding:24px;color:#aaa">Carregando...</div>';
+  document.getElementById('modal-com-det').classList.add('ab');
+
+  var r = await db.from('vendas')
+    .select('id,data,total,metodo_pagamento,cliente_nome,responsavel,comissao_vendedor,itens_venda(nome_produto,quantidade,preco_unitario,tipo)')
+    .eq('operador_tipo', operador)
+    .gte('data', dia+'T00:00:00')
+    .lte('data', dia+'T23:59:59')
+    .gt('total',0)
+    .order('data',{ascending:true});
+
+  var vendas = r.data || [];
+  if(!vendas.length){
+    body.innerHTML = '<div style="text-align:center;padding:24px;color:#aaa">Nenhuma venda encontrada.</div>';
+    return;
+  }
+
+  var totalDiaCom = 0, totalDiaVend = 0;
+  var html = vendas.map(function(v, idx){
+    var hora = _horaLocal(v.data);
+    var comVenda = Number(v.comissao_vendedor||0);
+    totalDiaVend += Number(v.total||0);
+    totalDiaCom  += comVenda;
+
+    var linhasItens = (v.itens_venda||[]).map(function(it){
+      var sub  = it.quantidade * it.preco_unitario;
+      var com  = isVend ? _comissaoItem(it) : 0;
+      var tag  = '';
+      if(isVend){
+        if(it.tipo==='servico'){
+          tag = _isTrocaOleo(it.nome_produto)
+            ? '<span style="color:#bbb;font-size:.72rem">🚫 sem comissão</span>'
+            : '<span style="color:#d97706;font-size:.72rem">30% → '+brl(com)+'</span>';
+        } else {
+          tag = '<span style="color:#d97706;font-size:.72rem">2% → '+brl(com)+'</span>';
+        }
+      }
+      return '<tr style="border-bottom:1px solid #f5f5f5">'+
+        '<td style="padding:5px 8px">'+eh(it.nome_produto)+
+          (it.tipo==='servico'?' <span style="font-size:.7rem;color:#aaa;background:#f0f0f0;padding:1px 5px;border-radius:8px">serv</span>':'')+
+        '</td>'+
+        '<td style="text-align:center;padding:5px 8px;color:#555">'+it.quantidade+'</td>'+
+        '<td style="text-align:right;padding:5px 8px">'+brl(sub)+'</td>'+
+        (isVend ? '<td style="text-align:right;padding:5px 8px">'+tag+'</td>' : '')+
+      '</tr>';
+    }).join('');
+
+    return '<div style="background:#fff;border:1px solid '+(isVend?'#fcd34d':'#bfdbfe')+';border-radius:10px;padding:14px;margin-bottom:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">'+
+        '<span style="font-weight:800;color:'+(isVend?'#92400e':'#1e40af')+'">#'+(idx+1)+' — '+hora+'</span>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+          '<span style="font-size:.78rem;color:#888">'+eh(v.cliente_nome||'Consumidor Final')+'</span>'+
+          '<span style="background:#e9ecef;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:700">'+eh(v.metodo_pagamento)+'</span>'+
+        '</div>'+
+      '</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:8px">'+
+        '<thead style="background:#f8f9fa"><tr>'+
+          '<th style="padding:5px 8px;text-align:left">Item</th>'+
+          '<th style="padding:5px 8px;text-align:center">Qtd</th>'+
+          '<th style="padding:5px 8px;text-align:right">Subtotal</th>'+
+          (isVend?'<th style="padding:5px 8px;text-align:right;color:#d97706">Comissão</th>':'')+
+        '</tr></thead>'+
+        '<tbody>'+linhasItens+'</tbody>'+
+      '</table>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;'+
+        'background:'+(isVend?'#fffbeb':'#eff6ff')+';padding:8px 10px;border-radius:6px;font-weight:700;font-size:.88rem">'+
+        '<span>Total da venda:</span>'+
+        '<span style="color:var(--verde);font-size:1rem">'+brl(v.total)+'</span>'+
+        (isVend && comVenda>0 ? '<span style="color:#d97706">Comissão: '+brl(comVenda)+'</span>' : '')+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  /* banner resumo do dia */
+  var banner = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
+    '<div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;text-align:center">'+
+      '<div style="font-size:.72rem;font-weight:700;color:#166534">Vendas</div>'+
+      '<div style="font-size:1.1rem;font-weight:800;color:var(--verde)">'+brl(totalDiaVend)+'</div>'+
+    '</div>'+
+    (isVend ?
+      '<div style="flex:1;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;text-align:center">'+
+        '<div style="font-size:.72rem;font-weight:700;color:#92400e">Comissão do Dia</div>'+
+        '<div style="font-size:1.1rem;font-weight:800;color:#d97706">'+brl(totalDiaCom)+'</div>'+
+      '</div>' : '')+
+  '</div>';
+
+  body.innerHTML = banner + html;
+}
+
+/* compatibilidade: função antiga ainda pode ser chamada de outros lugares */
+async function verDetalhesComissao(vendaId, dataStr){
+  verVendasDiaComissao((dataStr||'').substring(0,10), 'vendedor');
+}
 
 /* ── FAB mobile ── */
 function toggleFab(){
