@@ -4,6 +4,18 @@
 
 (function () {
 
+  /* ── RESET MODO ADMIN ELEVADO ao abrir/recarregar página ── */
+  (function resetElevado() {
+    try {
+      var s = JSON.parse(localStorage.getItem('mnd_session'));
+      if (s && s.elevado) {
+        var sessaoUsuario = { user: 'usuario', role: 'usuario', nome: 'Usuário', cargo: 'Operador', ts: Date.now() };
+        localStorage.setItem('mnd_session', JSON.stringify(sessaoUsuario));
+        sessionStorage.setItem('mnd_session', JSON.stringify(sessaoUsuario));
+      }
+    } catch (e) {}
+  })();
+
   /* ── LÊ SESSÃO ── */
   function getSessao() {
     try {
@@ -203,11 +215,7 @@
 
   window.sbFecharModalAdmin = function() {
     var modal = document.getElementById('sb-modal-admin');
-    var inp   = document.getElementById('sb-admin-inp');
     if (modal) modal.style.display = 'none';
-    if (inp)   inp.value = '';
-    var erro = document.getElementById('sb-admin-erro');
-    if (erro)  erro.style.display = 'none';
   };
 
   window.sbConfirmarAdmin = function() {
@@ -236,11 +244,9 @@
     localStorage.setItem('mnd_session', JSON.stringify(sessao));
     sessionStorage.setItem('mnd_session', JSON.stringify(sessao));
 
-    /* limpa campo ANTES de fechar e recarregar */
-    var inp = document.getElementById('sb-admin-inp');
-    if (inp) inp.value = '';
-
     sbFecharModalAdmin();
+
+    /* Recarrega a página para aplicar o novo role */
     window.location.reload();
   };
 
