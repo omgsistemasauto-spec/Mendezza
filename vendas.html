@@ -695,7 +695,7 @@ tbody td{padding:8px 12px}
             style="padding:5px 12px;border:none;cursor:pointer;font-size:.82rem;font-weight:700;
             background:#e9ecef;color:#555;transition:.15s">R$</button>
         </div>
-        <input type="number" id="fin-desconto" min="0" max="15" value="0" step="0.01"
+        <input type="number" id="fin-desconto" min="0" value="0" step="0.01"
           style="flex:1;padding:6px 10px;border:1px solid var(--borda);border-radius:6px;
           text-align:right;font-size:.95rem;font-weight:700;outline:none"
           oninput="recalcularTotal()">
@@ -2233,8 +2233,8 @@ function setTipoDesc(tipo){
   document.getElementById('btn-desc-val').style.background = tipo==='val' ? 'var(--azul)' : '#e9ecef';
   document.getElementById('btn-desc-val').style.color      = tipo==='val' ? '#fff'        : '#555';
   document.getElementById('fin-desc-sufixo').textContent   = tipo==='pct' ? '%'           : 'R$';
-  /* limita max só no modo % */
-  document.getElementById('fin-desconto').max = tipo==='pct' ? String(MAX_DESC_PCT) : '';
+  /* limita max só no modo % e só se não estiver desbloqueado */
+  document.getElementById('fin-desconto').max = tipo==='pct' ? (_descontoLivre ? '100' : String(MAX_DESC_PCT)) : '';
   recalcularTotal();
 }
 
@@ -5400,18 +5400,18 @@ async function pdvConfirmarAbertura(){
   /* notifica Telegram */
   var agora = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
   notificarTelegram(
-    '🔒 <b>FECHAMENTO DE CAIXA — PDV</b>\n\n'+
+    '🟢 <b>ABERTURA DE CAIXA — PDV</b>\n\n'+
     '🕐 <b>'+agora+'</b>\n'+
     '👤 Operador: <b>'+USERNAME+'</b>\n\n'+
-    '💰 Valor do caixa informado: <b>'+brl(saldo)+'</b>\n'+
-    '📈 Vendas em dinheiro: <b>+ '+brl(din)+'</b>\n'+
+    '💵 Saldo inicial informado: <b>'+brl(saldo)+'</b>\n'+
+    '📈 Vendas em dinheiro (já realizadas): <b>'+brl(din)+'</b>\n'+
     (totalRetCaixa>0?'💸 Retiradas dinheiro: <b>− '+brl(totalRetCaixa)+'</b>\n':'')+
-    '✅ Saldo final: <b>'+brl(sf)+'</b>\n\n'+
+    '✅ Saldo esperado no caixa: <b>'+brl(sf)+'</b>\n\n'+
     '📊 Total vendas (todos métodos): <b>'+brl(totalVendas)+'</b>'
   );
 
   pdvFecharModal('pdv-modal-abrir');
-  toast('✅ Caixa fechado com sucesso!','ok');
+  toast('✅ Caixa aberto com sucesso!','ok');
 }
 
 /* ── FECHAR CAIXA — etapa 1: busca totais e abre contagem ── */
