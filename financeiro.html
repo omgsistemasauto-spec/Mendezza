@@ -399,6 +399,7 @@ tbody td{padding:9px 12px}
         <button class="btn bv"  onclick="abrirCaixa()">🔓 Abrir Caixa</button>
         <button class="btn br"  onclick="abrirFormRetirada()">💸 Lançar Despesa</button>
         <button class="btn ba"  onclick="abrirModalHistDia()">📊 Histórico do Dia</button>
+        <button class="btn" style="background:#6d4c41;color:#fff" onclick="abrirModalCofre()">🏦 Guardar no Cofre</button>
         <button class="btn bam" onclick="abrirFecharCaixa()">🔒 Fechar Caixa</button>
         <button class="btn bc"  onclick="carregarTudo()">🔄 Atualizar</button>
         <button class="btn" style="background:#5271ff;color:#fff" onclick="abrirVisaoCaixa()">🔍 Visão do Caixa</button>
@@ -589,15 +590,17 @@ tbody td{padding:9px 12px}
   <div class="modal" style="width:380px">
     <button class="mf" onclick="fechar('modal-abrir')">✕</button>
     <h2>🔓 Abrir Caixa</h2>
-    <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:14px;font-size:.85rem">
+    <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:10px;font-size:.85rem">
       <b>Data:</b> <span id="abrir-data"></span>
     </div>
     <div class="cmp">
       <label>Saldo Inicial (R$)</label>
       <input type="number" id="abrir-saldo" min="0" step="0.01" value="0.00"
         style="font-size:1.2rem;text-align:right;font-weight:700"
+        oninput="checarDivergenciaAbertura()"
         onkeydown="if(event.key==='Enter') confirmarAbertura()">
     </div>
+    <div id="abrir-alerta-div" style="display:none;border-radius:8px;padding:10px 13px;margin-bottom:4px;font-size:.83rem;line-height:1.6"></div>
     <div class="mac">
       <button class="btn bc" onclick="fechar('modal-abrir')">Cancelar</button>
       <button class="btn bv" onclick="confirmarAbertura()">✅ Confirmar Abertura</button>
@@ -606,6 +609,31 @@ tbody td{padding:9px 12px}
 </div>
 
 <!-- MODAL: NOVA DESPESA / RETIRADA -->
+<div class="bd" id="modal-cofre">
+  <div class="modal" style="width:420px;max-width:95vw">
+    <button class="mf" onclick="fechar('modal-cofre')">✕</button>
+    <h2>🏦 Guardar Dinheiro no Cofre</h2>
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:.82rem;color:#856404;line-height:1.6">
+      ⚠️ Este valor <b>sai do caixa físico</b> mas <b>não é uma despesa</b> — apenas foi guardado em outro lugar.<br>
+      Será descontado do <b>dinheiro esperado</b> no fechamento do caixa do dia.
+    </div>
+    <div class="cmp">
+      <label>Valor retirado do caixa (R$) *</label>
+      <input type="number" id="cofre-valor" min="0.01" step="0.01" placeholder="0.00"
+        onkeydown="if(event.key==='Enter') confirmarCofre()">
+    </div>
+    <div class="cmp">
+      <label>Descrição (opcional)</label>
+      <input id="cofre-desc" placeholder="Ex: Guardado no cofre da sala..."
+        onkeydown="if(event.key==='Enter') confirmarCofre()">
+    </div>
+    <div class="mac">
+      <button class="btn bc" onclick="fechar('modal-cofre')">Cancelar</button>
+      <button class="btn" style="background:#6d4c41;color:#fff" onclick="confirmarCofre()">🏦 Confirmar Retirada</button>
+    </div>
+  </div>
+</div>
+
 <div class="bd" id="modal-retirada">
   <div class="modal" style="width:550px;max-width:95vw">
     <button class="mf" onclick="fechar('modal-retirada')">✕</button>
@@ -1612,15 +1640,34 @@ async function excluirConta(id){
    ABRIR CAIXA
 ══════════════════════════════════════════ */
 async function abrirCaixa(){
-  /* verifica se já existe caixa aberto HOJE (por dia, não por mês) */
   var hj = hoje();
   var r = await db.from('caixa').select('id').eq('data', hj).limit(1).maybeSingle();
   if(r.data){ toast('Caixa já aberto hoje! Feche o caixa primeiro para abrir um novo.','av'); return; }
 
+  /* busca saldo_final do último fechamento para comparar depois */
+  var rf = await db.from('fechamento_diario').select('saldo_final').order('data',{ascending:false}).limit(1).maybeSingle();
+  _abrirSaldoSugerido = rf.data ? Number(rf.data.saldo_final) : null;
+
   document.getElementById('abrir-data').textContent = new Date().toLocaleDateString('pt-BR');
   document.getElementById('abrir-saldo').value = '0.00';
+
   document.getElementById('modal-abrir').classList.add('ab');
   setTimeout(function(){ document.getElementById('abrir-saldo').focus(); document.getElementById('abrir-saldo').select(); },80);
+}
+
+function checarDivergenciaAbertura(){
+  var el = document.getElementById('abrir-alerta-div');
+  if(_abrirSaldoSugerido === null){ el.style.display='none'; return; }
+  var saldo = parseFloat(document.getElementById('abrir-saldo').value)||0;
+  var dif = saldo - _abrirSaldoSugerido;
+  if(Math.abs(dif) < 0.01){
+    el.style.display = 'block';
+    el.style.cssText = 'display:block;border-radius:8px;padding:10px 13px;margin-bottom:4px;font-size:.83rem;line-height:1.6;background:#d4edda;border:1px solid #c3e6cb;color:#155724';
+    el.innerHTML = '✅ Valor correto — bate com o último fechamento (<b>'+brl(_abrirSaldoSugerido)+'</b>).';
+  } else {
+    el.style.cssText = 'display:block;border-radius:8px;padding:10px 13px;margin-bottom:4px;font-size:.83rem;line-height:1.6;background:#f8d7da;border:1px solid #f5c6cb;color:#721c24';
+    el.innerHTML = '⚠️ Divergência! Último fechamento: <b>'+brl(_abrirSaldoSugerido)+'</b> — Diferença: <b>'+(dif>0?'+':'')+brl(dif)+'</b>';
+  }
 }
 
 async function confirmarAbertura(){
@@ -1635,6 +1682,31 @@ async function confirmarAbertura(){
     saldo_atual:   saldo
   });
   if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+
+  /* notifica Telegram sempre — informa se abertura bateu com último fechamento */
+  var agora = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  if(_abrirSaldoSugerido !== null){
+    var dif = saldo - _abrirSaldoSugerido;
+    var bateu = Math.abs(dif) < 0.01;
+    notificarTelegram(
+      (bateu ? '✅' : '⚠️') + ' <b>ABERTURA DE CAIXA — FINANCEIRO</b>\n\n'+
+      '🕐 <b>'+agora+'</b>\n'+
+      '👤 Operador: <b>'+USERNAME+'</b>\n\n'+
+      '💵 Valor informado: <b>'+brl(saldo)+'</b>\n'+
+      '📋 Último fechamento: <b>'+brl(_abrirSaldoSugerido)+'</b>\n'+
+      (bateu
+        ? '✅ Abertura correta — valor bate com o fechamento!'
+        : '⚠️ Divergência: <b>'+(dif>0?'+':'')+brl(dif)+'</b>')
+    );
+  } else {
+    notificarTelegram(
+      '🟢 <b>ABERTURA DE CAIXA — FINANCEIRO</b>\n\n'+
+      '🕐 <b>'+agora+'</b>\n'+
+      '👤 Operador: <b>'+USERNAME+'</b>\n\n'+
+      '💵 Valor informado: <b>'+brl(saldo)+'</b>\n'+
+      'ℹ️ Sem fechamento anterior para comparar.'
+    );
+  }
 
   fechar('modal-abrir');
   toast('✅ Caixa aberto! Saldo inicial: '+brl(saldo),'ok');
@@ -1760,8 +1832,42 @@ async function salvarDespesa(){
 }
 
 /* ══════════════════════════════════════════
-   FECHAR CAIXA — equivale a fechar_caixa
+/* ══════════════════════════════════════════
+   GUARDAR NO COFRE — retirada física sem desconto financeiro
 ══════════════════════════════════════════ */
+function abrirModalCofre(){
+  document.getElementById('cofre-valor').value = '';
+  document.getElementById('cofre-desc').value  = '';
+  document.getElementById('modal-cofre').classList.add('ab');
+  setTimeout(function(){ document.getElementById('cofre-valor').focus(); }, 80);
+}
+
+async function confirmarCofre(){
+  var valor = parseFloat(document.getElementById('cofre-valor').value)||0;
+  if(valor <= 0){ toast('Informe um valor maior que zero!','er'); return; }
+  var desc  = document.getElementById('cofre-desc').value.trim() || 'Guardado no cofre';
+  var agora = new Date().toISOString();
+  var hj    = agora.split('T')[0];
+
+  var r = await db.from('retiradas_cofre').insert({
+    data:      hj,
+    valor:     valor,
+    descricao: desc,
+    criado_em: agora
+  });
+  if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+
+  fechar('modal-cofre');
+  toast('🏦 R$ '+brl(valor)+' guardado no cofre!','ok');
+}
+
+async function totalCofreHoje(hj){
+  var r = await db.from('retiradas_cofre').select('valor').eq('data', hj);
+  return (r.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); }, 0);
+}
+
+
+var _abrirSaldoSugerido = 0;
 var _fcDados = null;
 
 async function abrirFecharCaixa(){
@@ -1801,10 +1907,13 @@ async function abrirFecharCaixa(){
   }
   var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
 
-  /* saldo esperado em dinheiro: só desconta retiradas que saíram do caixa físico */
-  var saldoEsperadoDinheiro = saldoInicial + din - totalRetCaixa;
+  /* busca retiradas do cofre hoje (saem do físico mas não são despesa) */
+  var totalCofre = await totalCofreHoje(hoje2);
 
-  _fcDados = {hoje2, saldoInicial, totalVendas, totalRet, totalRetCaixa, din, cred, deb, pix, saldoEsperadoDinheiro};
+  /* saldo esperado em dinheiro: desconta retiradas físicas E cofre */
+  var saldoEsperadoDinheiro = saldoInicial + din - totalRetCaixa - totalCofre;
+
+  _fcDados = {hoje2, saldoInicial, totalVendas, totalRet, totalRetCaixa, totalCofre, din, cred, deb, pix, saldoEsperadoDinheiro};
 
   /* abre etapa 1: contagem fisica */
   document.getElementById('fc-dinheiro-fisico').value = '0.00';
@@ -1828,6 +1937,7 @@ function recalcContagem(){
       '💰 Caixa inicial: <b>'+brl(_fcDados.saldoInicial)+'</b> &nbsp;'+
       '+ 📈 Vendas dinheiro: <b>'+brl(_fcDados.din)+'</b> &nbsp;'+
       '− 💸 Retiradas dinheiro: <b>'+brl(_fcDados.totalRetCaixa)+'</b>'+
+      (_fcDados.totalCofre>0 ? ' &nbsp;− 🏦 Cofre: <b>'+brl(_fcDados.totalCofre)+'</b>' : '')+
     '</div>';
   if(Math.abs(dif) < 0.01){
     el.style.background='#d4edda';el.style.border='1px solid #c3e6cb';el.style.color='#155724';
@@ -1871,6 +1981,11 @@ function avancarParaFechamento(){
 
       '<div style="color:#555">💸 Retiradas em dinheiro:</div>'+
       '<div style="font-weight:800;font-size:1rem;color:var(--vermelho)">− '+brl(_fcDados.totalRetCaixa)+'</div>'+
+
+      (_fcDados.totalCofre>0 ?
+        '<div style="color:#555">🏦 Guardado no cofre:</div>'+
+        '<div style="font-weight:800;font-size:1rem;color:#6d4c41">− '+brl(_fcDados.totalCofre)+'</div>'
+      : '')+
 
       '<div style="color:#555;border-top:1px solid var(--borda);padding-top:6px;margin-top:4px">✅ Esperado no caixa:</div>'+
       '<div style="font-weight:800;font-size:1.1rem;color:var(--azul);border-top:1px solid var(--borda);padding-top:6px;margin-top:4px">'+brl(_fcDados.saldoEsperadoDinheiro)+'</div>'+
