@@ -1824,11 +1824,15 @@ function ajustarQtd(i, delta){
 }
 
 /* remover_item_carrinho */
-function removerItem(i){
+async function removerItem(i){
   var it = _carrinho[i];
   if(it.tipo==='produto' || it.tipo==='peca'){
     var p = _produtos.find(function(x){ return x.codigo===it.codigo; });
     if(p) atualizarEstoqueVisual(it.codigo, p.estoque+it.qtd);
+  }
+  /* se tem OS ativa e o item tem ID no banco, deleta da os_itens */
+  if(_osSel && it.osItemId){
+    await db.from('os_itens').delete().eq('id', it.osItemId);
   }
   _carrinho.splice(i,1);
   renderCarrinho();
@@ -2133,6 +2137,14 @@ function atualizarComissao(){
 function abrirModalFinalizar(){
   if(!_carrinho.length){ toast('Carrinho vazio!','av'); return; }
   limparClienteFin();
+  /* se há OS ativa com cliente, pré-preenche o campo de cliente */
+  if(_osSel && _osSel.cliente_nome){
+    _clienteFinSel = {id: _osSel.cliente_id||null, nome: _osSel.cliente_nome, telefone: ''};
+    document.getElementById('fin-cli-id').value = _osSel.cliente_id||'';
+    document.getElementById('fin-cli-nome').textContent = _osSel.cliente_nome;
+    document.getElementById('fin-cli-sel').style.display = 'flex';
+    document.getElementById('fin-cli-busca').value = '';
+  }
   /* reset operador — nenhum pré-selecionado */
   resetOperadorVenda();
   _descontoLivre=false;
@@ -2628,12 +2640,13 @@ async function confirmarVenda(){
 
   var bruto     = _carrinho.reduce(function(s,it){ return s+it.preco*(it.tipo==='produto'||it.tipo==='peca'?it.qtd:1); },0);
   var descInput = parseFloat(document.getElementById('fin-desconto').value)||0;
+  var capPct    = _descontoLivre ? 100 : MAX_DESC_PCT;
   var valorDesc, pct;
   if(_tipoDesc==='pct'){
-    pct       = Math.min(MAX_DESC_PCT, Math.max(0, descInput));
+    pct       = Math.min(capPct, Math.max(0, descInput));
     valorDesc = bruto * pct / 100;
   }else{
-    valorDesc = Math.min(bruto*MAX_DESC_PCT/100, Math.max(0, descInput));
+    valorDesc = Math.min(bruto*capPct/100, Math.max(0, descInput));
     pct       = bruto>0 ? (valorDesc/bruto)*100 : 0;
   }
   /* barreira de segurança — só bloqueia se não tiver senha gerencial */
@@ -5316,6 +5329,7 @@ window.addEventListener('hashchange', function(){
 /* ══════════════════════════════════════════
    CAIXA PDV — Abrir / Fechar (só dinheiro)
 ══════════════════════════════════════════ */
+var _pdvAbrirSaldoSugerido = 0;
 var _pdvFcDados = null;
 
 function pdvHoje(){
@@ -5340,8 +5354,14 @@ async function pdvAbrirCaixa(){
     toast('⚠️ Caixa já foi aberto hoje! Feche o caixa atual antes de abrir um novo.','av');
     return;
   }
+
+  /* busca saldo_final do último fechamento para comparar depois */
+  var rf = await db.from('fechamento_diario').select('saldo_final').order('data',{ascending:false}).limit(1).maybeSingle();
+  _pdvAbrirSaldoSugerido = rf.data ? Number(rf.data.saldo_final) : null;
+
   document.getElementById('pdv-abrir-data').textContent = new Date().toLocaleDateString('pt-BR');
   document.getElementById('pdv-abrir-saldo').value = '0.00';
+
   pdvAbrirModal('pdv-modal-abrir');
   setTimeout(function(){
     var el = document.getElementById('pdv-abrir-saldo');
@@ -5361,6 +5381,31 @@ async function pdvConfirmarAbertura(){
     data: hj, saldo_inicial: saldo, total_vendas: 0, retiradas: 0, saldo_atual: saldo
   });
   if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+
+  /* notifica Telegram sempre — informa se abertura bateu com último fechamento */
+  var agora = new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'});
+  if(_pdvAbrirSaldoSugerido !== null){
+    var dif = saldo - _pdvAbrirSaldoSugerido;
+    var bateu = Math.abs(dif) < 0.01;
+    notificarTelegram(
+      (bateu ? '✅' : '⚠️') + ' <b>ABERTURA DE CAIXA — PDV</b>\n\n'+
+      '🕐 <b>'+agora+'</b>\n'+
+      '👤 Operador: <b>'+USERNAME+'</b>\n\n'+
+      '💵 Valor informado: <b>'+brl(saldo)+'</b>\n'+
+      '📋 Último fechamento: <b>'+brl(_pdvAbrirSaldoSugerido)+'</b>\n'+
+      (bateu
+        ? '✅ Abertura correta — valor bate com o fechamento!'
+        : '⚠️ Divergência: <b>'+(dif>0?'+':'')+brl(dif)+'</b>')
+    );
+  } else {
+    notificarTelegram(
+      '🟢 <b>ABERTURA DE CAIXA — PDV</b>\n\n'+
+      '🕐 <b>'+agora+'</b>\n'+
+      '👤 Operador: <b>'+USERNAME+'</b>\n\n'+
+      '💵 Valor informado: <b>'+brl(saldo)+'</b>\n'+
+      'ℹ️ Sem fechamento anterior para comparar.'
+    );
+  }
 
   /* busca vendas em dinheiro do dia */
   var rv = await db.from('vendas')
@@ -5449,15 +5494,19 @@ async function pdvAbrirFecharCaixa(){
     if(c.retirada_caixa) totalRetCaixa += val;
   });
 
+  /* retiradas guardadas no cofre (saem do físico mas não são despesa) */
+  var rcof = await db.from('retiradas_cofre').select('valor').eq('data', hj);
+  var totalCofre = (rcof.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); }, 0);
+
   /* saldo inicial do caixa de hoje */
   var rc = await db.from('caixa').select('saldo_inicial').eq('data', hj).limit(1).maybeSingle();
   if(!rc.data){
     rc = await db.from('caixa').select('saldo_inicial').order('data',{ascending:false}).limit(1).maybeSingle();
   }
   var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : 0;
-  var saldoEsperado = saldoInicial + din - totalRetCaixa;  /* caixa inicial + vendas dinheiro - retiradas dinheiro */
+  var saldoEsperado = saldoInicial + din - totalRetCaixa - totalCofre;
 
-  _pdvFcDados = { hj, saldoInicial, totalVendas, totalRet, totalRetCaixa, din, saldoEsperado };
+  _pdvFcDados = { hj, saldoInicial, totalVendas, totalRet, totalRetCaixa, totalCofre, din, saldoEsperado };
 
   document.getElementById('pdv-fc-fisico').value = '0.00';
   document.getElementById('pdv-fc-contagem-res').style.display = 'none';
@@ -5472,6 +5521,10 @@ async function pdvAbrirFecharCaixa(){
       (totalRetCaixa > 0
         ? '<span style="color:#555;font-size:.83rem">💸 Retiradas em dinheiro:</span>'+
           '<span style="font-weight:700;color:#e74c3c;text-align:right">− '+brl(totalRetCaixa)+'</span>'
+        : '')+
+      (totalCofre > 0
+        ? '<span style="color:#555;font-size:.83rem">🏦 Guardado no cofre:</span>'+
+          '<span style="font-weight:700;color:#6d4c41;text-align:right">− '+brl(totalCofre)+'</span>'
         : '')+
       '<span style="color:var(--azul);font-weight:800;font-size:.88rem;border-top:1px solid #c7d2fe;padding-top:6px;margin-top:2px">✅ Esperado no caixa:</span>'+
       '<span style="font-weight:800;font-size:1.1rem;color:var(--azul);border-top:1px solid #c7d2fe;padding-top:6px;margin-top:2px;text-align:right">'+brl(saldoEsperado)+'</span>'+
@@ -5497,6 +5550,7 @@ function pdvRecalcContagem(){
       '💰 Caixa inicial: <b>'+brl(_pdvFcDados.saldoInicial)+'</b>'+
       ' + 📈 Dinheiro vendas: <b>'+brl(_pdvFcDados.din)+'</b>'+
       (_pdvFcDados.totalRetCaixa > 0 ? ' − 💸 Retiradas: <b>'+brl(_pdvFcDados.totalRetCaixa)+'</b>' : '')+
+      (_pdvFcDados.totalCofre > 0 ? ' − 🏦 Cofre: <b>'+brl(_pdvFcDados.totalCofre)+'</b>' : '')+
     '</div>';
 
   if(Math.abs(dif) < 0.01){
@@ -5544,6 +5598,11 @@ function pdvAvancarFechamento(){
           '<div style="font-weight:800;color:#e74c3c">− '+brl(_pdvFcDados.totalRetCaixa)+'</div>'
         : '')+
 
+      (_pdvFcDados.totalCofre > 0
+        ? '<div style="color:#555">🏦 Guardado no cofre:</div>'+
+          '<div style="font-weight:800;color:#6d4c41">− '+brl(_pdvFcDados.totalCofre)+'</div>'
+        : '')+
+
       '<div style="color:#888;font-size:.8rem;border-top:1px solid #dee2e6;padding-top:4px;margin-top:2px">📊 Total vendas (todos métodos):</div>'+
       '<div style="color:#888;font-size:.8rem;border-top:1px solid #dee2e6;padding-top:4px;margin-top:2px">'+brl(_pdvFcDados.totalVendas)+'</div>'+
     '</div>';
@@ -5573,7 +5632,7 @@ function pdvAvancarFechamento(){
 async function pdvConfirmarFechamento(){
   if(!_pdvFcDados){ toast('Erro interno','er'); return; }
   var obs = document.getElementById('pdv-fc-obs').value.trim() || null;
-  var sf  = parseFloat((_pdvFcDados.saldoInicial + _pdvFcDados.din - _pdvFcDados.totalRetCaixa).toFixed(2));
+  var sf  = parseFloat((_pdvFcDados.saldoInicial + _pdvFcDados.din - _pdvFcDados.totalRetCaixa - _pdvFcDados.totalCofre).toFixed(2));
 
   /* grava fechamento — cred/deb/pix ficam 0 pois não são mostrados */
   var r = await db.from('fechamento_diario').upsert({
@@ -5590,6 +5649,9 @@ async function pdvConfirmarFechamento(){
   }, {onConflict:'data'});
 
   if(r.error){ toast('❌ Erro: '+r.error.message,'er'); return; }
+
+  /* remove registro do caixa para permitir nova abertura */
+  await db.from('caixa').delete().eq('data', _pdvFcDados.hj);
 
   pdvFecharModal('pdv-modal-fechar');
   toast('🔒 Caixa fechado! Saldo final: '+brl(sf),'ok');
@@ -5610,6 +5672,9 @@ async function pdvConfirmarFechamento(){
     '📈 Vendas em dinheiro: <b>+ ' + brl(_pdvFcDados.din) + '</b>\n' +
     (_pdvFcDados.totalRetCaixa > 0
       ? '💸 Retiradas dinheiro: <b>− ' + brl(_pdvFcDados.totalRetCaixa) + '</b>\n'
+      : '') +
+    (_pdvFcDados.totalCofre > 0
+      ? '🏦 Guardado no cofre: <b>− ' + brl(_pdvFcDados.totalCofre) + '</b>\n'
       : '') +
     '✅ Esperado no caixa: <b>' + brl(_pdvFcDados.saldoEsperado) + '</b>\n' +
     '🔢 Dinheiro contado: <b>' + brl(fisico) + '</b>\n' +
@@ -5665,7 +5730,11 @@ async function pdvConfirmarFechamentoSimples(){
   var rc = await db.from('caixa').select('saldo_inicial').eq('data', hj).limit(1).maybeSingle();
   var saldoInicial = rc.data ? Number(rc.data.saldo_inicial) : saldo;
 
-  var saldoEsperado = saldoInicial + din - totalRetCaixa;
+  /* cofre do dia */
+  var rcof = await db.from('retiradas_cofre').select('valor').eq('data', hj);
+  var totalCofre = (rcof.data||[]).reduce(function(s,c){ return s+Number(c.valor||0); }, 0);
+
+  var saldoEsperado = saldoInicial + din - totalRetCaixa - totalCofre;
   var sf = parseFloat(saldoEsperado.toFixed(2));
 
   /* grava fechamento */
@@ -5689,12 +5758,16 @@ async function pdvConfirmarFechamentoSimples(){
     '💰 Caixa inicial: <b>'+brl(saldoInicial)+'</b>\n'+
     '📈 Vendas em dinheiro: <b>+ '+brl(din)+'</b>\n'+
     (totalRetCaixa>0?'💸 Retiradas dinheiro: <b>− '+brl(totalRetCaixa)+'</b>\n':'')+
+    (totalCofre>0?'🏦 Guardado no cofre: <b>− '+brl(totalCofre)+'</b>\n':'')+
     '✅ Esperado no caixa: <b>'+brl(saldoEsperado)+'</b>\n'+
     '🔢 Dinheiro contado: <b>'+brl(saldo)+'</b>\n'+
     difTxt+'\n\n'+
     '📊 Total vendas (todos métodos): <b>'+brl(totalVendas)+'</b>\n'+
     '💰 Saldo final registrado: <b>'+brl(sf)+'</b>'
   );
+
+  /* remove registro do caixa para permitir nova abertura */
+  await db.from('caixa').delete().eq('data', hj);
 
   document.getElementById('pdv-modal-fc-simples').style.display = 'none';
   toast('✅ Caixa fechado com sucesso!','ok');
@@ -5712,7 +5785,7 @@ async function pdvConfirmarFechamentoSimples(){
   <div style="background:#fff;border-radius:14px;width:380px;max-width:96vw;padding:28px 24px;box-shadow:0 10px 40px rgba(0,0,0,.3);position:relative;animation:pop .2s ease">
     <button onclick="pdvFecharModal('pdv-modal-abrir')" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#aaa">✕</button>
     <h2 style="font-size:1.1rem;font-weight:800;color:var(--azul);margin-bottom:16px">🔓 Abrir Caixa</h2>
-    <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.85rem">
+    <div style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.85rem">
       <b>Data:</b> <span id="pdv-abrir-data"></span>
     </div>
     <div style="margin-bottom:16px">
